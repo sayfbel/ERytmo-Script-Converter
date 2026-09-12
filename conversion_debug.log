@@ -71,3 +71,9 @@ NameError: name 'norm_hdrs' is not defined
 2026-09-12 02:50:19,640 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
 2026-09-12 02:50:20,942 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
 2026-09-12 02:50:35,708 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
+2026-09-12 03:03:23,661 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 03:03:24,422 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 03:03:29,599 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
+2026-09-12 03:04:36,733 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 03:04:37,503 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 03:04:43,553 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
