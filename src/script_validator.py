@@ -148,47 +148,49 @@ class ScriptValidator:
             doc = docx.Document(file_path)
             if doc.tables:
                 table = doc.tables[0]
-                keywords = ['IN', 'OUT', 'TIMECODE', 'SHOT', 'CHARACTER', 'PERSO', 'DIALOGUE', 'TITLE', 'SCENE', 'TEXT', 'SPEECH']
+                keywords = ['TIMECODE', 'TIME', 'CODE', 'IN', 'OUT', 'SHOT', 'CHARACTER', 'PERSO', 'PERSONNAGE', 'DIALOGUE', 'DIALOG', 'TITLE', 'SCENE', 'TEXT', 'SPEECH', 'SPEAKER', 'HORODATAGE']
                 
                 # Scan table rows for column header keywords
                 best_row_idx = 0
                 max_kw = 0
                 for r_idx in range(min(6, len(table.rows))):
-                    cells_upper = [c.text.strip().upper() for c in table.rows[r_idx].cells]
-                    if any(re.match(r'^\d{2}:\d{2}:\d{2}', c) for c in cells_upper if c):
+                    cells_text = [c.text.strip() for c in table.rows[r_idx].cells]
+                    if any(re.search(r'\b\d{1,2}:\d{2}:\d{2}', c) for c in cells_text if c):
                         continue
                     found_kw = set()
-                    for cell_text in cells_upper:
+                    for cell_text in cells_text:
+                        norm_h = re.sub(r'[^A-Z0-9]', '', cell_text.upper())
                         for kw in keywords:
-                            if kw in cell_text:
+                            if kw in norm_h:
                                 found_kw.add(kw)
                     if len(found_kw) > max_kw:
                         max_kw = len(found_kw)
                         best_row_idx = r_idx
 
-                hdr_cells = [c.text.strip().upper() for c in table.rows[best_row_idx].cells]
+                hdr_cells = [c.text.strip() for c in table.rows[best_row_idx].cells]
                 diagnostic_lines.append(f"Detected Header Row Index: {best_row_idx}")
                 diagnostic_lines.append(f"Header Columns: {hdr_cells}")
 
                 if best_row_idx > 0:
                     normalizations.append(f"Detected multi-row document header; aligned column headers at row {best_row_idx + 1}.")
 
-                # Count timecodes in data rows
+                # Count timecodes in data rows using flexible search
                 for r_idx in range(best_row_idx + 1, len(table.rows)):
                     for cell in table.rows[r_idx].cells:
-                        if re.match(r'^\d{2}:\d{2}:\d{2}', cell.text.strip()):
+                        if re.search(r'\b\d{1,2}:\d{2}:\d{2}', cell.text.strip()):
                             found_timecodes += 1
                             break
 
-                if "OUT" in hdr_cells or "STF" in hdr_cells or "END" in hdr_cells:
+                norm_hdrs = [re.sub(r'[^A-Z0-9]', '', h.upper()) for h in hdr_cells]
+                if any(k in h for h in norm_hdrs for k in ["OUT", "STF", "END", "TCOUT"]):
                     normalizations.append("Detected OUT timecode column. Stripped OUT timecodes to prevent ERytmo listbox parsing issues.")
 
-                if any(h in hdr_cells for h in ["PERSO", "SPEAKER", "PERSONNAGE", "TITLE"]):
+                if any(k in h for h in norm_hdrs for k in ["PERSO", "SPEAKER", "PERSONNAGE", "TITLE", "CHARACTER"]):
                     normalizations.append("Mapped custom column header to standard 'CHARACTER' field.")
 
             else:
                 for p in doc.paragraphs:
-                    if re.match(r'^\d{2}:\d{2}:\d{2}', p.text.strip()):
+                    if re.search(r'\b\d{1,2}:\d{2}:\d{2}', p.text.strip()):
                         found_timecodes += 1
 
         elif ext == ".pdf":
@@ -197,13 +199,13 @@ class ScriptValidator:
                 txt = page.extract_text()
                 if txt:
                     for line in txt.split("\n"):
-                        if re.match(r'^\d{2}:\d{2}:\d{2}', line.strip()):
+                        if re.search(r'\b\d{1,2}:\d{2}:\d{2}', line.strip()):
                             found_timecodes += 1
 
         elif ext in [".txt", ".text"]:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 for line in f:
-                    if re.match(r'^\d{2}:\d{2}:\d{2}', line.strip()):
+                    if re.search(r'\b\d{1,2}:\d{2}:\d{2}', line.strip()):
                         found_timecodes += 1
 
         diagnostic_lines.append(f"Total Timecodes Found: {found_timecodes}")

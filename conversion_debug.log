@@ -17,3 +17,6 @@
 2026-09-12 01:06:58,580 [DEBUG] Validation Failed: Unable to Understand Script Format - The structure of this script is currently not supported because no valid timecodes (e.g. 05:00:00:00) were detected.
 2026-09-12 01:06:58,580 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\README.md ---
 2026-09-12 01:06:58,581 [DEBUG] Validation Failed: Unsupported File Format - The file extension '.md' is currently not supported.
+2026-09-12 02:08:59,593 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\src\Breaking_Bad_Test.docx ---
+2026-09-12 02:08:59,686 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\src\Breaking_Bad_Test.docx
+2026-09-12 02:08:59,727 [DEBUG] Successfully processed 11 cues. Status: NORMALIZABLE

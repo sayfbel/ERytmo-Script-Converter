@@ -40,6 +40,31 @@ def clean_dialogue(text):
     d = re.sub(r"^\[\s*[A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ'-]+?(?:\s+TO\s+[^\]]+|\s*-\s*[^\]]+)?\s*\]\s*", "", text, flags=re.IGNORECASE).strip()
     return d
 
+def normalize_header(header_str):
+    if not header_str:
+        return ""
+    return re.sub(r'[^A-Z0-9]', '', header_str.upper())
+
+def is_timecode_cell(text):
+    if not text:
+        return False
+    return bool(re.search(r'\b\d{1,2}:\d{2}:\d{2}(?:[:\.]\d{2})?\b', text))
+
+def extract_timecode(text):
+    if not text:
+        return ""
+    m = re.search(r'\b(\d{1,2}):(\d{2}):(\d{2})(?:[:\.](\d{2}))?\b', text)
+    if m:
+        hh = int(m.group(1))
+        mm = m.group(2)
+        ss = m.group(3)
+        ff = m.group(4)
+        if ff:
+            return f"{hh:02d}:{mm}:{ss}:{ff}"
+        else:
+            return f"{hh:02d}:{mm}:{ss}"
+    return ""
+
 def parse_docx(file_path):
     log_debug(f"Parsing DOCX file: {file_path}")
     doc = docx.Document(file_path)
@@ -51,51 +76,87 @@ def parse_docx(file_path):
         # 1. Smart Header Row Detection: Find row with maximum distinct column keywords
         best_row_idx = 0
         max_keywords_found = 0
-        keywords = ['IN', 'OUT', 'TIMECODE', 'SHOT', 'CHARACTER', 'PERSO', 'DIALOGUE', 'TITLE', 'SCENE', 'TEXT', 'SPEECH', 'PERS']
+        keywords = ['TIMECODE', 'TIME', 'CODE', 'IN', 'OUT', 'SHOT', 'CHARACTER', 'PERSO', 'PERSONNAGE', 'DIALOGUE', 'DIALOG', 'TITLE', 'SCENE', 'TEXT', 'SPEECH', 'SPEAKER', 'HORODATAGE']
 
         for r_idx in range(min(6, len(table.rows))):
-            cells_upper = [c.text.strip().upper() for c in table.rows[r_idx].cells]
-            if any(re.match(r'^\d{2}:\d{2}:\d{2}', c) for c in cells_upper if c):
+            cells_text = [c.text.strip() for c in table.rows[r_idx].cells]
+            if any(is_timecode_cell(c) for c in cells_text if c):
                 continue
                 
             found_kw = set()
-            for cell_text in cells_upper:
+            for cell_text in cells_text:
+                norm_h = normalize_header(cell_text)
                 for kw in keywords:
-                    if kw in cell_text:
+                    if kw in norm_h:
                         found_kw.add(kw)
                         
             if len(found_kw) > max_keywords_found:
                 max_keywords_found = len(found_kw)
                 best_row_idx = r_idx
 
-        hdr_cells = [c.text.strip().upper() for c in table.rows[best_row_idx].cells]
+        hdr_cells = [c.text.strip() for c in table.rows[best_row_idx].cells]
+        norm_hdrs = [normalize_header(c) for c in hdr_cells]
         
         tc_in_idx = -1
         tc_out_idx = -1
         char_idx = -1
         text_idx = -1
 
-        for i, h in enumerate(hdr_cells):
-            if h in ['IN', 'TC IN', 'TCIN', 'START', 'START TC', 'STH']:
+        for i, norm_h in enumerate(norm_hdrs):
+            if any(k in norm_h for k in ['TCIN', 'STARTTC', 'START', 'STH', 'HORODATAGE', 'DEBUT', 'TIMEIN', 'TIMESTAMP']):
                 tc_in_idx = i
-            elif h in ['OUT', 'TC OUT', 'TCOUT', 'END', 'END TC', 'STF']:
+            elif any(k in norm_h for k in ['TCOUT', 'ENDTC', 'END', 'STF', 'FIN', 'TIMEOUT']):
                 tc_out_idx = i
-            elif any(k in h for k in ['CHARACTER', 'CHARACTERS', 'PERSO', 'SPEAKER', 'PERSONNAGE', 'VOICE']):
+            elif any(k in norm_h for k in ['CHARACTER', 'CHARACTERS', 'CHAR', 'PERSO', 'PERSONNAGE', 'SPEAKER', 'ROLE', 'INTERVENANT', 'VOICE', 'VOIX', 'ACTOR', 'NAME']):
                 char_idx = i
-            elif h in ['TITLE', 'TITLE #']:
-                if text_idx == -1 or hdr_cells[text_idx] not in ['TITLE']:
+            elif norm_h in ['TITLE', 'TITLE#']:
+                if text_idx == -1:
                     text_idx = i
-            elif any(k in h for k in ['DIALOGUE', 'DIALOG', 'TEXT', 'TEXTE', 'SPEECH']):
+            elif any(k in norm_h for k in ['DIALOGUE', 'DIALOG', 'TEXT', 'TEXTE', 'SPEECH', 'SUBTITLE', 'SOUSTITRE', 'CONTENT', 'LINE', 'SCRIPT']):
                 if text_idx == -1:
                     text_idx = i
 
         if tc_in_idx == -1:
-            for i, h in enumerate(hdr_cells):
-                if 'TIMECODE' in h or 'TC' in h:
-                    tc_in_idx = i
-                    break
+            for i, norm_h in enumerate(norm_hdrs):
+                if any(k in norm_h for k in ['TIMECODE', 'TIME', 'CODE', 'TC', 'IN']):
+                    if not any(o in norm_h for o in ['OUT', 'END', 'FIN']):
+                        tc_in_idx = i
+                        break
 
         data_start = best_row_idx + 1
+
+        # DATA-DRIVEN FALLBACK: If tc_in_idx is still -1 or invalid, scan data rows for timecodes per column
+        num_cols = len(table.rows[0].cells) if table.rows else 0
+        if tc_in_idx == -1 or tc_in_idx >= num_cols:
+            col_tc_counts = {}
+            for c_idx in range(num_cols):
+                count = 0
+                for r_idx in range(data_start, len(table.rows)):
+                    if c_idx < len(table.rows[r_idx].cells):
+                        if is_timecode_cell(table.rows[r_idx].cells[c_idx].text):
+                            count += 1
+                col_tc_counts[c_idx] = count
+
+            if col_tc_counts:
+                best_c = max(col_tc_counts, key=col_tc_counts.get)
+                if col_tc_counts[best_c] > 0:
+                    tc_in_idx = best_c
+
+        # FALLBACK FOR CHAR_IDX AND TEXT_IDX IF UNMAPPED:
+        if tc_in_idx != -1:
+            remaining_cols = [c for c in range(num_cols) if c != tc_in_idx and c != tc_out_idx]
+            if text_idx == -1 and remaining_cols:
+                col_avg_len = {}
+                for c in remaining_cols:
+                    total_len = sum(len(table.rows[r].cells[c].text.strip()) for r in range(data_start, len(table.rows)) if c < len(table.rows[r].cells))
+                    col_avg_len[c] = total_len
+                best_text_col = max(col_avg_len, key=col_avg_len.get)
+                text_idx = best_text_col
+                remaining_cols.remove(best_text_col)
+                
+            if char_idx == -1 and remaining_cols:
+                char_idx = remaining_cols[0]
+
         last_speaker = ""
 
         for r_idx in range(data_start, len(table.rows)):
@@ -103,12 +164,13 @@ def parse_docx(file_path):
             if tc_in_idx < 0 or tc_in_idx >= len(cells):
                 continue
                 
-            tc_in = cells[tc_in_idx]
+            raw_tc_cell = cells[tc_in_idx]
+            tc_in = extract_timecode(raw_tc_cell)
             tc_out = cells[tc_out_idx] if tc_out_idx >= 0 and tc_out_idx < len(cells) else ""
             raw_char = cells[char_idx] if char_idx >= 0 and char_idx < len(cells) else ""
             raw_text = cells[text_idx] if text_idx >= 0 and text_idx < len(cells) else ""
             
-            if not tc_in or not re.match(r"^\d{2}:\d{2}:\d{2}", tc_in):
+            if not tc_in:
                 continue
 
             speaker = clean_character_name(raw_char) if raw_char else ""
