@@ -26,3 +26,48 @@
 2026-09-12 02:24:13,225 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\src\CCSL_Reel5_Test.docx ---
 2026-09-12 02:24:13,351 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\src\CCSL_Reel5_Test.docx
 2026-09-12 02:24:13,460 [DEBUG] Successfully processed 5 cues. Status: NORMALIZABLE
+2026-09-12 02:44:27,790 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 02:44:28,560 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 02:44:28,864 [DEBUG] Unexpected Exception Caught:
+Traceback (most recent call last):
+  File "c:\Users\saif\Desktop\convert script\src\script_parser.py", line 366, in safe_validate_and_convert
+    raw_rows = parse_docx(input_path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\saif\Desktop\convert script\src\script_parser.py", line 199, in parse_docx
+    if text_idx == -1 and i not in numeric_id_cols:
+                                   ^^^^^^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'numeric_id_cols' where it is not associated with a value
+
+2026-09-12 02:45:18,385 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 02:45:19,847 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 02:45:38,910 [DEBUG] Unexpected Exception Caught:
+Traceback (most recent call last):
+  File "c:\Users\saif\Desktop\convert script\src\script_parser.py", line 361, in safe_validate_and_convert
+    raw_rows = parse_docx(input_path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\saif\Desktop\convert script\src\script_parser.py", line 189, in parse_docx
+    for i, norm_h in enumerate(norm_hdrs):
+                               ^^^^^^^^^
+NameError: name 'norm_hdrs' is not defined
+
+2026-09-12 02:46:08,012 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 02:46:10,494 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 02:46:16,350 [DEBUG] Unexpected Exception Caught:
+Traceback (most recent call last):
+  File "c:\Users\saif\Desktop\convert script\src\script_parser.py", line 361, in safe_validate_and_convert
+    raw_rows = parse_docx(input_path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\saif\Desktop\convert script\src\script_parser.py", line 189, in parse_docx
+    for i, norm_h in enumerate(norm_hdrs):
+                               ^^^^^^^^^
+NameError: name 'norm_hdrs' is not defined
+
+2026-09-12 02:47:19,646 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 02:47:21,247 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 02:47:38,793 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
+2026-09-12 02:49:31,314 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 02:49:33,899 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 02:49:47,007 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
+2026-09-12 02:50:19,640 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 02:50:20,942 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 02:50:35,708 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE

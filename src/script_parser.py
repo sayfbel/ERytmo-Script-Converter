@@ -89,47 +89,56 @@ def is_numeric_id_column(table, col_idx, data_start):
         return True
     return False
 
+def is_invalid_character_name(text):
+    if not text:
+        return True
+    if re.match(r'^(?:#?\d+|SHOT\s*\d+|TITLE\s*#?\s*\d+)$', text, re.IGNORECASE):
+        return True
+    if re.search(r'\b\d{1,2}:\d{2}:\d{2}', text):
+        return True
+    return False
+
 def extract_speaker_and_dialogue(raw_char, raw_text, last_speaker):
     """
     Extracts a clean character/speaker name and dialogue text.
-    Ensures numeric row IDs (1, 2, 3...) are NEVER returned as character names.
+    Ensures numeric row IDs (1, 2, 3...) and timecodes are NEVER returned as character names.
     """
     speaker = ""
     dialogue = ""
 
-    # 1. Clean raw character cell if present and NOT purely numeric / row ID
+    # 1. Clean raw character cell if present and NOT an invalid character name
     if raw_char:
         cleaned_c = clean_character_name(raw_char)
-        if cleaned_c and not re.match(r'^(?:#?\d+|SHOT\s*\d+|TITLE\s*#?\s*\d+)$', cleaned_c, re.IGNORECASE):
+        if cleaned_c and not is_invalid_character_name(cleaned_c):
             speaker = cleaned_c
 
     clean_text = raw_text.strip() if raw_text else ""
 
-    # 2. If speaker is empty, try extracting speaker from raw_text
-    if not speaker and clean_text:
-        # Pattern A: "HANK SCHRADER: Well, we love you, man."
-        m_colon = re.match(r'^([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'.-]{2,35}):\s*(.*)$', clean_text, re.IGNORECASE)
-        if m_colon:
-            possible_spk = clean_character_name(m_colon.group(1))
-            if possible_spk and not re.match(r'^\d+$', possible_spk):
+    # 2. Extract speaker from bracketed/colon tags in raw_text if speaker is empty
+    if clean_text:
+        # Pattern A: "[Doctor] You understood..." or "[CÉCILE TO MUNA] (shrieks) What are you doing?"
+        m_bracket = re.match(r'^\s*\[\s*([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'-]+?)(?:\s+TO\s+[^\]]+|\s*-\s*[^\]]+)?\s*\]\s*(.*)$', clean_text, re.IGNORECASE)
+        if m_bracket:
+            possible_spk = clean_character_name(m_bracket.group(1))
+            if possible_spk and not is_invalid_character_name(possible_spk):
                 speaker = possible_spk
-                dialogue = m_colon.group(2).strip()
+                dialogue = m_bracket.group(2).strip()
 
-        # Pattern B: "[Doctor] You understood what I've just said to you?"
+        # Pattern B: "HANK SCHRADER: Well, we love you, man."
         if not speaker:
-            m_bracket = re.match(r'^\s*\[\s*([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'-]{2,35})(?:\s+TO\s+[^\]]+|\s*-\s*[^\]]+)?\s*\]\s*(.*)$', clean_text, re.IGNORECASE)
-            if m_bracket:
-                possible_spk = clean_character_name(m_bracket.group(1))
-                if possible_spk and not re.match(r'^\d+$', possible_spk):
+            m_colon = re.match(r'^([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'.-]{2,35}):\s*(.*)$', clean_text, re.IGNORECASE)
+            if m_colon:
+                possible_spk = clean_character_name(m_colon.group(1))
+                if possible_spk and not is_invalid_character_name(possible_spk):
                     speaker = possible_spk
-                    dialogue = m_bracket.group(2).strip()
+                    dialogue = m_colon.group(2).strip()
 
-        # Pattern C: "(WALTER) Dialogue text"
+        # Pattern C: "(WALTER) Dialogue text" (must have text following the closing parenthesis)
         if not speaker:
-            m_paren = re.match(r'^\s*\(\s*([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'-]{2,35})\s*\)\s*(.*)$', clean_text, re.IGNORECASE)
+            m_paren = re.match(r'^\s*\(\s*([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'-]{2,35})\s*\)\s*(.+)$', clean_text, re.IGNORECASE)
             if m_paren:
                 possible_spk = clean_character_name(m_paren.group(1))
-                if possible_spk and not re.match(r'^\d+$', possible_spk):
+                if possible_spk and not is_invalid_character_name(possible_spk) and possible_spk not in ["GROANING", "SHRIEKS", "HUMMING", "RUSTLING", "FOOTSTEPS", "EXHALES", "MUSIC", "GIGGLES", "SQUEALS", "CHUCKLES", "LAUGHS", "PAINED BREATHING"]:
                     speaker = possible_spk
                     dialogue = m_paren.group(2).strip()
 
@@ -138,7 +147,7 @@ def extract_speaker_and_dialogue(raw_char, raw_text, last_speaker):
 
     # 3. Fallback Speaker Continuity
     if not speaker:
-        if last_speaker and not re.match(r'^\d+$', last_speaker):
+        if last_speaker and not is_invalid_character_name(last_speaker):
             speaker = last_speaker
         else:
             if re.match(r'^(?:EXT\.|INT\.|BLACK|YELLOW|HEAD|POV|CU|MCU|MS|LS)\b', dialogue, re.IGNORECASE):
@@ -172,44 +181,43 @@ def parse_docx(file_path):
                 for kw in keywords:
                     if kw in norm_h:
                         found_kw.add(kw)
-                        
+
             if len(found_kw) > max_keywords_found:
                 max_keywords_found = len(found_kw)
                 best_row_idx = r_idx
-
+                        
         hdr_cells = [c.text.strip() for c in table.rows[best_row_idx].cells]
         norm_hdrs = [normalize_header(c) for c in hdr_cells]
-        
+
+        data_start = best_row_idx + 1
+        num_cols = len(table.rows[0].cells) if table.rows else 0
+        numeric_id_cols = [c for c in range(num_cols) if is_numeric_id_column(table, c, data_start)]
+
         tc_in_idx = -1
         tc_out_idx = -1
         char_idx = -1
         text_idx = -1
 
         for i, norm_h in enumerate(norm_hdrs):
-            if any(k in norm_h for k in ['TCIN', 'STARTTC', 'START', 'STH', 'HORODATAGE', 'DEBUT', 'TIMEIN', 'TIMESTAMP']):
+            if norm_h in ['IN', 'TCIN', 'STARTTC', 'START', 'STH', 'HORODATAGE', 'DEBUT', 'TIMEIN', 'TIMESTAMP']:
                 tc_in_idx = i
-            elif any(k in norm_h for k in ['TCOUT', 'ENDTC', 'END', 'STF', 'FIN', 'TIMEOUT']):
+            elif norm_h in ['OUT', 'TCOUT', 'ENDTC', 'END', 'STF', 'FIN', 'TIMEOUT']:
                 tc_out_idx = i
             elif any(k in norm_h for k in ['CHARACTER', 'CHARACTERS', 'CHAR', 'PERSO', 'PERSONNAGE', 'SPEAKER', 'ROLE', 'INTERVENANT', 'VOICE', 'VOIX', 'ACTOR', 'NAME']):
                 char_idx = i
-            elif any(k in norm_h for k in ['DIALOGUE', 'DIALOG', 'SPEECH', 'SUBTITLE', 'SOUSTITRE', 'SPOKEN']):
-                text_idx = i
-            elif any(k in norm_h for k in ['TEXT', 'TEXTE', 'CONTENT', 'LINE', 'SCRIPT', 'DESCRIPTION', 'SCENE']):
-                if text_idx == -1:
+            elif norm_h in ['TITLE', 'SUBTITLE', 'CAPTION', 'SOUSTITRE']:
+                if i not in numeric_id_cols:
+                    text_idx = i
+            elif any(k in norm_h for k in ['DIALOGUE', 'DIALOG', 'SPEECH', 'TEXT', 'TEXTE', 'SPOKEN', 'CONTENT', 'LINE', 'SCRIPT']):
+                if text_idx == -1 and i not in numeric_id_cols:
                     text_idx = i
 
         if tc_in_idx == -1:
             for i, norm_h in enumerate(norm_hdrs):
-                if any(k in norm_h for k in ['TIMECODE', 'TIME', 'CODE', 'TC', 'IN']):
+                if any(k in norm_h for k in ['TIMECODE', 'TIME', 'CODE', 'TC']):
                     if not any(o in norm_h for o in ['OUT', 'END', 'FIN']):
                         tc_in_idx = i
                         break
-
-        data_start = best_row_idx + 1
-
-        # Check which columns are numeric row IDs (e.g., 1, 2, 3...)
-        num_cols = len(table.rows[0].cells) if table.rows else 0
-        numeric_id_cols = [c for c in range(num_cols) if is_numeric_id_column(table, c, data_start)]
 
         if char_idx in numeric_id_cols:
             char_idx = -1
