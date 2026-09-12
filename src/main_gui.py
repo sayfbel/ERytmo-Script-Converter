@@ -457,6 +457,7 @@ class MainWindow(QMainWindow):
             err_box = QMessageBox(self)
             err_box.setIcon(QMessageBox.Critical)
             err_box.setWindowTitle(report.user_title)
+            err_box.setTextFormat(Qt.RichText)
             err_box.setText(f"<b>{report.user_title}</b>")
             
             detailed_text = f"{report.user_message}\n\n"
