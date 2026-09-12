@@ -265,3 +265,13 @@ def safe_validate_and_convert(input_path, output_docx_path=None):
         report.suggestion = "The structure of this script is currently not supported by the importer. Please check the required format and try importing your script again. If you believe the format should be supported, please contact Support."
         report.diagnostic_info += f"\n\nUnexpected Exception:\n{tb}"
         return report, [], []
+
+def extract_and_convert(input_path, output_docx_path=None):
+    """
+    Helper function for direct conversion.
+    Returns (raw_rows, format_a_cues).
+    """
+    report, raw_rows, format_a_cues = safe_validate_and_convert(input_path, output_docx_path)
+    if report.status == ValidationStatus.INVALID:
+        raise ScriptImportError(report.user_title, report.user_message, report.suggestion, report.diagnostic_info)
+    return raw_rows, format_a_cues
