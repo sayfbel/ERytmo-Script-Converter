@@ -352,7 +352,7 @@ def parse_plain_lines(lines):
             
     return raw_rows
 
-def safe_validate_and_convert(input_path, output_docx_path=None):
+def safe_validate_and_convert(input_path, output_docx_path=None, include_out=False):
     """
     Safely validates, parses, and converts script.
     Never crashes. Returns (report, raw_rows, format_a_cues).
@@ -385,6 +385,7 @@ def safe_validate_and_convert(input_path, output_docx_path=None):
         for r in raw_rows:
             format_a_cues.append({
                 "in": r["in"],
+                "out": r.get("out", ""),
                 "character": r["character"],
                 "dialogue": r["dialogue"]
             })
@@ -394,12 +395,14 @@ def safe_validate_and_convert(input_path, output_docx_path=None):
             out_doc = docx.Document()
             for idx, cue in enumerate(format_a_cues):
                 out_doc.add_paragraph(cue["in"])
+                if include_out and cue.get("out"):
+                    out_doc.add_paragraph(cue["out"])
                 out_doc.add_paragraph(cue["character"])
                 out_doc.add_paragraph(cue["dialogue"])
                 if idx < len(format_a_cues) - 1:
                     out_doc.add_paragraph("") # Blank line separator
             out_doc.save(output_docx_path)
-            log_debug(f"Saved Format A DOCX to: {output_docx_path}")
+            log_debug(f"Saved Format DOCX (include_out={include_out}) to: {output_docx_path}")
 
         log_debug(f"Successfully processed {len(raw_rows)} cues. Status: {report.status}")
         return report, raw_rows, format_a_cues
@@ -424,12 +427,12 @@ def safe_validate_and_convert(input_path, output_docx_path=None):
         report.diagnostic_info += f"\n\nUnexpected Exception:\n{tb}"
         return report, [], []
 
-def extract_and_convert(input_path, output_docx_path=None):
+def extract_and_convert(input_path, output_docx_path=None, include_out=False):
     """
     Helper function for direct conversion.
     Returns (raw_rows, format_a_cues).
     """
-    report, raw_rows, format_a_cues = safe_validate_and_convert(input_path, output_docx_path)
+    report, raw_rows, format_a_cues = safe_validate_and_convert(input_path, output_docx_path, include_out=include_out)
     if report.status == ValidationStatus.INVALID:
         raise ScriptImportError(report.user_title, report.user_message, report.suggestion, report.diagnostic_info)
     return raw_rows, format_a_cues

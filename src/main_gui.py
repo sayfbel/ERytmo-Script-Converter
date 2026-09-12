@@ -524,20 +524,43 @@ class MainWindow(QMainWindow):
         default_dir = os.path.dirname(self.selected_file_path)
         default_path = os.path.join(default_dir, default_out_name)
 
+        # Ask user format preference: Standard (IN only) vs Extended (IN & OUT)
+        opt_box = QMessageBox(self)
+        opt_box.setIcon(QMessageBox.Question)
+        opt_box.setWindowTitle("Select ERytmo Export Format")
+        opt_box.setText("<b>Choose ERytmo Format Type:</b>")
+        opt_box.setInformativeText(
+            "• <b>Standard ERytmo Format A (3 Lines)</b>: Timecode IN, Character Name, Dialogue Text.\n"
+            "• <b>Extended ERytmo Format (4 Lines - IN & OUT)</b>: Timecode IN, Timecode OUT, Character Name, Dialogue Text."
+        )
+        btn_3line = opt_box.addButton("Standard 3-Line (IN Only)", QMessageBox.ActionRole)
+        btn_4line = opt_box.addButton("Extended 4-Line (IN & OUT)", QMessageBox.ActionRole)
+        opt_box.addButton(QMessageBox.Cancel)
+
+        opt_box.exec()
+
+        clicked = opt_box.clickedButton()
+        if clicked not in [btn_3line, btn_4line]:
+            return
+
+        include_out = (clicked == btn_4line)
+        if include_out:
+            default_path = os.path.join(default_dir, f"{base_name}_ERytmo_IN_OUT.docx")
+
         output_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Save Converted Format A DOCX Script",
+            "Save Converted ERytmo DOCX Script",
             default_path,
             "Word Documents (*.docx)"
         )
 
         if output_path:
             try:
-                extract_and_convert(self.selected_file_path, output_path)
+                extract_and_convert(self.selected_file_path, output_path, include_out=include_out)
                 
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle("Conversion Successful")
-                msg_box.setText(f"File saved successfully!\n\nLocation: {output_path}")
+                msg_box.setText(f"File saved successfully!\n\nFormat: {'4-Line (IN & OUT)' if include_out else '3-Line (Standard Format A)'}\nLocation: {output_path}")
                 open_btn = msg_box.addButton("Open DOCX File", QMessageBox.ActionRole)
                 folder_btn = msg_box.addButton("Open Folder", QMessageBox.ActionRole)
                 msg_box.addButton(QMessageBox.Close)

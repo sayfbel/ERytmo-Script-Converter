@@ -77,3 +77,42 @@ NameError: name 'norm_hdrs' is not defined
 2026-09-12 03:04:36,733 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
 2026-09-12 03:04:37,503 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
 2026-09-12 03:04:43,553 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
+2026-09-12 03:41:00,258 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 03:41:01,169 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 03:41:05,940 [DEBUG] Unexpected Exception Caught:
+Traceback (most recent call last):
+  File "c:\Users\saif\Desktop\convert script\src\script_parser.py", line 404, in safe_validate_and_convert
+    out_doc.save(output_docx_path)
+  File "C:\Users\saif\AppData\Local\Programs\Python\Python311\Lib\site-packages\docx\document.py", line 204, in save
+    self._part.save(path_or_stream)
+  File "C:\Users\saif\AppData\Local\Programs\Python\Python311\Lib\site-packages\docx\parts\document.py", line 114, in save
+    self.package.save(path_or_stream)
+  File "C:\Users\saif\AppData\Local\Programs\Python\Python311\Lib\site-packages\docx\opc\package.py", line 166, in save
+    PackageWriter.write(pkg_file, self.rels, self.parts)
+  File "C:\Users\saif\AppData\Local\Programs\Python\Python311\Lib\site-packages\docx\opc\pkgwriter.py", line 34, in write
+    phys_writer = PhysPkgWriter(pkg_file)
+                  ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saif\AppData\Local\Programs\Python\Python311\Lib\site-packages\docx\opc\phys_pkg.py", line 109, in __init__
+    self._zipf = ZipFile(pkg_file, "w", compression=ZIP_DEFLATED)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saif\AppData\Local\Programs\Python\Python311\Lib\zipfile.py", line 1294, in __init__
+    self.fp = io.open(file, filemode)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'c:\\Users\\saif\\Desktop\\convert script\\scratch\\test_3line.docx'
+
+2026-09-12 03:41:33,368 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 03:41:34,205 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 03:41:38,629 [DEBUG] Saved Format DOCX (include_out=False) to: C:\Users\saif\.gemini\antigravity-ide\brain\5579d082-2927-4150-a341-b2c78d91fc39\scratch\test_3line.docx
+2026-09-12 03:41:38,629 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
+2026-09-12 03:41:38,672 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 03:41:39,120 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 03:41:43,819 [DEBUG] Saved Format DOCX (include_out=True) to: C:\Users\saif\.gemini\antigravity-ide\brain\5579d082-2927-4150-a341-b2c78d91fc39\scratch\test_4line.docx
+2026-09-12 03:41:43,819 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
+2026-09-12 03:41:52,688 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 03:41:53,715 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 03:41:57,988 [DEBUG] Saved Format DOCX (include_out=False) to: C:\Users\saif\.gemini\antigravity-ide\brain\5579d082-2927-4150-a341-b2c78d91fc39\scratch\test_3line.docx
+2026-09-12 03:41:57,988 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
+2026-09-12 03:41:57,988 [DEBUG] --- Starting Validation & Import for: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx ---
+2026-09-12 03:41:58,455 [DEBUG] Parsing DOCX file: c:\Users\saif\Desktop\convert script\Steal Away Reel 5 CCSL.docx
+2026-09-12 03:42:03,215 [DEBUG] Saved Format DOCX (include_out=True) to: C:\Users\saif\.gemini\antigravity-ide\brain\5579d082-2927-4150-a341-b2c78d91fc39\scratch\test_4line.docx
+2026-09-12 03:42:03,215 [DEBUG] Successfully processed 161 cues. Status: NORMALIZABLE
