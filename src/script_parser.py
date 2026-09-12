@@ -1,7 +1,29 @@
 import os
 import re
+import traceback
+import logging
 import docx
 from pypdf import PdfReader
+
+from exceptions import (
+    ScriptImportError, UnsupportedFormatError, EmptyFileError,
+    FileAccessError, FileCorruptedError, NoTimecodesFoundError
+)
+from script_validator import ScriptValidator, ValidationStatus, ValidationReport
+
+# Configure conversion debug logger
+LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "conversion_debug.log")
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
+def log_debug(message):
+    try:
+        logging.debug(message)
+    except Exception:
+        pass
 
 def clean_character_name(raw_name):
     if not raw_name:
@@ -19,6 +41,7 @@ def clean_dialogue(text):
     return d
 
 def parse_docx(file_path):
+    log_debug(f"Parsing DOCX file: {file_path}")
     doc = docx.Document(file_path)
     raw_rows = []
     
@@ -32,7 +55,6 @@ def parse_docx(file_path):
 
         for r_idx in range(min(6, len(table.rows))):
             cells_upper = [c.text.strip().upper() for c in table.rows[r_idx].cells]
-            # Skip data rows containing timecodes
             if any(re.match(r'^\d{2}:\d{2}:\d{2}', c) for c in cells_upper if c):
                 continue
                 
@@ -67,7 +89,6 @@ def parse_docx(file_path):
                 if text_idx == -1:
                     text_idx = i
 
-        # Fallback to TIMECODE column if IN is not explicitly named 'IN'
         if tc_in_idx == -1:
             for i, h in enumerate(hdr_cells):
                 if 'TIMECODE' in h or 'TC' in h:
@@ -119,6 +140,7 @@ def parse_docx(file_path):
     return raw_rows
 
 def parse_pdf(file_path):
+    log_debug(f"Parsing PDF file: {file_path}")
     reader = PdfReader(file_path)
     lines = []
     for page in reader.pages:
@@ -130,6 +152,7 @@ def parse_pdf(file_path):
     return parse_plain_lines(lines)
 
 def parse_txt(file_path):
+    log_debug(f"Parsing TXT file: {file_path}")
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         lines = [l.strip() for l in f.readlines() if l.strip()]
     return parse_plain_lines(lines)
@@ -171,37 +194,74 @@ def parse_plain_lines(lines):
             
     return raw_rows
 
-def extract_and_convert(input_path, output_docx_path=None):
-    ext = os.path.splitext(input_path)[1].lower()
+def safe_validate_and_convert(input_path, output_docx_path=None):
+    """
+    Safely validates, parses, and converts script.
+    Never crashes. Returns (report, raw_rows, format_a_cues).
+    """
+    log_debug(f"--- Starting Validation & Import for: {input_path} ---")
     
-    if ext == ".docx":
-        raw_rows = parse_docx(input_path)
-    elif ext == ".pdf":
-        raw_rows = parse_pdf(input_path)
-    elif ext in [".txt", ".text"]:
-        raw_rows = parse_txt(input_path)
-    else:
-        raise ValueError(f"Unsupported file format: {ext}. Supported formats: .docx, .pdf, .txt, .text")
+    # 1. Run Pre-Validation
+    report = ScriptValidator.validate_file(input_path)
+    
+    if report.status == ValidationStatus.INVALID:
+        log_debug(f"Validation Failed: {report.user_title} - {report.user_message}")
+        return report, [], []
 
-    if not raw_rows:
-        raise ValueError("No valid timecodes or dialogue cues were found in the file.")
+    # 2. Perform Extraction
+    ext = os.path.splitext(input_path)[1].lower()
+    try:
+        if ext == ".docx":
+            raw_rows = parse_docx(input_path)
+        elif ext == ".pdf":
+            raw_rows = parse_pdf(input_path)
+        elif ext in [".txt", ".text"]:
+            raw_rows = parse_txt(input_path)
+        else:
+            raise UnsupportedFormatError(ext)
 
-    format_a_cues = []
-    for r in raw_rows:
-        format_a_cues.append({
-            "in": r["in"],
-            "character": r["character"],
-            "dialogue": r["dialogue"]
-        })
+        if not raw_rows:
+            raise NoTimecodesFoundError(os.path.basename(input_path))
 
-    if output_docx_path:
-        out_doc = docx.Document()
-        for idx, cue in enumerate(format_a_cues):
-            out_doc.add_paragraph(cue["in"])
-            out_doc.add_paragraph(cue["character"])
-            out_doc.add_paragraph(cue["dialogue"])
-            if idx < len(format_a_cues) - 1:
-                out_doc.add_paragraph("") # Blank line separator
-        out_doc.save(output_docx_path)
+        format_a_cues = []
+        for r in raw_rows:
+            format_a_cues.append({
+                "in": r["in"],
+                "character": r["character"],
+                "dialogue": r["dialogue"]
+            })
 
-    return raw_rows, format_a_cues
+        # Save to output docx if requested
+        if output_docx_path:
+            out_doc = docx.Document()
+            for idx, cue in enumerate(format_a_cues):
+                out_doc.add_paragraph(cue["in"])
+                out_doc.add_paragraph(cue["character"])
+                out_doc.add_paragraph(cue["dialogue"])
+                if idx < len(format_a_cues) - 1:
+                    out_doc.add_paragraph("") # Blank line separator
+            out_doc.save(output_docx_path)
+            log_debug(f"Saved Format A DOCX to: {output_docx_path}")
+
+        log_debug(f"Successfully processed {len(raw_rows)} cues. Status: {report.status}")
+        return report, raw_rows, format_a_cues
+
+    except ScriptImportError as e:
+        tb = traceback.format_exc()
+        log_debug(f"ScriptImportError Caught:\n{tb}")
+        report.status = ValidationStatus.INVALID
+        report.user_title = e.user_title
+        report.user_message = e.user_message
+        report.suggestion = e.suggestion
+        report.diagnostic_info += f"\n\nException:\n{tb}"
+        return report, [], []
+
+    except Exception as e:
+        tb = traceback.format_exc()
+        log_debug(f"Unexpected Exception Caught:\n{tb}")
+        report.status = ValidationStatus.INVALID
+        report.user_title = "Unable to Understand Script Format"
+        report.user_message = "An unexpected error occurred while parsing the script content."
+        report.suggestion = "The structure of this script is currently not supported by the importer. Please check the required format and try importing your script again. If you believe the format should be supported, please contact Support."
+        report.diagnostic_info += f"\n\nUnexpected Exception:\n{tb}"
+        return report, [], []
