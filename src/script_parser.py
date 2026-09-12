@@ -65,6 +65,89 @@ def extract_timecode(text):
             return f"{hh:02d}:{mm}:{ss}"
     return ""
 
+def is_numeric_id_column(table, col_idx, data_start):
+    """
+    Returns True if a column contains mostly numbers/IDs (e.g. 1, 2, 3, 4... or SHOT 1, #1).
+    Such columns MUST NEVER be treated as character names or dialogue text.
+    """
+    if col_idx < 0 or not table.rows:
+        return False
+    num_rows = len(table.rows) - data_start
+    if num_rows <= 0:
+        return False
+    
+    numeric_count = 0
+    checked_rows = 0
+    for r_idx in range(data_start, len(table.rows)):
+        if col_idx < len(table.rows[r_idx].cells):
+            txt = table.rows[r_idx].cells[col_idx].text.strip()
+            if txt:
+                checked_rows += 1
+                if re.match(r'^(?:#\s*\d+|\d+|SHOT\s*\d+|TITLE\s*#?\s*\d+)$', txt, re.IGNORECASE):
+                    numeric_count += 1
+    if checked_rows > 0 and (numeric_count / checked_rows) > 0.5:
+        return True
+    return False
+
+def extract_speaker_and_dialogue(raw_char, raw_text, last_speaker):
+    """
+    Extracts a clean character/speaker name and dialogue text.
+    Ensures numeric row IDs (1, 2, 3...) are NEVER returned as character names.
+    """
+    speaker = ""
+    dialogue = ""
+
+    # 1. Clean raw character cell if present and NOT purely numeric / row ID
+    if raw_char:
+        cleaned_c = clean_character_name(raw_char)
+        if cleaned_c and not re.match(r'^(?:#?\d+|SHOT\s*\d+|TITLE\s*#?\s*\d+)$', cleaned_c, re.IGNORECASE):
+            speaker = cleaned_c
+
+    clean_text = raw_text.strip() if raw_text else ""
+
+    # 2. If speaker is empty, try extracting speaker from raw_text
+    if not speaker and clean_text:
+        # Pattern A: "HANK SCHRADER: Well, we love you, man."
+        m_colon = re.match(r'^([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'.-]{2,35}):\s*(.*)$', clean_text, re.IGNORECASE)
+        if m_colon:
+            possible_spk = clean_character_name(m_colon.group(1))
+            if possible_spk and not re.match(r'^\d+$', possible_spk):
+                speaker = possible_spk
+                dialogue = m_colon.group(2).strip()
+
+        # Pattern B: "[Doctor] You understood what I've just said to you?"
+        if not speaker:
+            m_bracket = re.match(r'^\s*\[\s*([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'-]{2,35})(?:\s+TO\s+[^\]]+|\s*-\s*[^\]]+)?\s*\]\s*(.*)$', clean_text, re.IGNORECASE)
+            if m_bracket:
+                possible_spk = clean_character_name(m_bracket.group(1))
+                if possible_spk and not re.match(r'^\d+$', possible_spk):
+                    speaker = possible_spk
+                    dialogue = m_bracket.group(2).strip()
+
+        # Pattern C: "(WALTER) Dialogue text"
+        if not speaker:
+            m_paren = re.match(r'^\s*\(\s*([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'-]{2,35})\s*\)\s*(.*)$', clean_text, re.IGNORECASE)
+            if m_paren:
+                possible_spk = clean_character_name(m_paren.group(1))
+                if possible_spk and not re.match(r'^\d+$', possible_spk):
+                    speaker = possible_spk
+                    dialogue = m_paren.group(2).strip()
+
+    if not dialogue:
+        dialogue = clean_dialogue(clean_text)
+
+    # 3. Fallback Speaker Continuity
+    if not speaker:
+        if last_speaker and not re.match(r'^\d+$', last_speaker):
+            speaker = last_speaker
+        else:
+            if re.match(r'^(?:EXT\.|INT\.|BLACK|YELLOW|HEAD|POV|CU|MCU|MS|LS)\b', dialogue, re.IGNORECASE):
+                speaker = "SCENE"
+            else:
+                speaker = "NARRATOR"
+
+    return speaker, dialogue if dialogue else " "
+
 def parse_docx(file_path):
     log_debug(f"Parsing DOCX file: {file_path}")
     doc = docx.Document(file_path)
@@ -109,10 +192,9 @@ def parse_docx(file_path):
                 tc_out_idx = i
             elif any(k in norm_h for k in ['CHARACTER', 'CHARACTERS', 'CHAR', 'PERSO', 'PERSONNAGE', 'SPEAKER', 'ROLE', 'INTERVENANT', 'VOICE', 'VOIX', 'ACTOR', 'NAME']):
                 char_idx = i
-            elif norm_h in ['TITLE', 'TITLE#']:
-                if text_idx == -1:
-                    text_idx = i
-            elif any(k in norm_h for k in ['DIALOGUE', 'DIALOG', 'TEXT', 'TEXTE', 'SPEECH', 'SUBTITLE', 'SOUSTITRE', 'CONTENT', 'LINE', 'SCRIPT']):
+            elif any(k in norm_h for k in ['DIALOGUE', 'DIALOG', 'SPEECH', 'SUBTITLE', 'SOUSTITRE', 'SPOKEN']):
+                text_idx = i
+            elif any(k in norm_h for k in ['TEXT', 'TEXTE', 'CONTENT', 'LINE', 'SCRIPT', 'DESCRIPTION', 'SCENE']):
                 if text_idx == -1:
                     text_idx = i
 
@@ -125,17 +207,26 @@ def parse_docx(file_path):
 
         data_start = best_row_idx + 1
 
-        # DATA-DRIVEN FALLBACK: If tc_in_idx is still -1 or invalid, scan data rows for timecodes per column
+        # Check which columns are numeric row IDs (e.g., 1, 2, 3...)
         num_cols = len(table.rows[0].cells) if table.rows else 0
+        numeric_id_cols = [c for c in range(num_cols) if is_numeric_id_column(table, c, data_start)]
+
+        if char_idx in numeric_id_cols:
+            char_idx = -1
+        if text_idx in numeric_id_cols:
+            text_idx = -1
+
+        # DATA-DRIVEN FALLBACK: If tc_in_idx is still -1 or invalid, scan data rows for timecodes per column
         if tc_in_idx == -1 or tc_in_idx >= num_cols:
             col_tc_counts = {}
             for c_idx in range(num_cols):
-                count = 0
-                for r_idx in range(data_start, len(table.rows)):
-                    if c_idx < len(table.rows[r_idx].cells):
-                        if is_timecode_cell(table.rows[r_idx].cells[c_idx].text):
-                            count += 1
-                col_tc_counts[c_idx] = count
+                if c_idx not in numeric_id_cols:
+                    count = 0
+                    for r_idx in range(data_start, len(table.rows)):
+                        if c_idx < len(table.rows[r_idx].cells):
+                            if is_timecode_cell(table.rows[r_idx].cells[c_idx].text):
+                                count += 1
+                    col_tc_counts[c_idx] = count
 
             if col_tc_counts:
                 best_c = max(col_tc_counts, key=col_tc_counts.get)
@@ -144,7 +235,7 @@ def parse_docx(file_path):
 
         # FALLBACK FOR CHAR_IDX AND TEXT_IDX IF UNMAPPED:
         if tc_in_idx != -1:
-            remaining_cols = [c for c in range(num_cols) if c != tc_in_idx and c != tc_out_idx]
+            remaining_cols = [c for c in range(num_cols) if c != tc_in_idx and c != tc_out_idx and c not in numeric_id_cols]
             if text_idx == -1 and remaining_cols:
                 col_avg_len = {}
                 for c in remaining_cols:
@@ -170,23 +261,20 @@ def parse_docx(file_path):
             raw_char = cells[char_idx] if char_idx >= 0 and char_idx < len(cells) else ""
             raw_text = cells[text_idx] if text_idx >= 0 and text_idx < len(cells) else ""
             
+            # If raw_text is empty, check remaining non-numeric columns for fallback text (e.g. SCENE DESCRIPTION)
+            if not raw_text:
+                for alt_c in range(len(cells)):
+                    if alt_c not in [tc_in_idx, tc_out_idx, char_idx] and alt_c not in numeric_id_cols:
+                        if cells[alt_c]:
+                            raw_text = cells[alt_c]
+                            break
+
             if not tc_in:
                 continue
 
-            speaker = clean_character_name(raw_char) if raw_char else ""
-            if not speaker and raw_text:
-                m = re.match(r"^\[\s*([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ'-]+?)(?:\s+TO\s+[^\]]+|\s*-\s*[^\]]+)?\s*\]", raw_text, re.IGNORECASE)
-                if m:
-                    speaker = clean_character_name(m.group(1))
-
-            if speaker:
+            speaker, dialogue = extract_speaker_and_dialogue(raw_char, raw_text, last_speaker)
+            if speaker and speaker not in ["SCENE", "NARRATOR"]:
                 last_speaker = speaker
-            else:
-                speaker = last_speaker
-
-            dialogue = clean_dialogue(raw_text)
-            if not dialogue:
-                dialogue = " "
 
             raw_rows.append({
                 "in": tc_in,
