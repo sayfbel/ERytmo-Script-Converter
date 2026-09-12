@@ -265,7 +265,8 @@ def parse_docx(file_path):
                 
             raw_tc_cell = cells[tc_in_idx]
             tc_in = extract_timecode(raw_tc_cell)
-            tc_out = cells[tc_out_idx] if tc_out_idx >= 0 and tc_out_idx < len(cells) else ""
+            raw_out_cell = cells[tc_out_idx] if tc_out_idx >= 0 and tc_out_idx < len(cells) else ""
+            tc_out = extract_timecode(raw_out_cell) if raw_out_cell else ""
             raw_char = cells[char_idx] if char_idx >= 0 and char_idx < len(cells) else ""
             raw_text = cells[text_idx] if text_idx >= 0 and text_idx < len(cells) else ""
             
@@ -352,10 +353,11 @@ def parse_plain_lines(lines):
             
     return raw_rows
 
-def safe_validate_and_convert(input_path, output_docx_path=None, include_out=False):
+def safe_validate_and_convert(input_path, output_docx_path=None, export_mode="3line"):
     """
     Safely validates, parses, and converts script.
     Never crashes. Returns (report, raw_rows, format_a_cues).
+    export_mode: '3line' (IN only), '4line' (IN & OUT separate lines), 'inline' (IN - OUT combined line)
     """
     log_debug(f"--- Starting Validation & Import for: {input_path} ---")
     
@@ -394,15 +396,24 @@ def safe_validate_and_convert(input_path, output_docx_path=None, include_out=Fal
         if output_docx_path:
             out_doc = docx.Document()
             for idx, cue in enumerate(format_a_cues):
-                out_doc.add_paragraph(cue["in"])
-                if include_out and cue.get("out"):
-                    out_doc.add_paragraph(cue["out"])
+                tc_in = cue["in"]
+                tc_out = cue.get("out", "")
+                
+                if export_mode == "4line" and tc_out:
+                    out_doc.add_paragraph(tc_in)
+                    out_doc.add_paragraph(tc_out)
+                elif export_mode == "inline" and tc_out:
+                    out_doc.add_paragraph(f"{tc_in} - {tc_out}")
+                else: # '3line' default
+                    out_doc.add_paragraph(tc_in)
+
                 out_doc.add_paragraph(cue["character"])
                 out_doc.add_paragraph(cue["dialogue"])
+                
                 if idx < len(format_a_cues) - 1:
                     out_doc.add_paragraph("") # Blank line separator
             out_doc.save(output_docx_path)
-            log_debug(f"Saved Format DOCX (include_out={include_out}) to: {output_docx_path}")
+            log_debug(f"Saved Format DOCX (export_mode={export_mode}) to: {output_docx_path}")
 
         log_debug(f"Successfully processed {len(raw_rows)} cues. Status: {report.status}")
         return report, raw_rows, format_a_cues
@@ -427,12 +438,12 @@ def safe_validate_and_convert(input_path, output_docx_path=None, include_out=Fal
         report.diagnostic_info += f"\n\nUnexpected Exception:\n{tb}"
         return report, [], []
 
-def extract_and_convert(input_path, output_docx_path=None, include_out=False):
+def extract_and_convert(input_path, output_docx_path=None, export_mode="3line"):
     """
     Helper function for direct conversion.
     Returns (raw_rows, format_a_cues).
     """
-    report, raw_rows, format_a_cues = safe_validate_and_convert(input_path, output_docx_path, include_out=include_out)
+    report, raw_rows, format_a_cues = safe_validate_and_convert(input_path, output_docx_path, export_mode=export_mode)
     if report.status == ValidationStatus.INVALID:
         raise ScriptImportError(report.user_title, report.user_message, report.suggestion, report.diagnostic_info)
     return raw_rows, format_a_cues

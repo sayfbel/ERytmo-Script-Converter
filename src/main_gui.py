@@ -398,11 +398,12 @@ class MainWindow(QMainWindow):
         t2_label.setStyleSheet("color: #166534;")
         
         self.table_converted = QTableWidget()
-        self.table_converted.setColumnCount(3)
-        self.table_converted.setHorizontalHeaderLabels(["Line 1 (IN Timecode)", "Line 2 (Character Name)", "Line 3+ (Dialogue Text)"])
+        self.table_converted.setColumnCount(4)
+        self.table_converted.setHorizontalHeaderLabels(["Line 1 (IN)", "Line 2 (OUT)", "Line 3 (Character)", "Line 4 (Dialogue / Text)"])
         self.table_converted.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.table_converted.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.table_converted.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.table_converted.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table_converted.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
 
         t2_layout.addWidget(t2_label)
         t2_layout.addWidget(self.table_converted)
@@ -505,6 +506,7 @@ class MainWindow(QMainWindow):
         self.table_converted.setRowCount(len(format_a_cues))
         for r_idx, c in enumerate(format_a_cues):
             item_in = QTableWidgetItem(c["in"])
+            item_out = QTableWidgetItem(c.get("out", "") if c.get("out") else "-")
             item_char = QTableWidgetItem(c["character"])
             item_diag = QTableWidgetItem(c["dialogue"])
             
@@ -512,8 +514,9 @@ class MainWindow(QMainWindow):
             item_char.setFont(QFont("Segoe UI", 9, QFont.Bold))
 
             self.table_converted.setItem(r_idx, 0, item_in)
-            self.table_converted.setItem(r_idx, 1, item_char)
-            self.table_converted.setItem(r_idx, 2, item_diag)
+            self.table_converted.setItem(r_idx, 1, item_out)
+            self.table_converted.setItem(r_idx, 2, item_char)
+            self.table_converted.setItem(r_idx, 3, item_diag)
 
     def on_download_clicked(self):
         if not self.selected_file_path or not self.format_a_cues:
@@ -524,28 +527,35 @@ class MainWindow(QMainWindow):
         default_dir = os.path.dirname(self.selected_file_path)
         default_path = os.path.join(default_dir, default_out_name)
 
-        # Ask user format preference: Standard (IN only) vs Extended (IN & OUT)
+        # Ask user format preference: Standard (3Line), Extended (4Line), or Inline (IN - OUT)
         opt_box = QMessageBox(self)
         opt_box.setIcon(QMessageBox.Question)
         opt_box.setWindowTitle("Select ERytmo Export Format")
-        opt_box.setText("<b>Choose ERytmo Format Type:</b>")
+        opt_box.setText("<b>Choose ERytmo DOCX Output Format:</b>")
         opt_box.setInformativeText(
-            "• <b>Standard ERytmo Format A (3 Lines)</b>: Timecode IN, Character Name, Dialogue Text.\n"
-            "• <b>Extended ERytmo Format (4 Lines - IN & OUT)</b>: Timecode IN, Timecode OUT, Character Name, Dialogue Text."
+            "• <b>Standard 3-Line (IN Only)</b>:\n  Line 1: IN | Line 2: Character | Line 3: Dialogue\n\n"
+            "• <b>Extended 4-Line (IN & OUT)</b>:\n  Line 1: IN | Line 2: OUT | Line 3: Character | Line 4: Dialogue\n\n"
+            "• <b>Inline (IN - OUT)</b>:\n  Line 1: IN - OUT | Line 2: Character | Line 3: Dialogue"
         )
         btn_3line = opt_box.addButton("Standard 3-Line (IN Only)", QMessageBox.ActionRole)
         btn_4line = opt_box.addButton("Extended 4-Line (IN & OUT)", QMessageBox.ActionRole)
+        btn_inline = opt_box.addButton("Inline (IN - OUT)", QMessageBox.ActionRole)
         opt_box.addButton(QMessageBox.Cancel)
 
         opt_box.exec()
 
         clicked = opt_box.clickedButton()
-        if clicked not in [btn_3line, btn_4line]:
+        if clicked == btn_3line:
+            export_mode = "3line"
+            default_path = os.path.join(default_dir, f"{base_name}_ERytmo_FormatA.docx")
+        elif clicked == btn_4line:
+            export_mode = "4line"
+            default_path = os.path.join(default_dir, f"{base_name}_ERytmo_IN_OUT_4Line.docx")
+        elif clicked == btn_inline:
+            export_mode = "inline"
+            default_path = os.path.join(default_dir, f"{base_name}_ERytmo_IN_OUT_Inline.docx")
+        else:
             return
-
-        include_out = (clicked == btn_4line)
-        if include_out:
-            default_path = os.path.join(default_dir, f"{base_name}_ERytmo_IN_OUT.docx")
 
         output_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -556,11 +566,11 @@ class MainWindow(QMainWindow):
 
         if output_path:
             try:
-                extract_and_convert(self.selected_file_path, output_path, include_out=include_out)
+                extract_and_convert(self.selected_file_path, output_path, export_mode=export_mode)
                 
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle("Conversion Successful")
-                msg_box.setText(f"File saved successfully!\n\nFormat: {'4-Line (IN & OUT)' if include_out else '3-Line (Standard Format A)'}\nLocation: {output_path}")
+                msg_box.setText(f"File saved successfully!\n\nFormat Mode: {export_mode.upper()}\nLocation: {output_path}")
                 open_btn = msg_box.addButton("Open DOCX File", QMessageBox.ActionRole)
                 folder_btn = msg_box.addButton("Open Folder", QMessageBox.ActionRole)
                 msg_box.addButton(QMessageBox.Close)
