@@ -1,9 +1,12 @@
 import os
-import re
 import traceback
 import logging
+import json
 import docx
 from pypdf import PdfReader
+from pydantic import BaseModel, Field
+from google import genai
+from google.genai import types
 
 from exceptions import (
     ScriptImportError, UnsupportedFormatError, EmptyFileError,
@@ -25,341 +28,360 @@ def log_debug(message):
     except Exception:
         pass
 
-def clean_character_name(raw_name):
-    if not raw_name:
-        return ""
-    name = raw_name.strip().upper()
-    name = re.sub(r"\(.*?\)", "", name).strip()
-    name = re.sub(r"\b(SPEAKS|ON THE PHONE|OFF SCREEN|ON SCREEN|V\.O\.|O\.S\.|OFF)\b", "", name, flags=re.IGNORECASE).strip()
-    name = re.sub(r"\s+", " ", name)
-    return name
-
-def clean_dialogue(text):
+def parse_json_response(text):
     if not text:
-        return ""
-    d = re.sub(r"^\[\s*[A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ'-]+?(?:\s+TO\s+[^\]]+|\s*-\s*[^\]]+)?\s*\]\s*", "", text, flags=re.IGNORECASE).strip()
-    return d
+        return {}
+    raw_response = text.strip()
+    if raw_response.startswith("```json"):
+        raw_response = raw_response[7:]
+    elif raw_response.startswith("```"):
+        raw_response = raw_response[3:]
+    if raw_response.endswith("```"):
+        raw_response = raw_response[:-3]
+    raw_response = raw_response.strip()
+    return json.loads(raw_response)
 
-def normalize_header(header_str):
-    if not header_str:
-        return ""
-    return re.sub(r'[^A-Z0-9]', '', header_str.upper())
+class ScriptCue(BaseModel):
+    in_time: str = Field(alias="in", description="Timecode IN (e.g. 10:00:00:00)")
+    out_time: str = Field(alias="out", description="Timecode OUT, empty if not available")
+    character: str = Field(description="Character name speaking")
+    dialogue: str = Field(description="Dialogue text")
 
-def is_timecode_cell(text):
-    if not text:
-        return False
-    return bool(re.search(r'\b\d{1,2}:\d{2}:\d{2}(?:[:\.]\d{2})?\b', text))
+class ScriptCues(BaseModel):
+    cues: list[ScriptCue]
 
-def extract_timecode(text):
-    if not text:
-        return ""
-    m = re.search(r'\b(\d{1,2}):(\d{2}):(\d{2})(?:[:\.](\d{2}))?\b', text)
-    if m:
-        hh = int(m.group(1))
-        mm = m.group(2)
-        ss = m.group(3)
-        ff = m.group(4)
-        if ff:
-            return f"{hh:02d}:{mm}:{ss}:{ff}"
-        else:
-            return f"{hh:02d}:{mm}:{ss}"
-    return ""
+def get_gemini_api_key():
+    key = os.environ.get("GEMINI_API_KEY")
+    if key: return key
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                data = json.load(f)
+                return data.get("GEMINI_API_KEY")
+        except:
+            pass
+    return None
 
-def is_numeric_id_column(table, col_idx, data_start):
-    """
-    Returns True if a column contains mostly numbers/IDs (e.g. 1, 2, 3, 4... or SHOT 1, #1).
-    Such columns MUST NEVER be treated as character names or dialogue text.
-    """
-    if col_idx < 0 or not table.rows:
-        return False
-    num_rows = len(table.rows) - data_start
-    if num_rows <= 0:
-        return False
+def parse_with_gemini(raw_text):
+    api_key = get_gemini_api_key()
+    if not api_key:
+        log_debug("Gemini API key not found. Cannot perform AI parsing.")
+        raise ScriptImportError(
+            "Gemini API Key Missing",
+            "To use the Universal Script Parser, you must provide a Gemini API Key in the settings.",
+            "Please go to the Settings tab, enter your Gemini API Key, and try again."
+        )
     
-    numeric_count = 0
-    checked_rows = 0
-    for r_idx in range(data_start, len(table.rows)):
-        if col_idx < len(table.rows[r_idx].cells):
-            txt = table.rows[r_idx].cells[col_idx].text.strip()
-            if txt:
-                checked_rows += 1
-                if re.match(r'^(?:#\s*\d+|\d+|SHOT\s*\d+|TITLE\s*#?\s*\d+)$', txt, re.IGNORECASE):
-                    numeric_count += 1
-    if checked_rows > 0 and (numeric_count / checked_rows) > 0.5:
-        return True
-    return False
+    try:
+        client = genai.Client(api_key=api_key)
+        prompt = f"""
+You are an expert dubbing and adaptation script parser. Your task is to extract dialogue cues from the following raw script text.
+The script may be in any language and any unstructured format. It may contain scene descriptions, action lines, and other noise.
 
-def is_invalid_character_name(text):
-    if not text:
-        return True
-    if re.match(r'^(?:#?\d+|SHOT\s*\d+|TITLE\s*#?\s*\d+)$', text, re.IGNORECASE):
-        return True
-    if re.search(r'\b\d{1,2}:\d{2}:\d{2}', text):
-        return True
-    return False
+For each dialogue cue you find, extract:
+- 'in': The starting timecode (if any).
+- 'out': The ending timecode (if any).
+- 'character': The character speaking. Ignore scene directions.
+- 'dialogue': The actual dialogue text spoken.
 
-def extract_speaker_and_dialogue(raw_char, raw_text, last_speaker):
-    """
-    Extracts a clean character/speaker name and dialogue text.
-    Ensures numeric row IDs (1, 2, 3...) and timecodes are NEVER returned as character names.
-    """
-    speaker = ""
-    dialogue = ""
+RULES:
+- If a timecode is missing, leave it as an empty string ("").
+- Do NOT include scene descriptions or action lines as dialogue or characters.
+- Clean up character names (e.g., remove parentheticals like (V.O.) or (O.S.) or (ON THE PHONE)).
+- Return ONLY valid JSON matching the requested schema.
 
-    # 1. Clean raw character cell if present and NOT an invalid character name
-    if raw_char:
-        cleaned_c = clean_character_name(raw_char)
-        if cleaned_c and not is_invalid_character_name(cleaned_c):
-            speaker = cleaned_c
+SCRIPT TEXT (May be long):
+{raw_text}
+"""
+        log_debug("Sending prompt to Gemini...")
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ScriptCues,
+                temperature=0.1,
+            ),
+        )
+        if response.text:
+            data = parse_json_response(response.text)
+            cues = data.get("cues", [])
+            raw_rows = []
+            for cue in cues:
+                raw_rows.append({
+                    "in": cue.get("in", ""),
+                    "out": cue.get("out", ""),
+                    "character": cue.get("character", "CHARACTER").strip(),
+                    "dialogue": cue.get("dialogue", " ").strip()
+                })
+            log_debug(f"Gemini extracted {len(raw_rows)} cues successfully.")
+            return raw_rows
+        return []
+    except Exception as e:
+        log_debug(f"Gemini API parsing failed: {e}")
+        raise ScriptImportError(
+            "AI Parsing Failed",
+            f"An error occurred while communicating with the Gemini API: {str(e)}",
+            "Please check your internet connection or verify that your API key is valid."
+        )
 
-    clean_text = raw_text.strip() if raw_text else ""
+def check_chronological_order(cues):
+    def tc_to_frames(tc):
+        if not tc: return 0
+        parts = tc.split(':')
+        if len(parts) >= 3:
+            h = int(parts[0])
+            m = int(parts[1])
+            s = int(parts[2])
+            f = int(parts[3]) if len(parts) > 3 else 0
+            return (h * 3600 + m * 60 + s) * 25 + f
+        return 0
 
-    # 2. Extract speaker from bracketed/colon tags in raw_text if speaker is empty
-    if clean_text:
-        # Pattern A: "[Doctor] You understood..." or "[CÉCILE TO MUNA] (shrieks) What are you doing?"
-        m_bracket = re.match(r'^\s*\[\s*([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'-]+?)(?:\s+TO\s+[^\]]+|\s*-\s*[^\]]+)?\s*\]\s*(.*)$', clean_text, re.IGNORECASE)
-        if m_bracket:
-            possible_spk = clean_character_name(m_bracket.group(1))
-            if possible_spk and not is_invalid_character_name(possible_spk):
-                speaker = possible_spk
-                dialogue = m_bracket.group(2).strip()
+    def frames_to_tc(frames):
+        f = frames % 25
+        s = (frames // 25) % 60
+        m = (frames // (25 * 60)) % 60
+        h = (frames // (25 * 3600))
+        return f"{h:02d}:{m:02d}:{s:02d}:{f:02d}"
 
-        # Pattern B: "HANK SCHRADER: Well, we love you, man."
-        if not speaker:
-            m_colon = re.match(r'^([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'.-]{2,35}):\s*(.*)$', clean_text, re.IGNORECASE)
-            if m_colon:
-                possible_spk = clean_character_name(m_colon.group(1))
-                if possible_spk and not is_invalid_character_name(possible_spk):
-                    speaker = possible_spk
-                    dialogue = m_colon.group(2).strip()
-
-        # Pattern C: "(WALTER) Dialogue text" (must have text following the closing parenthesis)
-        if not speaker:
-            m_paren = re.match(r'^\s*\(\s*([A-Z0-9\sÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÑÇÃÕÅÆØ\'-]{2,35})\s*\)\s*(.+)$', clean_text, re.IGNORECASE)
-            if m_paren:
-                possible_spk = clean_character_name(m_paren.group(1))
-                if possible_spk and not is_invalid_character_name(possible_spk) and possible_spk not in ["GROANING", "SHRIEKS", "HUMMING", "RUSTLING", "FOOTSTEPS", "EXHALES", "MUSIC", "GIGGLES", "SQUEALS", "CHUCKLES", "LAUGHS", "PAINED BREATHING"]:
-                    speaker = possible_spk
-                    dialogue = m_paren.group(2).strip()
-
-    if not dialogue:
-        dialogue = clean_dialogue(clean_text)
-
-    # 3. Fallback Speaker Continuity
-    if not speaker:
-        if last_speaker and not is_invalid_character_name(last_speaker):
-            speaker = last_speaker
-        else:
-            if re.match(r'^(?:EXT\.|INT\.|BLACK|YELLOW|HEAD|POV|CU|MCU|MS|LS)\b', dialogue, re.IGNORECASE):
-                speaker = "SCENE"
-            else:
-                speaker = "NARRATOR"
-
-    return speaker, dialogue if dialogue else " "
-
-def parse_docx(file_path):
-    log_debug(f"Parsing DOCX file: {file_path}")
-    doc = docx.Document(file_path)
-    raw_rows = []
-    
-    if doc.tables:
-        table = doc.tables[0]
+    last_frames = 0
+    for cue in cues:
+        in_frames = tc_to_frames(cue["in"])
+        if in_frames > 0:
+            if in_frames < last_frames:
+                cue["in"] = frames_to_tc(last_frames)
+                in_frames = last_frames
+            last_frames = in_frames
         
-        # 1. Smart Header Row Detection: Find row with maximum distinct column keywords
-        best_row_idx = 0
-        max_keywords_found = 0
-        keywords = ['TIMECODE', 'TIME', 'CODE', 'IN', 'OUT', 'SHOT', 'CHARACTER', 'PERSO', 'PERSONNAGE', 'DIALOGUE', 'DIALOG', 'TITLE', 'SCENE', 'TEXT', 'SPEECH', 'SPEAKER', 'HORODATAGE']
+        out_frames = tc_to_frames(cue["out"])
+        if out_frames > 0:
+            if out_frames < in_frames:
+                cue["out"] = frames_to_tc(in_frames)
+            last_frames = tc_to_frames(cue["out"])
 
-        for r_idx in range(min(6, len(table.rows))):
-            cells_text = [c.text.strip() for c in table.rows[r_idx].cells]
-            if any(is_timecode_cell(c) for c in cells_text if c):
-                continue
-                
-            found_kw = set()
-            for cell_text in cells_text:
-                norm_h = normalize_header(cell_text)
-                for kw in keywords:
-                    if kw in norm_h:
-                        found_kw.add(kw)
+    return cues
 
-            if len(found_kw) > max_keywords_found:
-                max_keywords_found = len(found_kw)
-                best_row_idx = r_idx
+def extract_audio_if_video(media_path):
+    """
+    Attempts to extract a lightweight MP3 audio from a video using ffmpeg.
+    If it's already audio or ffmpeg is not installed, returns the original path.
+    """
+    ext = os.path.splitext(media_path)[1].lower()
+    if ext in [".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"]:
+        return media_path, False # Already audio, no temp file created
+
+    import subprocess
+    import tempfile
+    
+    temp_audio_path = os.path.join(tempfile.gettempdir(), f"extracted_audio_{os.path.basename(media_path)}.mp3")
+    
+    try:
+        log_debug(f"Attempting to extract audio from video using ffmpeg: {media_path}")
+        # Run ffmpeg to extract audio (no video, mp3 format, moderate quality)
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", media_path, "-vn", "-c:a", "libmp3lame", "-q:a", "5", temp_audio_path],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        log_debug(f"Successfully extracted audio to {temp_audio_path}")
+        return temp_audio_path, True
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        log_debug(f"FFMPEG extraction failed or ffmpeg not found ({e}). Falling back to uploading original media.")
+        return media_path, False
+
+def align_timecodes_with_gemini(script_cues, media_path, start_timecode="00:00:00:00"):
+    api_key = get_gemini_api_key()
+    if not api_key:
+        raise ScriptImportError(
+            "Gemini API Key Missing",
+            "To use the Universal Script Parser and Alignment, you must provide a Gemini API Key in the settings.",
+            "Please go to the Settings tab, enter your Gemini API Key, and try again."
+        )
+    
+    upload_path, is_temp = extract_audio_if_video(media_path)
+    
+    try:
+        client = genai.Client(api_key=api_key)
+        
+        log_debug(f"Uploading media file to Gemini: {upload_path}")
+        uploaded_media = client.files.upload(file=upload_path)
+        
+        log_debug("Waiting for file processing...")
+        import time
+        while uploaded_media.state.name == "PROCESSING":
+            time.sleep(2)
+            uploaded_media = client.files.get(name=uploaded_media.name)
+
+        if uploaded_media.state.name == "FAILED":
+             raise Exception("Gemini failed to process the media file.")
+        
+        cues_json = json.dumps(script_cues, ensure_ascii=False)
+
+        prompt = f"""
+You are an expert dubbing and adaptation script aligner. 
+Your task is to take the provided JSON array of dialogue cues and accurately align them with the provided audio/video file.
+
+RULES:
+1. The media starts exactly at timecode: {start_timecode}.
+2. For each cue in the JSON, find the exact 'in' (start) and 'out' (end) timestamps in SMPTE format (HH:MM:SS:FF) matching the dialogue spoken in the media. Assume 25 FPS.
+3. If a cue already has an 'in' or 'out' timecode, DO NOT deviate massively from it. Just adjust it slightly to perfectly match the lip-sync or audio start.
+4. CHRONOLOGICAL ORDER IS STRICTLY ENFORCED.
+5. Return the exactly identical cues, but with the 'in' and 'out' fields corrected/generated. Do not modify the 'character' or 'dialogue' fields.
+6. YOU MUST RETURN EXACTLY ONE JSON OBJECT PER LINE (JSONL format). Do NOT wrap in an array bracket [ or ]. Do NOT use markdown code blocks. Each line must be a valid JSON object representing one cue.
+
+JSON CUES:
+{cues_json}
+"""
+        log_debug("Sending prompt and media to Gemini (Streaming JSONL)...")
+        response_stream = client.models.generate_content_stream(
+            model='gemini-2.5-flash',
+            contents=[uploaded_media, prompt],
+            config=types.GenerateContentConfig(
+                response_mime_type="text/plain",
+                temperature=0.1,
+            ),
+        )
+        
+        def chronological_generator():
+            buffer = ""
+            last_frames = 0
+            
+            def tc_to_frames(tc):
+                if not tc: return 0
+                parts = tc.split(':')
+                if len(parts) >= 3:
+                    h = int(parts[0])
+                    m = int(parts[1])
+                    s = int(parts[2])
+                    f = int(parts[3]) if len(parts) > 3 else 0
+                    return (h * 3600 + m * 60 + s) * 25 + f
+                return 0
+
+            def frames_to_tc(frames):
+                f = frames % 25
+                s = (frames // 25) % 60
+                m = (frames // (25 * 60)) % 60
+                h = (frames // (25 * 3600))
+                return f"{h:02d}:{m:02d}:{s:02d}:{f:02d}"
+
+            try:
+                for chunk in response_stream:
+                    if chunk.text:
+                        buffer += chunk.text
+                        while "\n" in buffer:
+                            line, buffer = buffer.split("\n", 1)
+                            line = line.strip()
+                            if not line or line.startswith("```") or line == "[" or line == "]": continue
+                            if line.endswith(","): line = line[:-1]
+                            try:
+                                cue = json.loads(line)
+                                out_cue = {
+                                    "in": cue.get("in", ""),
+                                    "out": cue.get("out", ""),
+                                    "character": cue.get("character", "CHARACTER").strip(),
+                                    "dialogue": cue.get("dialogue", " ").strip()
+                                }
+                                in_frames = tc_to_frames(out_cue["in"])
+                                if in_frames > 0:
+                                    if in_frames < last_frames:
+                                        out_cue["in"] = frames_to_tc(last_frames)
+                                        in_frames = last_frames
+                                    last_frames = in_frames
+                                
+                                out_frames = tc_to_frames(out_cue["out"])
+                                if out_frames > 0:
+                                    if out_frames < in_frames:
+                                        out_cue["out"] = frames_to_tc(in_frames)
+                                    last_frames = tc_to_frames(out_cue["out"])
+                                    
+                                yield out_cue
+                            except json.JSONDecodeError:
+                                log_debug(f"Streaming JSON parse error on line: {line}")
+                                continue
+
+                # Process remaining buffer
+                line = buffer.strip()
+                if line and not line.startswith("```") and line != "[" and line != "]":
+                    if line.endswith(","): line = line[:-1]
+                    try:
+                        cue = json.loads(line)
+                        out_cue = {
+                            "in": cue.get("in", ""),
+                            "out": cue.get("out", ""),
+                            "character": cue.get("character", "CHARACTER").strip(),
+                            "dialogue": cue.get("dialogue", " ").strip()
+                        }
+                        in_frames = tc_to_frames(out_cue["in"])
+                        if in_frames > 0:
+                            if in_frames < last_frames:
+                                out_cue["in"] = frames_to_tc(last_frames)
+                                in_frames = last_frames
+                            last_frames = in_frames
                         
-        hdr_cells = [c.text.strip() for c in table.rows[best_row_idx].cells]
-        norm_hdrs = [normalize_header(c) for c in hdr_cells]
+                        out_frames = tc_to_frames(out_cue["out"])
+                        if out_frames > 0:
+                            if out_frames < in_frames:
+                                out_cue["out"] = frames_to_tc(in_frames)
+                            last_frames = tc_to_frames(out_cue["out"])
+                        yield out_cue
+                    except:
+                        pass
+            finally:
+                try:
+                     client.files.delete(name=uploaded_media.name)
+                     log_debug("Deleted media file from Gemini servers.")
+                except Exception as e:
+                     log_debug(f"Failed to delete media file: {e}")
+                     
+                if is_temp and os.path.exists(upload_path):
+                     try:
+                         os.remove(upload_path)
+                         log_debug("Deleted local temporary extracted audio file.")
+                     except:
+                         pass
 
-        data_start = best_row_idx + 1
-        num_cols = len(table.rows[0].cells) if table.rows else 0
-        numeric_id_cols = [c for c in range(num_cols) if is_numeric_id_column(table, c, data_start)]
+        return chronological_generator()
+    except Exception as e:
+        log_debug(f"Gemini API Alignment failed: {e}")
+        raise ScriptImportError(
+            "AI Alignment Failed",
+            f"An error occurred while communicating with the Gemini API or uploading the media: {str(e)}",
+            "Please check your internet connection or verify that the media file is not corrupted."
+        )
 
-        tc_in_idx = -1
-        tc_out_idx = -1
-        char_idx = -1
-        text_idx = -1
+def extract_raw_text_docx(file_path):
+    log_debug(f"Extracting raw text from DOCX: {file_path}")
+    doc = docx.Document(file_path)
+    text = []
+    # Read paragraphs
+    for p in doc.paragraphs:
+        if p.text.strip(): text.append(p.text.strip())
+    # Read tables
+    for t in doc.tables:
+        for r in t.rows:
+            row_text = " | ".join([c.text.strip() for c in r.cells if c.text.strip()])
+            if row_text: text.append(row_text)
+    return "\n".join(text)
 
-        for i, norm_h in enumerate(norm_hdrs):
-            if norm_h in ['IN', 'TCIN', 'STARTTC', 'START', 'STH', 'HORODATAGE', 'DEBUT', 'TIMEIN', 'TIMESTAMP']:
-                tc_in_idx = i
-            elif norm_h in ['OUT', 'TCOUT', 'ENDTC', 'END', 'STF', 'FIN', 'TIMEOUT']:
-                tc_out_idx = i
-            elif any(k in norm_h for k in ['CHARACTER', 'CHARACTERS', 'CHAR', 'PERSO', 'PERSONNAGE', 'SPEAKER', 'ROLE', 'INTERVENANT', 'VOICE', 'VOIX', 'ACTOR', 'NAME']):
-                char_idx = i
-            elif norm_h in ['TITLE', 'SUBTITLE', 'CAPTION', 'SOUSTITRE']:
-                if i not in numeric_id_cols:
-                    text_idx = i
-            elif any(k in norm_h for k in ['DIALOGUE', 'DIALOG', 'SPEECH', 'TEXT', 'TEXTE', 'SPOKEN', 'CONTENT', 'LINE', 'SCRIPT']):
-                if text_idx == -1 and i not in numeric_id_cols:
-                    text_idx = i
-
-        if tc_in_idx == -1:
-            for i, norm_h in enumerate(norm_hdrs):
-                if any(k in norm_h for k in ['TIMECODE', 'TIME', 'CODE', 'TC']):
-                    if not any(o in norm_h for o in ['OUT', 'END', 'FIN']):
-                        tc_in_idx = i
-                        break
-
-        if char_idx in numeric_id_cols:
-            char_idx = -1
-        if text_idx in numeric_id_cols:
-            text_idx = -1
-
-        # DATA-DRIVEN FALLBACK: If tc_in_idx is still -1 or invalid, scan data rows for timecodes per column
-        if tc_in_idx == -1 or tc_in_idx >= num_cols:
-            col_tc_counts = {}
-            for c_idx in range(num_cols):
-                if c_idx not in numeric_id_cols:
-                    count = 0
-                    for r_idx in range(data_start, len(table.rows)):
-                        if c_idx < len(table.rows[r_idx].cells):
-                            if is_timecode_cell(table.rows[r_idx].cells[c_idx].text):
-                                count += 1
-                    col_tc_counts[c_idx] = count
-
-            if col_tc_counts:
-                best_c = max(col_tc_counts, key=col_tc_counts.get)
-                if col_tc_counts[best_c] > 0:
-                    tc_in_idx = best_c
-
-        # FALLBACK FOR CHAR_IDX AND TEXT_IDX IF UNMAPPED:
-        if tc_in_idx != -1:
-            remaining_cols = [c for c in range(num_cols) if c != tc_in_idx and c != tc_out_idx and c not in numeric_id_cols]
-            if text_idx == -1 and remaining_cols:
-                col_avg_len = {}
-                for c in remaining_cols:
-                    total_len = sum(len(table.rows[r].cells[c].text.strip()) for r in range(data_start, len(table.rows)) if c < len(table.rows[r].cells))
-                    col_avg_len[c] = total_len
-                best_text_col = max(col_avg_len, key=col_avg_len.get)
-                text_idx = best_text_col
-                remaining_cols.remove(best_text_col)
-                
-            if char_idx == -1 and remaining_cols:
-                char_idx = remaining_cols[0]
-
-        last_speaker = ""
-
-        for r_idx in range(data_start, len(table.rows)):
-            cells = [c.text.strip().replace("\r", "").replace("\n", " ") for c in table.rows[r_idx].cells]
-            if tc_in_idx < 0 or tc_in_idx >= len(cells):
-                continue
-                
-            raw_tc_cell = cells[tc_in_idx]
-            tc_in = extract_timecode(raw_tc_cell)
-            raw_out_cell = cells[tc_out_idx] if tc_out_idx >= 0 and tc_out_idx < len(cells) else ""
-            tc_out = extract_timecode(raw_out_cell) if raw_out_cell else ""
-            raw_char = cells[char_idx] if char_idx >= 0 and char_idx < len(cells) else ""
-            raw_text = cells[text_idx] if text_idx >= 0 and text_idx < len(cells) else ""
-            
-            # If raw_text is empty, check remaining non-numeric columns for fallback text (e.g. SCENE DESCRIPTION)
-            if not raw_text:
-                for alt_c in range(len(cells)):
-                    if alt_c not in [tc_in_idx, tc_out_idx, char_idx] and alt_c not in numeric_id_cols:
-                        if cells[alt_c]:
-                            raw_text = cells[alt_c]
-                            break
-
-            if not tc_in:
-                continue
-
-            speaker, dialogue = extract_speaker_and_dialogue(raw_char, raw_text, last_speaker)
-            if speaker and speaker not in ["SCENE", "NARRATOR"]:
-                last_speaker = speaker
-
-            raw_rows.append({
-                "in": tc_in,
-                "out": tc_out,
-                "character": speaker if speaker else "CHARACTER",
-                "dialogue": dialogue
-            })
-
-    else:
-        text_lines = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-        raw_rows = parse_plain_lines(text_lines)
-
-    return raw_rows
-
-def parse_pdf(file_path):
-    log_debug(f"Parsing PDF file: {file_path}")
+def extract_raw_text_pdf(file_path):
+    log_debug(f"Extracting raw text from PDF: {file_path}")
     reader = PdfReader(file_path)
-    lines = []
-    for page in reader.pages:
-        txt = page.extract_text()
-        if txt:
-            for line in txt.split("\n"):
-                if line.strip():
-                    lines.append(line.strip())
-    return parse_plain_lines(lines)
+    return "\n".join(page.extract_text() or "" for page in reader.pages)
 
-def parse_txt(file_path):
-    log_debug(f"Parsing TXT file: {file_path}")
+def extract_raw_text_txt(file_path):
+    log_debug(f"Extracting raw text from TXT: {file_path}")
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-        lines = [l.strip() for l in f.readlines() if l.strip()]
-    return parse_plain_lines(lines)
-
-def parse_plain_lines(lines):
-    raw_rows = []
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        m_tc = re.match(r"^(\d{2}:\d{2}:\d{2}(?:[:\.]\d{2})?)", line)
-        if m_tc:
-            tc_in = m_tc.group(1)
-            i += 1
-            
-            tc_out = ""
-            if i < len(lines) and re.match(r"^\d{2}:\d{2}:\d{2}", lines[i]):
-                tc_out = lines[i]
-                i += 1
-                
-            speaker = ""
-            if i < len(lines):
-                speaker = clean_character_name(lines[i])
-                i += 1
-                
-            speech_lines = []
-            while i < len(lines) and not re.match(r"^\d{2}:\d{2}:\d{2}", lines[i]):
-                speech_lines.append(lines[i])
-                i += 1
-                
-            dialogue = clean_dialogue(" ".join(speech_lines))
-            raw_rows.append({
-                "in": tc_in,
-                "out": tc_out,
-                "character": speaker if speaker else "CHARACTER",
-                "dialogue": dialogue if dialogue else " "
-            })
-        else:
-            i += 1
-            
-    return raw_rows
+        return f.read()
 
 def safe_validate_and_convert(input_path, output_docx_path=None, export_mode="3line"):
     """
-    Safely validates, parses, and converts script.
+    Safely validates, extracts raw text, and delegates parsing to Gemini AI.
     Never crashes. Returns (report, raw_rows, format_a_cues).
     export_mode: '3line' (IN only), '4line' (IN & OUT separate lines), 'inline' (IN - OUT combined line)
     """
-    log_debug(f"--- Starting Validation & Import for: {input_path} ---")
+    log_debug(f"--- Starting Validation & AI Import for: {input_path} ---")
     
     # 1. Run Pre-Validation
     report = ScriptValidator.validate_file(input_path)
@@ -368,20 +390,31 @@ def safe_validate_and_convert(input_path, output_docx_path=None, export_mode="3l
         log_debug(f"Validation Failed: {report.user_title} - {report.user_message}")
         return report, [], []
 
-    # 2. Perform Extraction
+    # 2. Extract Raw Text
     ext = os.path.splitext(input_path)[1].lower()
+    raw_text = ""
     try:
         if ext == ".docx":
-            raw_rows = parse_docx(input_path)
+            raw_text = extract_raw_text_docx(input_path)
         elif ext == ".pdf":
-            raw_rows = parse_pdf(input_path)
+            raw_text = extract_raw_text_pdf(input_path)
         elif ext in [".txt", ".text"]:
-            raw_rows = parse_txt(input_path)
+            raw_text = extract_raw_text_txt(input_path)
         else:
             raise UnsupportedFormatError(ext)
 
+        if not raw_text.strip():
+            raise EmptyFileError(os.path.basename(input_path))
+
+        # 3. Process with AI
+        raw_rows = parse_with_gemini(raw_text)
+
         if not raw_rows:
             raise NoTimecodesFoundError(os.path.basename(input_path))
+
+        report.status = ValidationStatus.NORMALIZABLE
+        report.user_title = "Script Parsed Successfully with AI"
+        report.user_message = f"The script was successfully extracted using the AI Parser. Detected {len(raw_rows)} cues."
 
         format_a_cues = []
         for r in raw_rows:
@@ -405,7 +438,8 @@ def safe_validate_and_convert(input_path, output_docx_path=None, export_mode="3l
                 elif export_mode == "inline" and tc_out:
                     out_doc.add_paragraph(f"{tc_in} - {tc_out}")
                 else: # '3line' default
-                    out_doc.add_paragraph(tc_in)
+                    if tc_in:
+                        out_doc.add_paragraph(tc_in)
 
                 out_doc.add_paragraph(cue["character"])
                 out_doc.add_paragraph(cue["dialogue"])
@@ -434,7 +468,7 @@ def safe_validate_and_convert(input_path, output_docx_path=None, export_mode="3l
         report.status = ValidationStatus.INVALID
         report.user_title = "Unable to Understand Script Format"
         report.user_message = "An unexpected error occurred while parsing the script content."
-        report.suggestion = "The structure of this script is currently not supported by the importer. Please check the required format and try importing your script again. If you believe the format should be supported, please contact Support."
+        report.suggestion = "The structure of this script might be entirely corrupted or there is a bug in the AI integration. Please contact Support."
         report.diagnostic_info += f"\n\nUnexpected Exception:\n{tb}"
         return report, [], []
 

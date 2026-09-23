@@ -17,6 +17,8 @@ def build_installer_exe():
 
     cmd = [
         "pyinstaller",
+        "--noconfirm",
+        "--clean",
         "--noconsole",
         "--onefile",
         f"--icon={logo_ico}",
@@ -35,9 +37,13 @@ def build_installer_exe():
     res = subprocess.run(cmd, cwd=installer_dir)
     if res.returncode == 0:
         setup_exe = os.path.join(installer_dir, "Setup_ERytmo_Script_Converter.exe")
+        root_setup_exe = os.path.join(root_dir, "Setup_ERytmo_Script_Converter.exe")
+        import shutil
+        shutil.copy2(setup_exe, root_setup_exe)
         print("\n==================================================")
         print("INSTALLER BUILD SUCCESSFUL!")
         print(f"Standalone Client Setup File: {setup_exe}")
+        print(f"Synced to Root Directory: {root_setup_exe}")
         print("==================================================")
     else:
         print(f"PyInstaller build failed with exit code: {res.returncode}")

@@ -3,13 +3,14 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView,
-    QProgressBar, QFrame, QSplitter, QMessageBox, QDialog, QTextEdit
+    QProgressBar, QFrame, QSplitter, QMessageBox, QDialog, QTextEdit, QLineEdit,
+    QComboBox
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QIcon, QPixmap, QFont, QColor
 
 # Import script parser and validator
-from script_parser import safe_validate_and_convert, extract_and_convert
+from script_parser import safe_validate_and_convert, extract_and_convert, align_timecodes_with_gemini
 from script_validator import ValidationStatus, ValidationReport
 
 class ParseThread(QThread):
@@ -22,6 +23,27 @@ class ParseThread(QThread):
     def run(self):
         report, raw_rows, format_a_cues = safe_validate_and_convert(self.input_path)
         self.finished_signal.emit(report, raw_rows, format_a_cues)
+
+class AlignThread(QThread):
+    row_updated_signal = Signal(int, dict)
+    finished_signal = Signal(object)
+
+    def __init__(self, cues, media_path, start_tc):
+        super().__init__()
+        self.cues = cues
+        self.media_path = media_path
+        self.start_tc = start_tc
+
+    def run(self):
+        try:
+            generator = align_timecodes_with_gemini(self.cues, self.media_path, self.start_tc)
+            aligned_cues = []
+            for idx, cue in enumerate(generator):
+                aligned_cues.append(cue)
+                self.row_updated_signal.emit(idx, cue)
+            self.finished_signal.emit(aligned_cues)
+        except Exception as e:
+            self.finished_signal.emit(e)
 
 class DropAreaWidget(QFrame):
     file_dropped_signal = Signal(str)
@@ -50,32 +72,11 @@ class SupportDialog(QDialog):
         self.setWindowTitle("Import Support & Technical Diagnostics")
         self.resize(600, 450)
         self.setStyleSheet("""
-            QDialog {
-                background-color: #FFFFFF;
-            }
-            QLabel {
-                font-family: 'Segoe UI', Arial, sans-serif;
-                color: #0F172A;
-            }
-            QTextEdit {
-                background-color: #F8FAFC;
-                border: 1px solid #CBD5E1;
-                border-radius: 6px;
-                font-family: 'Consolas', monospace;
-                font-size: 11px;
-                color: #334155;
-            }
-            QPushButton#CopyBtn {
-                background-color: #2563EB;
-                color: #FFFFFF;
-                font-weight: bold;
-                border-radius: 6px;
-                padding: 8px 16px;
-                border: none;
-            }
-            QPushButton#CopyBtn:hover {
-                background-color: #1D4ED8;
-            }
+            QDialog { background-color: #FFFFFF; }
+            QLabel { font-family: 'Segoe UI', Arial, sans-serif; color: #0F172A; }
+            QTextEdit { background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 11px; color: #334155; }
+            QPushButton#CopyBtn { background-color: #2563EB; color: #FFFFFF; font-weight: bold; border-radius: 6px; padding: 8px 16px; border: none; }
+            QPushButton#CopyBtn:hover { background-color: #1D4ED8; }
         """)
 
         layout = QVBoxLayout(self)
@@ -94,7 +95,10 @@ class SupportDialog(QDialog):
 
         self.diag_edit = QTextEdit()
         self.diag_edit.setReadOnly(True)
-        self.diag_edit.setText(report.diagnostic_info)
+        if isinstance(report, ValidationReport):
+             self.diag_edit.setText(report.diagnostic_info)
+        else:
+             self.diag_edit.setText(str(report))
         layout.addWidget(self.diag_edit)
         layout.addSpacing(10)
 
@@ -113,18 +117,19 @@ class SupportDialog(QDialog):
 
     def copy_to_clipboard(self):
         clipboard = QApplication.clipboard()
-        clipboard.setText(self.report.diagnostic_info)
+        clipboard.setText(self.diag_edit.toPlainText())
         QMessageBox.information(self, "Copied", "Diagnostic information copied to clipboard!")
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.selected_file_path = None
+        self.loaded_media_path = None
         self.raw_rows = []
         self.format_a_cues = []
         self.last_report = None
 
-        self.setWindowTitle("ERytmo Script Converter")
+        self.setWindowTitle("ERytmo Script Converter v2 - AI Alignment")
         self.resize(1120, 750)
         self.setMinimumSize(950, 650)
 
@@ -140,118 +145,28 @@ class MainWindow(QMainWindow):
 
     def init_ui(self, logo_path):
         self.setStyleSheet("""
-            QMainWindow {
-                background-color: #F8FAFC;
-            }
-            QWidget {
-                font-family: 'Segoe UI', Arial, sans-serif;
-                color: #0F172A;
-            }
-            QFrame#HeaderFrame {
-                background-color: #FFFFFF;
-                border-bottom: 1px solid #E2E8F0;
-            }
-            QFrame#DropArea {
-                background-color: #FFFFFF;
-                border: 2px dashed #CBD5E1;
-                border-radius: 12px;
-            }
-            QFrame#DropArea:hover {
-                border-color: #2563EB;
-                background-color: #F1F5F9;
-            }
-            QFrame#CardFrame {
-                background-color: #FFFFFF;
-                border: 1px solid #E2E8F0;
-                border-radius: 10px;
-            }
-            QFrame#ValidationCard {
-                border-radius: 10px;
-                padding: 10px;
-            }
-            QPushButton#PrimaryButton {
-                background-color: #2563EB;
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: bold;
-                border-radius: 8px;
-                padding: 10px 20px;
-                border: none;
-            }
-            QPushButton#PrimaryButton:hover {
-                background-color: #1D4ED8;
-            }
-            QPushButton#PrimaryButton:disabled {
-                background-color: #94A3B8;
-            }
-            QPushButton#DownloadButton {
-                background-color: #10B981;
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: bold;
-                border-radius: 8px;
-                padding: 10px 22px;
-                border: none;
-            }
-            QPushButton#DownloadButton:hover {
-                background-color: #059669;
-            }
-            QPushButton#DownloadButton:disabled {
-                background-color: #E2E8F0;
-                color: #94A3B8;
-            }
-            QPushButton#SupportButton {
-                background-color: #EF4444;
-                color: #FFFFFF;
-                font-size: 12px;
-                font-weight: bold;
-                border-radius: 6px;
-                padding: 6px 12px;
-                border: none;
-            }
-            QPushButton#SupportButton:hover {
-                background-color: #DC2626;
-            }
-            QPushButton#SecondaryButton {
-                background-color: #FFFFFF;
-                color: #334155;
-                font-size: 13px;
-                font-weight: 600;
-                border-radius: 8px;
-                padding: 8px 16px;
-                border: 1px solid #CBD5E1;
-            }
-            QPushButton#SecondaryButton:hover {
-                background-color: #F1F5F9;
-            }
-            QTableWidget {
-                background-color: #FFFFFF;
-                border: 1px solid #E2E8F0;
-                border-radius: 8px;
-                gridline-color: #F1F5F9;
-                font-size: 12px;
-                color: #0F172A;
-            }
-            QTableWidget::item {
-                padding: 6px;
-            }
-            QHeaderView::section {
-                background-color: #F1F5F9;
-                color: #334155;
-                font-weight: bold;
-                border: none;
-                border-bottom: 1px solid #CBD5E1;
-                padding: 8px;
-            }
-            QProgressBar {
-                border: none;
-                background-color: #E2E8F0;
-                height: 4px;
-                border-radius: 2px;
-            }
-            QProgressBar::chunk {
-                background-color: #2563EB;
-            }
+            QMainWindow { background-color: #F8FAFC; }
+            QWidget { font-family: 'Segoe UI', Arial, sans-serif; color: #0F172A; }
+            QFrame#HeaderFrame { background-color: #FFFFFF; border-bottom: 1px solid #E2E8F0; }
+            QFrame#DropArea { background-color: #FFFFFF; border: 2px dashed #CBD5E1; border-radius: 12px; }
+            QFrame#DropArea:hover { border-color: #2563EB; background-color: #F1F5F9; }
+            QFrame#CardFrame { background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; }
+            QPushButton#PrimaryButton { background-color: #2563EB; color: #FFFFFF; font-size: 13px; font-weight: bold; border-radius: 6px; padding: 8px 16px; border: none; }
+            QPushButton#PrimaryButton:hover { background-color: #1D4ED8; }
+            QPushButton#PrimaryButton:disabled { background-color: #94A3B8; }
+            QPushButton#DownloadButton { background-color: #10B981; color: #FFFFFF; font-size: 14px; font-weight: bold; border-radius: 8px; padding: 10px 22px; border: none; }
+            QPushButton#DownloadButton:hover { background-color: #059669; }
+            QPushButton#DownloadButton:disabled { background-color: #E2E8F0; color: #94A3B8; }
+            QPushButton#SupportButton { background-color: #EF4444; color: #FFFFFF; font-size: 12px; font-weight: bold; border-radius: 6px; padding: 6px 12px; border: none; }
+            QPushButton#SupportButton:hover { background-color: #DC2626; }
+            QPushButton#SecondaryButton { background-color: #FFFFFF; color: #334155; font-size: 13px; font-weight: 600; border-radius: 6px; padding: 8px 16px; border: 1px solid #CBD5E1; }
+            QPushButton#SecondaryButton:hover { background-color: #F1F5F9; }
+            QLineEdit { border: 1px solid #CBD5E1; border-radius: 4px; padding: 4px; background: #FFFFFF; }
+            QTableWidget { background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; gridline-color: #F1F5F9; font-size: 12px; color: #0F172A; }
+            QTableWidget::item { padding: 6px; }
+            QHeaderView::section { background-color: #F1F5F9; color: #334155; font-weight: bold; border: none; border-bottom: 1px solid #CBD5E1; padding: 8px; }
+            QProgressBar { border: none; background-color: #E2E8F0; height: 4px; border-radius: 2px; }
+            QProgressBar::chunk { background-color: #2563EB; }
         """)
 
         central_widget = QWidget()
@@ -260,7 +175,7 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # 1. Header Frame
+        # Header
         header_frame = QFrame()
         header_frame.setObjectName("HeaderFrame")
         header_layout = QHBoxLayout(header_frame)
@@ -273,176 +188,220 @@ class MainWindow(QMainWindow):
             header_layout.addWidget(logo_label)
 
         title_box = QVBoxLayout()
-        title_label = QLabel("ERytmo Script Converter")
+        title_label = QLabel("ERytmo Script Converter v2")
         title_label.setFont(QFont("Segoe UI", 15, QFont.Bold))
-        title_label.setStyleSheet("color: #0F172A;")
-
-        subtitle_label = QLabel("Convert Company Scripts (.docx, .pdf, .txt) into ERytmo Format A DOCX")
-        subtitle_label.setFont(QFont("Segoe UI", 9))
+        subtitle_label = QLabel("Convert Scripts and Align Timecodes with AI")
         subtitle_label.setStyleSheet("color: #64748B;")
-
         title_box.addWidget(title_label)
         title_box.addWidget(subtitle_label)
         header_layout.addLayout(title_box)
         header_layout.addStretch()
-
         main_layout.addWidget(header_frame)
 
-        # 2. Main Content Body
+        # Body
         body_widget = QWidget()
         body_layout = QVBoxLayout(body_widget)
         body_layout.setContentsMargins(20, 16, 20, 16)
         body_layout.setSpacing(12)
 
-        # Top Control Row (Drop Area + Selected File & Validation Card)
+        # Row 1: Script Load
         top_row = QHBoxLayout()
         top_row.setSpacing(12)
 
-        # Drop Area Frame
         self.drop_area = DropAreaWidget()
         drop_layout = QVBoxLayout(self.drop_area)
-        drop_layout.setContentsMargins(16, 12, 16, 12)
-        drop_layout.setAlignment(Qt.AlignCenter)
-
         drop_text_label = QLabel("Drag & Drop Script File (.docx, .pdf, .txt)")
         drop_text_label.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        drop_text_label.setStyleSheet("color: #334155;")
         drop_text_label.setAlignment(Qt.AlignCenter)
-
         browse_btn = QPushButton("Browse File...")
         browse_btn.setObjectName("SecondaryButton")
-        browse_btn.setCursor(Qt.PointingHandCursor)
         browse_btn.clicked.connect(self.on_browse_clicked)
-
         drop_layout.addWidget(drop_text_label)
         drop_layout.addWidget(browse_btn, 0, Qt.AlignCenter)
         self.drop_area.file_dropped_signal.connect(self.on_file_selected)
-
         top_row.addWidget(self.drop_area, 2)
 
-        # File Status & Validation Card
         self.file_card = QFrame()
         self.file_card.setObjectName("CardFrame")
         card_layout = QVBoxLayout(self.file_card)
-        card_layout.setContentsMargins(16, 12, 16, 12)
-
         self.file_name_label = QLabel("No File Loaded")
         self.file_name_label.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        self.file_name_label.setStyleSheet("color: #64748B;")
-
-        self.status_badge_label = QLabel("Select or drop a script file to validate format.")
-        self.status_badge_label.setFont(QFont("Segoe UI", 9))
-        self.status_badge_label.setStyleSheet("color: #64748B;")
-        self.status_badge_label.setWordWrap(True)
-
-        # Download / Save Button & Support Button Row
+        self.status_badge_label = QLabel("Select or drop a script file to parse.")
+        
         btn_layout = QHBoxLayout()
-        self.download_btn = QPushButton("📥 Download Converted DOCX")
+        self.export_combo = QComboBox()
+        self.export_combo.addItems(["ERytmo Factory (Standard)", "Mosaic (Table)"])
+        self.export_combo.setStyleSheet("border: 1px solid #CBD5E1; border-radius: 6px; padding: 6px; font-weight: bold; background: white;")
+        self.export_combo.setEnabled(False)
+        self.download_btn = QPushButton("📥 Download DOCX")
         self.download_btn.setObjectName("DownloadButton")
-        self.download_btn.setCursor(Qt.PointingHandCursor)
         self.download_btn.setEnabled(False)
         self.download_btn.clicked.connect(self.on_download_clicked)
-
         self.support_btn = QPushButton("🎧 Support")
         self.support_btn.setObjectName("SupportButton")
-        self.support_btn.setCursor(Qt.PointingHandCursor)
         self.support_btn.setVisible(False)
         self.support_btn.clicked.connect(self.on_support_clicked)
-
+        btn_layout.addWidget(self.export_combo)
         btn_layout.addWidget(self.download_btn, 1)
         btn_layout.addWidget(self.support_btn)
-
+        
         card_layout.addWidget(self.file_name_label)
         card_layout.addWidget(self.status_badge_label)
         card_layout.addStretch()
         card_layout.addLayout(btn_layout)
-
         top_row.addWidget(self.file_card, 1)
 
         body_layout.addLayout(top_row)
 
-        # Progress Bar
+        # Row 2: Media Alignment
+        media_row = QHBoxLayout()
+        self.media_card = QFrame()
+        self.media_card.setObjectName("CardFrame")
+        media_layout = QVBoxLayout(self.media_card)
+        
+        media_title = QLabel("Optional: AI Media Timecode Verification")
+        media_title.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        
+        media_controls = QHBoxLayout()
+        self.load_media_btn = QPushButton("🎵 Load Media (Video/Audio)")
+        self.load_media_btn.setObjectName("SecondaryButton")
+        self.load_media_btn.clicked.connect(self.on_load_media_clicked)
+        
+        self.media_path_label = QLabel("No media loaded")
+        self.media_path_label.setStyleSheet("color: #64748B;")
+        
+        tc_label = QLabel("Start TC:")
+        self.start_tc_input = QLineEdit("00:00:00:00")
+        self.start_tc_input.setMaximumWidth(100)
+        
+        self.verify_btn = QPushButton("✨ Verify Timecodes (AI)")
+        self.verify_btn.setObjectName("PrimaryButton")
+        self.verify_btn.setEnabled(False)
+        self.verify_btn.clicked.connect(self.on_verify_clicked)
+        
+        media_controls.addWidget(self.load_media_btn)
+        media_controls.addWidget(self.media_path_label)
+        media_controls.addStretch()
+        media_controls.addWidget(tc_label)
+        media_controls.addWidget(self.start_tc_input)
+        media_controls.addWidget(self.verify_btn)
+        
+        media_layout.addWidget(media_title)
+        media_layout.addLayout(media_controls)
+        media_row.addWidget(self.media_card)
+        body_layout.addLayout(media_row)
+
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 0)
         self.progress_bar.setVisible(False)
         body_layout.addWidget(self.progress_bar)
 
-        # 3. Two Side-by-Side Tables (Splitter)
+        # Tables
         tables_splitter = QSplitter(Qt.Horizontal)
-
-        # Table 1: Original Imported Script
         t1_box = QWidget()
         t1_layout = QVBoxLayout(t1_box)
         t1_layout.setContentsMargins(0, 0, 0, 0)
         t1_label = QLabel("1. Original Imported Script (Raw)")
         t1_label.setFont(QFont("Segoe UI", 10, QFont.Bold))
-        t1_label.setStyleSheet("color: #1E293B;")
-        
-        self.table_raw = QTableWidget()
-        self.table_raw.setColumnCount(4)
+        self.table_raw = QTableWidget(0, 4)
         self.table_raw.setHorizontalHeaderLabels(["IN", "OUT", "Character", "Dialogue / Text"])
-        self.table_raw.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.table_raw.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.table_raw.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.table_raw.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
-        
         t1_layout.addWidget(t1_label)
         t1_layout.addWidget(self.table_raw)
 
-        # Table 2: Converted ERytmo Format A Script
         t2_box = QWidget()
         t2_layout = QVBoxLayout(t2_box)
         t2_layout.setContentsMargins(0, 0, 0, 0)
-        t2_label = QLabel("2. Converted ERytmo Format A Script (Output Preview)")
+        t2_label = QLabel("2. Converted / Aligned Script (Output Preview)")
         t2_label.setFont(QFont("Segoe UI", 10, QFont.Bold))
         t2_label.setStyleSheet("color: #166534;")
-        
-        self.table_converted = QTableWidget()
-        self.table_converted.setColumnCount(4)
-        self.table_converted.setHorizontalHeaderLabels(["Line 1 (IN)", "Line 2 (OUT)", "Line 3 (Character)", "Line 4 (Dialogue / Text)"])
-        self.table_converted.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.table_converted.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.table_converted.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table_converted = QTableWidget(0, 4)
+        self.table_converted.setHorizontalHeaderLabels(["IN", "OUT", "Character", "Dialogue / Text"])
         self.table_converted.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
-
         t2_layout.addWidget(t2_label)
         t2_layout.addWidget(self.table_converted)
 
         tables_splitter.addWidget(t1_box)
         tables_splitter.addWidget(t2_box)
-        tables_splitter.setSizes([500, 500])
-
         body_layout.addWidget(tables_splitter, 1)
 
         main_layout.addWidget(body_widget)
 
     def on_browse_clicked(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select Company Script File",
-            "",
-            "Supported Script Files (*.docx *.pdf *.txt *.text);;Word Documents (*.docx);;PDF Files (*.pdf);;Text Files (*.txt *.text)"
-        )
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Script File", "", "Script Files (*.docx *.pdf *.txt *.text)")
         if file_path:
             self.on_file_selected(file_path)
+
+    def on_load_media_clicked(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Media File", "", "Media Files (*.mp4 *.mkv *.avi *.mp3 *.wav *.m4a)")
+        if file_path:
+            self.loaded_media_path = file_path
+            self.media_path_label.setText(os.path.basename(file_path))
+            if self.raw_rows:
+                self.verify_btn.setEnabled(True)
 
     def on_file_selected(self, file_path):
         self.selected_file_path = file_path
         self.file_name_label.setText(os.path.basename(file_path))
-        self.file_name_label.setStyleSheet("color: #0F172A;")
-        self.status_badge_label.setText("Validating script format...")
+        self.status_badge_label.setText("Parsing script with AI...")
         self.progress_bar.setVisible(True)
+        self.export_combo.setEnabled(False)
         self.download_btn.setEnabled(False)
         self.support_btn.setVisible(False)
+        self.verify_btn.setEnabled(False)
 
-        # Clear existing tables
         self.table_raw.setRowCount(0)
         self.table_converted.setRowCount(0)
 
-        # Run validation in background thread
         self.thread = ParseThread(file_path)
         self.thread.finished_signal.connect(self.on_parse_finished)
         self.thread.start()
+
+    def on_verify_clicked(self):
+        if not self.format_a_cues or not self.loaded_media_path: return
+        self.status_badge_label.setText("Uploading media and aligning timecodes... (This may take a minute)")
+        self.progress_bar.setVisible(True)
+        self.verify_btn.setEnabled(False)
+        
+        self.align_thread = AlignThread(self.format_a_cues, self.loaded_media_path, self.start_tc_input.text())
+        self.align_thread.row_updated_signal.connect(self.on_align_row_updated)
+        self.align_thread.finished_signal.connect(self.on_align_finished)
+        self.align_thread.start()
+
+    def on_align_row_updated(self, r_idx, c):
+        if r_idx < self.table_converted.rowCount():
+            self.table_converted.setItem(r_idx, 0, QTableWidgetItem(c.get("in", "")))
+            self.table_converted.setItem(r_idx, 1, QTableWidgetItem(c.get("out", "")))
+            item_char = QTableWidgetItem(c.get("character", ""))
+            item_char.setForeground(QColor("#166534"))
+            item_char.setFont(QFont("Segoe UI", 9, QFont.Bold))
+            self.table_converted.setItem(r_idx, 2, item_char)
+            self.table_converted.setItem(r_idx, 3, QTableWidgetItem(c.get("dialogue", "")))
+            self.table_converted.scrollToItem(self.table_converted.item(r_idx, 0))
+
+    def on_align_finished(self, result):
+        self.progress_bar.setVisible(False)
+        self.verify_btn.setEnabled(True)
+        if isinstance(result, Exception):
+            QMessageBox.critical(self, "Alignment Failed", str(result))
+            dlg = SupportDialog(result, self)
+            dlg.exec()
+            return
+        
+        self.format_a_cues = result
+        self.status_badge_label.setText(f"🟢 Successfully aligned {len(self.format_a_cues)} cues to media!")
+        self.populate_converted_table(self.format_a_cues)
+
+    def populate_converted_table(self, cues):
+        self.table_converted.setRowCount(len(cues))
+        for r_idx, c in enumerate(cues):
+            self.table_converted.setItem(r_idx, 0, QTableWidgetItem(c.get("in", "")))
+            self.table_converted.setItem(r_idx, 1, QTableWidgetItem(c.get("out", "")))
+            item_char = QTableWidgetItem(c.get("character", ""))
+            item_char.setForeground(QColor("#166534"))
+            item_char.setFont(QFont("Segoe UI", 9, QFont.Bold))
+            self.table_converted.setItem(r_idx, 2, item_char)
+            self.table_converted.setItem(r_idx, 3, QTableWidgetItem(c.get("dialogue", "")))
 
     def on_parse_finished(self, report, raw_rows, format_a_cues):
         self.progress_bar.setVisible(False)
@@ -450,139 +409,72 @@ class MainWindow(QMainWindow):
 
         if report.status == ValidationStatus.INVALID:
             self.status_badge_label.setText(f"🔴 <b>{report.user_title}</b><br>{report.user_message}")
-            self.status_badge_label.setStyleSheet("color: #DC2626;")
             self.download_btn.setEnabled(False)
             self.support_btn.setVisible(True)
-
-            # Display friendly error dialog
-            err_box = QMessageBox(self)
-            err_box.setIcon(QMessageBox.Critical)
-            err_box.setWindowTitle(report.user_title)
-            err_box.setTextFormat(Qt.RichText)
-            err_box.setText(f"<b>{report.user_title}</b>")
-            
-            detailed_text = f"{report.user_message}\n\n"
-            detailed_text += f"💡 <b>Suggestion:</b> {report.suggestion}\n\n"
-            detailed_text += "<b>Expected Format Requirements:</b>\n"
-            detailed_text += "• Timecodes in SMPTE format (HH:MM:SS:FF or HH:MM:SS)\n"
-            detailed_text += "• Character / Speaker names\n"
-            detailed_text += "• Dialogue speech text"
-
-            err_box.setInformativeText(detailed_text)
-            support_btn = err_box.addButton("Contact Support", QMessageBox.ActionRole)
-            err_box.addButton(QMessageBox.Close)
-            
-            err_box.exec()
-
-            if err_box.clickedButton() == support_btn:
-                self.on_support_clicked()
+            QMessageBox.critical(self, report.user_title, f"{report.user_message}\n\nSuggestion: {report.suggestion}")
             return
 
         self.raw_rows = raw_rows
         self.format_a_cues = format_a_cues
+        self.export_combo.setEnabled(True)
         self.download_btn.setEnabled(True)
+        if self.loaded_media_path:
+            self.verify_btn.setEnabled(True)
 
-        if report.status == ValidationStatus.NORMALIZABLE:
-            norm_summary = "<br>• " + "<br>• ".join(report.normalizations[:2]) if report.normalizations else ""
-            self.status_badge_label.setText(
-                f"🟡 <b>{report.user_title}</b><br>Detected {len(raw_rows)} dialogue cues. Auto-normalized formatting variations.{norm_summary}"
-            )
-            self.status_badge_label.setStyleSheet("color: #D97706;")
-        else: # VALID
-            self.status_badge_label.setText(
-                f"🟢 <b>{report.user_title}</b><br>Successfully validated {len(raw_rows)} dialogue cues. Format is perfect!"
-            )
-            self.status_badge_label.setStyleSheet("color: #166534;")
+        self.status_badge_label.setText(f"🟢 Parsed {len(raw_rows)} dialogue cues.")
 
-        # Populate Table 1: Raw Imported Script
         self.table_raw.setRowCount(len(raw_rows))
         for r_idx, r in enumerate(raw_rows):
-            self.table_raw.setItem(r_idx, 0, QTableWidgetItem(r["in"]))
-            self.table_raw.setItem(r_idx, 1, QTableWidgetItem(r["out"]))
-            self.table_raw.setItem(r_idx, 2, QTableWidgetItem(r["character"]))
-            self.table_raw.setItem(r_idx, 3, QTableWidgetItem(r["dialogue"]))
+            self.table_raw.setItem(r_idx, 0, QTableWidgetItem(r.get("in", "")))
+            self.table_raw.setItem(r_idx, 1, QTableWidgetItem(r.get("out", "")))
+            self.table_raw.setItem(r_idx, 2, QTableWidgetItem(r.get("character", "")))
+            self.table_raw.setItem(r_idx, 3, QTableWidgetItem(r.get("dialogue", "")))
 
-        # Populate Table 2: Converted Format A Script
-        self.table_converted.setRowCount(len(format_a_cues))
-        for r_idx, c in enumerate(format_a_cues):
-            item_in = QTableWidgetItem(c["in"])
-            item_out = QTableWidgetItem(c.get("out", "") if c.get("out") else "-")
-            item_char = QTableWidgetItem(c["character"])
-            item_diag = QTableWidgetItem(c["dialogue"])
-            
-            item_char.setForeground(QColor("#166534"))
-            item_char.setFont(QFont("Segoe UI", 9, QFont.Bold))
-
-            self.table_converted.setItem(r_idx, 0, item_in)
-            self.table_converted.setItem(r_idx, 1, item_out)
-            self.table_converted.setItem(r_idx, 2, item_char)
-            self.table_converted.setItem(r_idx, 3, item_diag)
+        self.populate_converted_table(format_a_cues)
 
     def on_download_clicked(self):
-        if not self.selected_file_path or not self.format_a_cues:
-            return
-
+        if not self.selected_file_path or not self.format_a_cues: return
+        
+        export_mode = self.export_combo.currentText()
+        is_mosaic = "Mosaic" in export_mode
+        
         base_name = os.path.splitext(os.path.basename(self.selected_file_path))[0]
-        default_out_name = f"{base_name}_ERytmo_FormatA.docx"
-        default_dir = os.path.dirname(self.selected_file_path)
-        default_path = os.path.join(default_dir, default_out_name)
-
-        # Ask user format preference: Standard (3Line), Extended (4Line), or Inline (IN - OUT)
-        opt_box = QMessageBox(self)
-        opt_box.setIcon(QMessageBox.Question)
-        opt_box.setWindowTitle("Select ERytmo Export Format")
-        opt_box.setText("<b>Choose ERytmo DOCX Output Format:</b>")
-        opt_box.setInformativeText(
-            "• <b>Standard 3-Line (IN Only)</b>:\n  Line 1: IN | Line 2: Character | Line 3: Dialogue\n\n"
-            "• <b>Extended 4-Line (IN & OUT)</b>:\n  Line 1: IN | Line 2: OUT | Line 3: Character | Line 4: Dialogue\n\n"
-            "• <b>Inline (IN - OUT)</b>:\n  Line 1: IN - OUT | Line 2: Character | Line 3: Dialogue"
-        )
-        btn_3line = opt_box.addButton("Standard 3-Line (IN Only)", QMessageBox.ActionRole)
-        btn_4line = opt_box.addButton("Extended 4-Line (IN & OUT)", QMessageBox.ActionRole)
-        btn_inline = opt_box.addButton("Inline (IN - OUT)", QMessageBox.ActionRole)
-        opt_box.addButton(QMessageBox.Cancel)
-
-        opt_box.exec()
-
-        clicked = opt_box.clickedButton()
-        if clicked == btn_3line:
-            export_mode = "3line"
-            default_path = os.path.join(default_dir, f"{base_name}_ERytmo_FormatA.docx")
-        elif clicked == btn_4line:
-            export_mode = "4line"
-            default_path = os.path.join(default_dir, f"{base_name}_ERytmo_IN_OUT_4Line.docx")
-        elif clicked == btn_inline:
-            export_mode = "inline"
-            default_path = os.path.join(default_dir, f"{base_name}_ERytmo_IN_OUT_Inline.docx")
-        else:
-            return
-
-        output_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Converted ERytmo DOCX Script",
-            default_path,
-            "Word Documents (*.docx)"
-        )
-
+        suffix = "Mosaic" if is_mosaic else "ERytmo"
+        default_path = os.path.join(os.path.dirname(self.selected_file_path), f"{base_name}_{suffix}_Format.docx")
+        
+        output_path, _ = QFileDialog.getSaveFileName(self, "Save Converted DOCX", default_path, "Word Documents (*.docx)")
         if output_path:
             try:
-                extract_and_convert(self.selected_file_path, output_path, export_mode=export_mode)
+                import docx
+                out_doc = docx.Document()
                 
-                msg_box = QMessageBox(self)
-                msg_box.setWindowTitle("Conversion Successful")
-                msg_box.setText(f"File saved successfully!\n\nFormat Mode: {export_mode.upper()}\nLocation: {output_path}")
-                open_btn = msg_box.addButton("Open DOCX File", QMessageBox.ActionRole)
-                folder_btn = msg_box.addButton("Open Folder", QMessageBox.ActionRole)
-                msg_box.addButton(QMessageBox.Close)
-                
-                msg_box.exec()
-
-                if msg_box.clickedButton() == open_btn:
-                    os.startfile(output_path)
-                elif msg_box.clickedButton() == folder_btn:
-                    os.startfile(os.path.dirname(output_path))
+                if is_mosaic:
+                    table = out_doc.add_table(rows=1, cols=4)
+                    table.style = 'Table Grid'
+                    hdr_cells = table.rows[0].cells
+                    hdr_cells[0].text = 'Timecode IN'
+                    hdr_cells[1].text = 'Timecode OUT'
+                    hdr_cells[2].text = 'Character'
+                    hdr_cells[3].text = 'Dialogue / Text'
+                    
+                    for cue in self.format_a_cues:
+                        row_cells = table.add_row().cells
+                        row_cells[0].text = cue.get("in", "")
+                        row_cells[1].text = cue.get("out", "")
+                        row_cells[2].text = cue.get("character", "")
+                        row_cells[3].text = cue.get("dialogue", "")
+                else:
+                    for cue in self.format_a_cues:
+                        tc_in = cue.get("in", "")
+                        if tc_in: out_doc.add_paragraph(tc_in)
+                        out_doc.add_paragraph(cue.get("character", ""))
+                        out_doc.add_paragraph(cue.get("dialogue", ""))
+                        out_doc.add_paragraph("")
+                        
+                out_doc.save(output_path)
+                QMessageBox.information(self, "Success", f"Saved to {output_path}")
             except Exception as e:
-                QMessageBox.critical(self, "Error Saving File", f"Failed to save file:\n{str(e)}")
+                QMessageBox.critical(self, "Error Saving File", str(e))
 
     def on_support_clicked(self):
         if self.last_report:

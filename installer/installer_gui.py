@@ -86,7 +86,7 @@ class InstallerWizard(QWizard):
         super().__init__()
         self.installed_exe_path = None
 
-        self.setWindowTitle("ERytmo Script Converter Setup")
+        self.setWindowTitle("ERytmo Script Converter v1.0 Setup")
         self.resize(620, 440)
         self.setWizardStyle(QWizard.ModernStyle)
 
@@ -147,7 +147,7 @@ class InstallerWizard(QWizard):
 
     def create_welcome_page(self):
         page = QWizardPage()
-        page.setTitle("Welcome to ERytmo Script Converter Setup")
+        page.setTitle("Welcome to ERytmo Script Converter v1.0 Setup")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(24, 20, 24, 20)
 
@@ -159,9 +159,9 @@ class InstallerWizard(QWizard):
             header_box.addWidget(logo)
 
         text_box = QVBoxLayout()
-        t1 = QLabel("Install ERytmo Script Converter")
+        t1 = QLabel("Install ERytmo Script Converter v1.0")
         t1.setFont(QFont("Segoe UI", 14, QFont.Bold))
-        t2 = QLabel("This wizard will guide you through installing ERytmo Script Converter on your computer.")
+        t2 = QLabel("This wizard will guide you through installing ERytmo Script Converter v1.0 on your computer.")
         t2.setFont(QFont("Segoe UI", 10))
         t2.setWordWrap(True)
         t2.setStyleSheet("color: #64748B;")

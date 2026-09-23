@@ -17,6 +17,8 @@ def build_executable():
 
     cmd = [
         "pyinstaller",
+        "--noconfirm",
+        "--clean",
         "--noconsole",
         "--onefile",
         f"--icon={logo_ico}",

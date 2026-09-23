@@ -20,3 +20,6 @@ Thumbs.db
 
 # Large binaries (optional, keep source light)
 *.exe
+*.lnk
+config.json
+samples/

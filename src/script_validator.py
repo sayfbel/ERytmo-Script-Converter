@@ -212,12 +212,13 @@ class ScriptValidator:
 
         # Evaluate Result
         if found_timecodes == 0:
-            diag = "\n".join(diagnostic_lines + ["Error: 0 timecodes found matching HH:MM:SS:FF or HH:MM:SS pattern."])
+            diag = "\n".join(diagnostic_lines + ["Warning: 0 standard timecodes found. Proceeding with AI Fallback parser."])
             return ValidationReport(
-                ValidationStatus.INVALID,
-                "Unable to Understand Script Format",
-                "The structure of this script is currently not supported because no valid timecodes (e.g. 05:00:00:00) were detected.",
-                "Please check your script format and ensure timecodes are formatted as HH:MM:SS:FF or HH:MM:SS, then try importing again.",
+                ValidationStatus.NORMALIZABLE,
+                "Non-Standard Script Format Detected",
+                "No standard timecodes detected. The AI engine will attempt to extract the script.",
+                "If extraction fails, ensure timecodes are formatted correctly.",
+                normalizations=["Using AI Fallback Parser due to lack of standard timecodes."],
                 diagnostic_info=diag
             )
 
