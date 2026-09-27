@@ -18,8 +18,24 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Large binaries (optional, keep source light)
+# Large binaries & configs (keep source light & secure)
 *.exe
 *.lnk
 config.json
 samples/
+
+# Databases & local logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
+backend/conversion_debug.log
+
+# Frontend dependencies & builds
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Sample files
+*.xlsx

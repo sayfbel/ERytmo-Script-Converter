@@ -15,6 +15,8 @@ def build_executable():
         import generate_logo
         generate_logo.create_app_logo(logo_png, logo_ico)
 
+    project_root = os.path.dirname(root_dir)
+
     cmd = [
         "pyinstaller",
         "--noconfirm",
@@ -22,12 +24,23 @@ def build_executable():
         "--noconsole",
         "--onefile",
         f"--icon={logo_ico}",
-        "--name=ERytmo_Script_Converter",
+        "--name=ERytmo_V2",
         f"--add-data={logo_png};.",
         f"--add-data={logo_ico};.",
+        f"--add-data={root_dir};backend",
+        f"--add-data={os.path.join(project_root, 'frontend', 'out')};frontend/out",
+        f"--paths={project_root}",
+        "--hidden-import=fastapi",
+        "--hidden-import=uvicorn",
+        "--hidden-import=webview",
+        "--hidden-import=sqlalchemy",
+        "--hidden-import=openpyxl",
+        "--hidden-import=docx",
+        "--collect-submodules=openpyxl",
+        "--collect-submodules=backend",
         f"--distpath={dist_dir}",
         f"--workpath={build_dir}",
-        os.path.join(src_dir, "main_gui.py")
+        os.path.join(root_dir, "app.py")
     ]
 
     print("Executing PyInstaller build command:")
@@ -35,7 +48,7 @@ def build_executable():
     
     res = subprocess.run(cmd, cwd=src_dir)
     if res.returncode == 0:
-        exe_path = os.path.join(dist_dir, "ERytmo_Script_Converter.exe")
+        exe_path = os.path.join(dist_dir, "ERytmo_V2.exe")
         print("\n==================================================")
         print("BUILD SUCCESSFUL!")
         print(f"Standalone Executable: {exe_path}")

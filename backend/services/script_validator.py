@@ -4,10 +4,42 @@ import traceback
 import platform
 import docx
 from pypdf import PdfReader
-from exceptions import (
+from backend.src.exceptions import (
     ScriptImportError, UnsupportedFormatError, EmptyFileError,
     FileAccessError, FileCorruptedError, NoTimecodesFoundError, MissingRequiredFieldsError
 )
+
+def read_text_smart(file_path):
+    with open(file_path, "rb") as f:
+        raw = f.read()
+
+    # Check BOMs
+    if raw.startswith(b'\xff\xfe'):
+        try:
+            return raw.decode("utf-16").replace("\x00", "")
+        except Exception:
+            pass
+    elif raw.startswith(b'\xfe\xff'):
+        try:
+            return raw.decode("utf-16-be").replace("\x00", "")
+        except Exception:
+            pass
+    elif raw.startswith(b'\xef\xbb\xbf'):
+        try:
+            return raw.decode("utf-8-sig").replace("\x00", "")
+        except Exception:
+            pass
+
+    # Try common encodings
+    for enc in ["utf-8", "utf-16", "utf-16-le", "cp1252", "latin-1"]:
+        try:
+            decoded = raw.decode(enc)
+            if decoded.count("\x00") < len(decoded) * 0.05:
+                return decoded.replace("\x00", "")
+        except (UnicodeDecodeError, Exception):
+            continue
+
+    return raw.decode("utf-8", errors="ignore").replace("\x00", "")
 
 class ValidationStatus:
     VALID = "VALID"
@@ -110,8 +142,8 @@ class ScriptValidator:
                     )
 
             elif ext in [".txt", ".text"]:
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                    lines = f.readlines()
+                txt_content = read_text_smart(file_path)
+                lines = [l for l in txt_content.splitlines() if l.strip()]
                 diagnostic_lines.append(f"Text Lines: {len(lines)}")
                 if not lines:
                     diag = "\n".join(diagnostic_lines + ["Error: Text file is empty."])
@@ -203,15 +235,49 @@ class ScriptValidator:
                             found_timecodes += 1
 
         elif ext in [".txt", ".text"]:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                for line in f:
-                    if re.search(r'\b\d{1,2}:\d{2}:\d{2}', line.strip()):
-                        found_timecodes += 1
+            txt_content = read_text_smart(file_path)
+            for line in txt_content.splitlines():
+                if re.search(r'\b\d{1,2}:\d{2}:\d{2}', line.strip()):
+                    found_timecodes += 1
 
         diagnostic_lines.append(f"Total Timecodes Found: {found_timecodes}")
 
+        # Count dialogue cues (for scripts where timecodes are generated later via alignment)
+        found_cues = 0
+        CHAR_CUE_RE = re.compile(r'^([A-ZÀ-ÖØ-Þ\s\.\'\-]{2,30})(?:\s*\(.*?\))?:?$')
+        if ext in [".txt", ".text"]:
+            txt_content = read_text_smart(file_path)
+            for line in txt_content.splitlines():
+                sline = line.strip()
+                if CHAR_CUE_RE.match(sline) and len(sline) <= 30 and not sline.endswith(('.', '!', '?')):
+                    found_cues += 1
+        elif ext == ".docx":
+            for p in doc.paragraphs:
+                sline = p.text.strip()
+                if CHAR_CUE_RE.match(sline) and len(sline) <= 30:
+                    found_cues += 1
+        elif ext == ".pdf":
+            reader = PdfReader(file_path)
+            for page in reader.pages:
+                txt = page.extract_text() or ""
+                for line in txt.splitlines():
+                    sline = line.strip()
+                    if CHAR_CUE_RE.match(sline) and len(sline) <= 30:
+                        found_cues += 1
+
         # Evaluate Result
         if found_timecodes == 0:
+            if found_cues > 0:
+                diag = "\n".join(diagnostic_lines + [f"Detected {found_cues} dialogue cues. Fast local parser ready for instant import."])
+                return ValidationReport(
+                    ValidationStatus.VALID,
+                    "Dialogue Script Detected",
+                    f"The script was successfully validated. Detected {found_cues} dialogue cues ready for import and timecode alignment.",
+                    suggestion="Review cues in the table and use Media Alignment to generate timecodes.",
+                    normalizations=normalizations,
+                    issues=issues,
+                    diagnostic_info=diag
+                )
             diag = "\n".join(diagnostic_lines + ["Warning: 0 standard timecodes found. Proceeding with AI Fallback parser."])
             return ValidationReport(
                 ValidationStatus.NORMALIZABLE,
