@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from google import genai
 from datetime import datetime
 import os
+import shutil
 
 from backend.database.database import get_db
 from backend.models import models
@@ -673,6 +674,14 @@ def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
         
+    # Clean up project uploaded files if any
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "projects", str(project.id))
+    if os.path.exists(upload_dir):
+        try:
+            shutil.rmtree(upload_dir)
+        except Exception as e:
+            print(f"Error removing project upload directory: {e}")
+
     db.delete(project)
     db.commit()
     return {"message": "Project deleted successfully"}
@@ -701,44 +710,131 @@ def get_project_files(
         if not collab:
             raise HTTPException(status_code=404, detail="Project not found")
         access_level = collab.access_level or "spectator"
-    
-    if not project.folder_path or not os.path.exists(project.folder_path):
-        return []
 
     files_list = []
-    try:
-        for filename in os.listdir(project.folder_path):
-            file_path = os.path.join(project.folder_path, filename)
-            if os.path.isfile(file_path):
-                ext = os.path.splitext(filename)[1].lower()
-                is_video = ext in ['.mp4', '.mkv', '.avi', '.mov', '.wmv']
-                is_script = ext in ['.txt', '.srt', '.doc', '.docx', '.pdf']
-                
-                if is_video or is_script:
-                    size_bytes = os.path.getsize(file_path)
-                    files_list.append({
-                        "name": filename,
-                        "path": file_path,
-                        "type": "video" if is_video else "script",
-                        "size": size_bytes,
-                        "is_owner": is_owner,
-                        "access_level": access_level,
-                        "owner_id": project.user_id
-                    })
-    except Exception as e:
-        print(f"Error reading folder: {e}")
-        
+    seen_filenames = set()
+
+    def scan_dir(dir_path):
+        if not dir_path or not os.path.exists(dir_path):
+            return
+        try:
+            for filename in os.listdir(dir_path):
+                if filename in seen_filenames or filename.startswith('.'):
+                    continue
+                file_path = os.path.join(dir_path, filename)
+                if os.path.isfile(file_path):
+                    ext = os.path.splitext(filename)[1].lower()
+                    is_video = ext in ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.webm']
+                    is_script = ext in ['.txt', '.srt', '.doc', '.docx', '.pdf', '.rtf', '.xml', '.json']
+                    is_audio = ext in ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac']
+                    
+                    if is_video or is_script or is_audio:
+                        try:
+                            size_bytes = os.path.getsize(file_path)
+                        except Exception:
+                            size_bytes = 0
+                        files_list.append({
+                            "name": filename,
+                            "path": file_path,
+                            "type": "video" if is_video else ("audio" if is_audio else "script"),
+                            "size": size_bytes,
+                            "is_owner": is_owner,
+                            "access_level": access_level,
+                            "owner_id": project.user_id
+                        })
+                        seen_filenames.add(filename)
+        except Exception as e:
+            print(f"Error reading folder {dir_path}: {e}")
+
+    # 1. Scan cloud / project uploads directory
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "projects", str(project.id))
+    scan_dir(upload_dir)
+
+    # 2. Scan local desktop folder if configured and exists
+    if project.folder_path:
+        scan_dir(project.folder_path)
+
     return files_list
+
+@router.post("/projects/{project_id}/upload")
+async def upload_project_files(
+    project_id: int,
+    files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    is_owner = (project.user_id == current_user.id)
+    if not is_owner:
+        collab = db.query(models.Staff).filter(
+            models.Staff.user_id == project.user_id,
+            or_(
+                models.Staff.staff_user_id == current_user.id,
+                models.Staff.email == current_user.email
+            )
+        ).first()
+        if not collab or collab.access_level != "full_access":
+            raise HTTPException(status_code=403, detail="Permission denied. Only owners or full access collaborators can upload files.")
+
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "projects", str(project.id))
+    os.makedirs(upload_dir, exist_ok=True)
+
+    uploaded_items = []
+    for file in files:
+        safe_name = os.path.basename(file.filename or "")
+        if not safe_name:
+            continue
+        dest_path = os.path.join(upload_dir, safe_name)
+        with open(dest_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        uploaded_items.append(safe_name)
+
+    return {"message": f"Successfully uploaded {len(uploaded_items)} files", "files": uploaded_items}
+
+@router.delete("/projects/{project_id}/files")
+def delete_project_file(
+    project_id: int,
+    filename: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    is_owner = (project.user_id == current_user.id)
+    if not is_owner:
+        raise HTTPException(status_code=403, detail="Only the project owner can delete files.")
+
+    safe_name = os.path.basename(filename)
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "projects", str(project.id))
+    target_path = os.path.join(upload_dir, safe_name)
+
+    if os.path.exists(target_path) and os.path.isfile(target_path):
+        try:
+            os.remove(target_path)
+            return {"message": f"File {safe_name} deleted successfully"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+
+    raise HTTPException(status_code=404, detail="File not found in project uploads")
 
 @router.get("/stream-file")
 def stream_file(path: str):
     import os
-    if not os.path.exists(path) or not os.path.isfile(path):
-        raise HTTPException(status_code=404, detail="File not found on local machine")
+    resolved_path = path
+    if not os.path.exists(resolved_path) or not os.path.isfile(resolved_path):
+        backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        rel_check = os.path.join(backend_root, path.lstrip("/\\"))
+        if os.path.exists(rel_check) and os.path.isfile(rel_check):
+            resolved_path = rel_check
+        else:
+            raise HTTPException(status_code=404, detail="File not found on server")
     
-    # We use FileResponse because it supports Range requests automatically in Starlette
-    # and properly sets the Accept-Ranges header for video streaming.
-    return FileResponse(path)
+    return FileResponse(resolved_path, filename=os.path.basename(resolved_path))
 
 @router.get("/appointments")
 def get_appointments(

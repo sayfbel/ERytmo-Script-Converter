@@ -3,14 +3,15 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   Briefcase, Search, Plus, FolderOpen, Video, FileText, Calendar, Building, X, 
-  Loader2, ChevronRight, Edit2, Trash2, Clock, Download, CheckCircle2, AlertCircle, Eye, ShieldAlert
+  Loader2, ChevronRight, Edit2, Trash2, Clock, Download, CheckCircle2, AlertCircle, Eye, ShieldAlert,
+  Upload
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { useSignaling } from "@/context/SignalingContext";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiUrl } from "@/lib/api";
 
 export interface Project {
   id: number;
@@ -31,7 +32,7 @@ export interface Project {
 export interface ProjectFile {
   name: string;
   path: string;
-  type: 'video' | 'script';
+  type: 'video' | 'script' | 'audio';
   size: number;
   is_owner?: boolean;
   access_level?: "full_access" | "spectator";
@@ -98,6 +99,11 @@ export default function ProjectsPage() {
   }>({ isOpen: false, type: 'update', project: null });
 
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const panelFileInputRef = useRef<HTMLInputElement | null>(null);
+  const panelFolderInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedFilesForNewProject, setSelectedFilesForNewProject] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const openCreateModal = () => {
     setEditingProjectId(null);
@@ -105,6 +111,7 @@ export default function ProjectsPage() {
     setCompanyName("");
     setIsCustomCompany(false);
     setFolderPath("");
+    setSelectedFilesForNewProject([]);
     setTargetSoftware("ERytmo");
     setProjectType("Détection");
     setDeadline("");
@@ -212,17 +219,29 @@ export default function ProjectsPage() {
       });
 
       if (res.ok) {
+        const resultProject = await res.json();
+        const targetId = resultProject?.id || editingProjectId;
+        
+        if (selectedFilesForNewProject.length > 0 && targetId) {
+          uploadFilesToProject(targetId, selectedFilesForNewProject);
+        }
+
         setShowModal(false);
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         fetchProjects();
         setName("");
         setCompanyName("");
         setFolderPath("");
+        setSelectedFilesForNewProject([]);
         setTargetSoftware("ERytmo");
         setProjectType("Détection");
         setDeadline("");
         setTotalTime("");
         setEditingProjectId(null);
+
+        if (resultProject && !editingProjectId) {
+          handleProjectClick(resultProject);
+        }
       } else {
         const data = await res.json();
         setError(data.detail || `Failed to ${editingProjectId ? 'update' : 'create'} project`);
@@ -290,12 +309,10 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleProjectClick = async (project: Project) => {
-    setSelectedProject(project);
+  const fetchProjectFiles = async (projectId: number) => {
     setLoadingFiles(true);
-    setTransferBanner(null);
     try {
-      const res = await apiFetch(`/api/projects/${project.id}/files`);
+      const res = await apiFetch(`/api/projects/${projectId}/files`);
       if (res.ok) {
         const files = await res.json();
         setProjectFiles(files);
@@ -307,6 +324,69 @@ export default function ProjectsPage() {
       setProjectFiles([]);
     } finally {
       setLoadingFiles(false);
+    }
+  };
+
+  const handleProjectClick = async (project: Project) => {
+    setSelectedProject(project);
+    setTransferBanner(null);
+    await fetchProjectFiles(project.id);
+  };
+
+  const uploadFilesToProject = async (projectId: number, files: File[]) => {
+    if (!files || files.length === 0) return;
+    setUploadingFiles(true);
+    setUploadProgress(`Uploading ${files.length} file${files.length > 1 ? 's' : ''}...`);
+    try {
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append("files", file);
+      }
+      const res = await apiFetch(`/api/projects/${projectId}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        setTransferBanner({
+          type: "success",
+          message: `Successfully uploaded ${files.length} file${files.length > 1 ? 's' : ''}!`
+        });
+        await fetchProjectFiles(projectId);
+      } else {
+        const data = await res.json();
+        setTransferBanner({
+          type: "error",
+          message: data.detail || "Failed to upload files"
+        });
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      setTransferBanner({
+        type: "error",
+        message: "Error uploading files to server."
+      });
+    } finally {
+      setUploadingFiles(false);
+      setUploadProgress(null);
+    }
+  };
+
+  const handleDeleteFile = async (file: ProjectFile, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedProject) return;
+    if (!confirm(`Are you sure you want to remove "${file.name}"?`)) return;
+    try {
+      const res = await apiFetch(`/api/projects/${selectedProject.id}/files?filename=${encodeURIComponent(file.name)}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        if (activeFile?.name === file.name) {
+          setActiveFile(null);
+        }
+        await fetchProjectFiles(selectedProject.id);
+      }
+    } catch (err) {
+      console.error("Delete file error:", err);
     }
   };
 
@@ -376,7 +456,7 @@ export default function ProjectsPage() {
           // Trigger download if path is accessible on server
           if (file.path) {
             const link = document.createElement('a');
-            link.href = `/api/stream-file?path=${encodeURIComponent(file.path)}`;
+            link.href = getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path)}`);
             link.download = file.name;
             document.body.appendChild(link);
             link.click();
@@ -541,16 +621,26 @@ export default function ProjectsPage() {
               <div className={`flex-1 relative flex items-center justify-center min-h-0 ${activeFile.type === 'video' ? 'bg-black' : 'bg-slate-100 dark:bg-slate-900'}`}>
                 {activeFile.type === 'video' ? (
                   <video 
-                    src={`/api/stream-file?path=${encodeURIComponent(activeFile.path)}`}
+                    src={getApiUrl(`/api/stream-file?path=${encodeURIComponent(activeFile.path)}`)}
                     controls
                     autoPlay
                     className="w-full h-full object-contain"
                   >
                     Your browser does not support the video tag.
                   </video>
+                ) : activeFile.type === 'audio' ? (
+                  <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <FileText size={48} className="text-teal-600 mb-4" />
+                    <audio 
+                      src={getApiUrl(`/api/stream-file?path=${encodeURIComponent(activeFile.path)}`)}
+                      controls
+                      autoPlay
+                      className="w-72"
+                    />
+                  </div>
                 ) : (
                   <iframe 
-                    src={`/api/stream-file?path=${encodeURIComponent(activeFile.path)}`}
+                    src={getApiUrl(`/api/stream-file?path=${encodeURIComponent(activeFile.path)}`)}
                     className="w-full h-full bg-white dark:bg-slate-800"
                     title={activeFile.name}
                   />
@@ -696,14 +786,72 @@ export default function ProjectsPage() {
                   )}
                 </div>
               </div>
-              <button 
-                onClick={() => setSelectedProject(null)}
-                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md text-slate-400 dark:text-slate-500 transition-colors"
-                title={t("cancel")}
-              >
-                <ChevronRight size={18} className="rtl:rotate-180" />
-              </button>
+              <div className="flex items-center space-x-1 rtl:space-x-reverse">
+                {selectedProject.is_owner !== false && (
+                  <>
+                    <button
+                      onClick={() => panelFileInputRef.current?.click()}
+                      disabled={uploadingFiles}
+                      className="p-1.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                      title="Upload Files"
+                    >
+                      <Upload size={15} />
+                    </button>
+                    <button
+                      onClick={() => panelFolderInputRef.current?.click()}
+                      disabled={uploadingFiles}
+                      className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                      title="Upload Folder"
+                    >
+                      <FolderOpen size={15} />
+                    </button>
+                  </>
+                )}
+                <button 
+                  onClick={() => setSelectedProject(null)}
+                  className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md text-slate-400 dark:text-slate-500 transition-colors ml-1 rtl:ml-0 rtl:mr-1"
+                  title={t("cancel")}
+                >
+                  <ChevronRight size={18} className="rtl:rotate-180" />
+                </button>
+              </div>
             </div>
+
+            {/* Hidden upload inputs for this project */}
+            <input
+              type="file"
+              ref={panelFileInputRef}
+              className="hidden"
+              multiple
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0 && selectedProject) {
+                  uploadFilesToProject(selectedProject.id, Array.from(e.target.files));
+                  e.target.value = "";
+                }
+              }}
+            />
+            <input
+              type="file"
+              ref={panelFolderInputRef}
+              className="hidden"
+              // @ts-expect-error webkitdirectory is standard in browsers
+              webkitdirectory=""
+              directory=""
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0 && selectedProject) {
+                  uploadFilesToProject(selectedProject.id, Array.from(e.target.files));
+                  e.target.value = "";
+                }
+              }}
+            />
+
+            {/* Uploading Status Banner */}
+            {uploadingFiles && (
+              <div className="p-3 mx-4 mt-3 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 flex items-center space-x-2 text-xs animate-in fade-in duration-200">
+                <Loader2 size={15} className="animate-spin text-teal-600 dark:text-teal-400 shrink-0" />
+                <span className="font-medium">{uploadProgress || "Uploading files..."}</span>
+              </div>
+            )}
 
             {/* Notification Banner for Transfer Status */}
             {transferBanner && (
@@ -738,13 +886,41 @@ export default function ProjectsPage() {
                   <span className="text-sm">{t("project.scanning")}</span>
                 </div>
               ) : projectFiles.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <FolderOpen size={48} className="text-slate-200 dark:text-slate-700 mb-3" />
-                  <p className="text-slate-500 dark:text-slate-400 font-medium">{t("project.no_files")}</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs">
-                    {t("project.no_files_desc")}
-                  </p>
-                </div>
+                selectedProject.is_owner !== false ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-white/40 dark:bg-slate-800/40">
+                    <div className="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 dark:text-teal-400 mb-3">
+                      <Upload size={22} />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-200 font-bold text-sm">No files uploaded yet</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs mb-4">
+                      Upload your script files (.docx, .pdf, .txt, .srt) or media (.mp4, .mkv) to access them anywhere.
+                    </p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      <button
+                        onClick={() => panelFileInputRef.current?.click()}
+                        disabled={uploadingFiles}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Plus size={14} /> Upload Files
+                      </button>
+                      <button
+                        onClick={() => panelFolderInputRef.current?.click()}
+                        disabled={uploadingFiles}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <FolderOpen size={14} /> Upload Folder
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <FolderOpen size={48} className="text-slate-200 dark:text-slate-700 mb-3" />
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">{t("project.no_files")}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs">
+                      {t("project.no_files_desc")}
+                    </p>
+                  </div>
+                )
               ) : (
                 <div className="space-y-3">
                   {projectFiles.map((file, idx) => {
@@ -771,9 +947,11 @@ export default function ProjectsPage() {
                             <div className={`p-2 rounded-lg mr-3 rtl:mr-0 rtl:ml-3 shrink-0 ${
                               file.type === 'video' 
                                 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500' 
+                                : file.type === 'audio'
+                                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500'
                                 : 'bg-purple-50 dark:bg-purple-900/30 text-purple-500'
                             }`}>
-                              {file.type === 'video' ? <Video size={18} /> : <FileText size={18} />}
+                              {file.type === 'video' ? <Video size={18} /> : file.type === 'audio' ? <FileText size={18} /> : <FileText size={18} />}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate" title={file.name}>
@@ -786,17 +964,35 @@ export default function ProjectsPage() {
                           </div>
 
                           {/* Action Controls */}
-                          <div className="shrink-0 flex items-center">
+                          <div className="shrink-0 flex items-center space-x-1 rtl:space-x-reverse">
                             {isOwner ? (
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveFile(file);
-                                }}
-                                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 transition-colors"
-                              >
-                                View
-                              </button>
+                              <>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveFile(file);
+                                  }}
+                                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 transition-colors"
+                                >
+                                  View
+                                </button>
+                                <a
+                                  href={getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path)}`)}
+                                  download={file.name}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                                  title="Download"
+                                >
+                                  <Download size={14} />
+                                </a>
+                                <button
+                                  onClick={(e) => handleDeleteFile(file, e)}
+                                  className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                  title="Delete file"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
                             ) : isSpectator ? (
                               <button
                                 disabled
@@ -931,6 +1127,8 @@ export default function ProjectsPage() {
                     onChange={(e) => {
                       const files = e.target.files;
                       if (files && files.length > 0) {
+                        const fileArray = Array.from(files);
+                        setSelectedFilesForNewProject(fileArray);
                         const firstFile = files[0];
                         const rel = firstFile.webkitRelativePath || "";
                         const rootName = rel.split("/")[0] || firstFile.name;
@@ -954,6 +1152,12 @@ export default function ProjectsPage() {
                     {t("project.form.browse")}
                   </button>
                 </div>
+                {selectedFilesForNewProject.length > 0 && (
+                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-1.5 text-xs text-teal-600 dark:text-teal-400 font-medium">
+                    <CheckCircle2 size={13} className="shrink-0" />
+                    <span>{selectedFilesForNewProject.length} files detected (will be uploaded automatically upon creation)</span>
+                  </div>
+                )}
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">{t("project.form.folder_desc")}</p>
               </div>
 
