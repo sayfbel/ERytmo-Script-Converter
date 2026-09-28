@@ -94,7 +94,7 @@ function VerifyEmailContent() {
       if (res.success) {
         setIsVerified(true);
         setTimeout(() => {
-          router.push("/");
+          router.push("/projects");
         }, 1200);
       } else {
         setError(res.error || "Verification failed. Invalid code.");

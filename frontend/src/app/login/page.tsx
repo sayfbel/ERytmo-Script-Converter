@@ -45,7 +45,7 @@ export default function LoginPage() {
       });
 
       if (res.success) {
-        window.location.href = "/";
+        window.location.href = "/projects";
       } else if (res.requiresVerification) {
         router.push(`/verify-email?email=${encodeURIComponent(res.email || email.trim().toLowerCase())}`);
       } else {
@@ -218,7 +218,7 @@ export default function LoginPage() {
                 mode="login"
                 onError={(err) => setError(err)}
                 onSuccess={() => {
-                  window.location.href = "/";
+                  window.location.href = "/projects";
                 }}
               />
             </div>

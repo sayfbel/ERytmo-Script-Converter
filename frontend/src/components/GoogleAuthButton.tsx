@@ -77,7 +77,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
             setBtnLoading(false);
             if (res.success) {
               if (onSuccess) onSuccess();
-              else window.location.href = "/";
+              else window.location.href = "/projects";
             } else if (onError && res.error) {
               onError(res.error);
             }
@@ -157,7 +157,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
                 await refreshSession();
               } catch {}
               if (onSuccess) onSuccess();
-              else window.location.href = "/";
+              else window.location.href = "/projects";
             } else {
               if (onError) onError(claimData.detail || "Failed to claim desktop session.");
             }
@@ -194,7 +194,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
             setBtnLoading(false);
             if (result.success) {
               if (onSuccess) onSuccess();
-              else window.location.href = "/";
+              else window.location.href = "/projects";
             } else if (result.error && onError) {
               onError(result.error);
             }

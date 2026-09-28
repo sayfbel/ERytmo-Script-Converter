@@ -287,7 +287,7 @@ export default function RegisterPage() {
               <GoogleAuthButton
                 mode="register"
                 onError={(err) => setError(err)}
-                onSuccess={() => router.push("/")}
+                onSuccess={() => router.push("/projects")}
               />
             </div>
           </div>
