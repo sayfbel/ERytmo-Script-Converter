@@ -499,12 +499,11 @@ def get_projects(
 
     return results
 
-import tkinter as tk
-from tkinter import filedialog
-
 @router.get("/browse-folder")
 def browse_folder():
     try:
+        import tkinter as tk
+        from tkinter import filedialog
         root = tk.Tk()
         root.withdraw()
         root.attributes("-topmost", True)
@@ -1135,22 +1134,26 @@ async def download_script(
         out_filename = f"{safe_base_name}_{'Mosaic' if is_mosaic else 'ERytmo'}.{ext}"
 
         if save_as:
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes('-topmost', True)
-            file_types = [("Excel Spreadsheet", "*.xlsx")] if is_mosaic else [("Word Document", "*.docx")]
-            file_types.append(("All Files", "*.*"))
-            target_path = filedialog.asksaveasfilename(
-                title="Save Converted Script",
-                initialfile=out_filename,
-                defaultextension=f".{ext}",
-                filetypes=file_types
-            )
-            root.destroy()
-            if not target_path:
-                return {"success": False, "cancelled": True}
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes('-topmost', True)
+                file_types = [("Excel Spreadsheet", "*.xlsx")] if is_mosaic else [("Word Document", "*.docx")]
+                file_types.append(("All Files", "*.*"))
+                target_path = filedialog.asksaveasfilename(
+                    title="Save Converted Script",
+                    initialfile=out_filename,
+                    defaultextension=f".{ext}",
+                    filetypes=file_types
+                )
+                root.destroy()
+                if not target_path:
+                    return {"success": False, "cancelled": True}
+            except Exception:
+                downloads_dir = get_user_downloads_dir()
+                target_path = get_unique_filepath(downloads_dir, out_filename)
         else:
             downloads_dir = get_user_downloads_dir()
             target_path = get_unique_filepath(downloads_dir, out_filename)
