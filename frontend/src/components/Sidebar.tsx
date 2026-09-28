@@ -6,7 +6,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { 
   Calendar, Users, Building,
-  Settings, Briefcase, Film, ChevronLeft, ChevronRight, LogOut 
+  Settings, Briefcase, Film, ChevronLeft, ChevronRight, LogOut,
+  Monitor
 } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
@@ -108,14 +109,24 @@ export default function Sidebar() {
         <div>
           {!isCollapsed && <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-bold mb-2 px-3 tracking-wider">Workspace</div>}
           <div className="space-y-1">
-            <Link href="/" className={getLinkClass("/")} title={t("sidebar.time_management")}>
-              <Calendar size={isCollapsed ? 20 : 18} className={getIconClass("/")} /> {!isCollapsed && <span className="truncate">{t("sidebar.time_management")}</span>}
+            <Link href="/time" className={getLinkClass("/time")} title={t("sidebar.time_management")}>
+              <Calendar size={isCollapsed ? 20 : 18} className={getIconClass("/time")} /> {!isCollapsed && <span className="truncate">{t("sidebar.time_management")}</span>}
             </Link>
             <Link href="/projects" className={getLinkClass("/projects")} title={t("sidebar.projects")}>
               <Briefcase size={isCollapsed ? 20 : 18} className={getIconClass("/projects", "text-blue-500 dark:text-blue-400")} /> {!isCollapsed && <span className="truncate">{t("sidebar.projects")}</span>}
             </Link>
             <Link href="/converter" className={getLinkClass("/converter")} title={t("sidebar.converter")}>
               <Film size={isCollapsed ? 20 : 18} className={getIconClass("/converter", "text-purple-600 dark:text-purple-400")} /> {!isCollapsed && <span className="truncate">{t("sidebar.converter")}</span>}
+            </Link>
+          </div>
+        </div>
+
+        {/* Desktop & Downloads */}
+        <div>
+          {!isCollapsed && <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-bold mb-2 px-3 tracking-wider">Apps</div>}
+          <div className="space-y-1">
+            <Link href="/" className={getLinkClass("/")} title="Desktop App & Presentation">
+              <Monitor size={isCollapsed ? 20 : 18} className={getIconClass("/", "text-emerald-500 dark:text-emerald-400")} /> {!isCollapsed && <span className="truncate">Desktop App</span>}
             </Link>
           </div>
         </div>

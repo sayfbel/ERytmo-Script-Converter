@@ -1678,4 +1678,26 @@ def delete_groq_key(
     db.commit()
     return {"success": True}
 
+@router.get("/download/desktop")
+def download_desktop_app():
+    from fastapi.responses import RedirectResponse
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    exe_candidates = [
+        os.path.join(base_dir, "dist", "ERytmo_V2.exe"),
+        os.path.join(base_dir, "uploads", "releases", "ERytmo_V2.exe"),
+    ]
+    for exe_path in exe_candidates:
+        if os.path.exists(exe_path) and os.path.isfile(exe_path):
+            return FileResponse(
+                exe_path,
+                filename="ERytmo_V2.exe",
+                media_type="application/vnd.microsoft.portable-executable"
+            )
+
+    return RedirectResponse(
+        url="https://github.com/sayfbel/ERytmo-Script-Converter/releases/latest/download/ERytmo_V2.exe",
+        status_code=307
+    )
+
+
 

@@ -14,22 +14,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
 
+  const isLandingPage = pathname === "/" || pathname === "/welcome";
   const isAuthPage = PUBLIC_AUTH_PATHS.some((path) => pathname.startsWith(path));
+  const isStandalone = isLandingPage || isAuthPage;
 
   useEffect(() => {
     if (isLoading) return;
 
-    if (!isAuthenticated && !isAuthPage) {
+    if (!isAuthenticated && !isStandalone) {
       // Redirect unauthenticated user to login
       router.replace("/login");
     } else if (isAuthenticated && isAuthPage && !pathname.startsWith("/verify-email")) {
-      // Redirect logged-in user away from login/register
-      router.replace("/");
+      // Redirect logged-in user away from login/register to dashboard
+      router.replace("/projects");
     }
-  }, [isAuthenticated, isLoading, isAuthPage, pathname, router]);
+  }, [isAuthenticated, isLoading, isAuthPage, isStandalone, pathname, router]);
 
   // Loading screen prevents flashing protected content while verifying session
-  if (isLoading && !isAuthPage) {
+  if (isLoading && !isStandalone) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#090d16] text-slate-100">
         <div className="flex flex-col items-center space-y-4">
@@ -55,8 +57,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If on public auth page (login/register/verify-email), render standalone full screen
-  if (isAuthPage) {
+  // If on standalone page (landing / welcome / login / register), render full screen
+  if (isStandalone) {
     return (
       <div className="h-full w-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
         {children}
