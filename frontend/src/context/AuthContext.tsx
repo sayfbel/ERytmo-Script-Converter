@@ -6,16 +6,19 @@ export interface User {
   id: number;
   first_name: string;
   last_name: string;
+  job_type?: string | null;
   email: string;
   phone_number?: string | null;
   google_id?: string | null;
   email_verified: boolean;
+  requires_profile_completion?: boolean;
   created_at?: string;
 }
 
 export interface RegisterData {
   first_name: string;
   last_name: string;
+  job_type: string;
   email: string;
   password: string;
   confirm_password: string;
@@ -32,6 +35,7 @@ interface AuthResponse {
   success: boolean;
   error?: string;
   requiresVerification?: boolean;
+  requiresProfileCompletion?: boolean;
   email?: string;
   message?: string;
 }
@@ -45,6 +49,7 @@ interface AuthContextType {
   googleClientId: string | null;
   login: (data: LoginData) => Promise<AuthResponse>;
   register: (data: RegisterData) => Promise<AuthResponse>;
+  completeProfile: (data: { first_name: string; last_name: string; job_type: string }) => Promise<AuthResponse>;
   loginWithGoogle: (credential: string) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   verifyEmail: (email: string, code: string) => Promise<AuthResponse>;
@@ -272,6 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return {
         success: true,
+        requiresProfileCompletion: json.user ? !Boolean(json.user.job_type) : false,
       };
     } catch {
       return {
@@ -311,11 +317,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return {
         success: true,
+        requiresProfileCompletion: json.user ? !Boolean(json.user.job_type) : false,
       };
     } catch {
       return {
         success: false,
         error: "Unable to connect to server for Google authentication.",
+      };
+    }
+  };
+
+  // Complete User Profile (first_name, last_name, job_type)
+  const completeProfile = async (data: { first_name: string; last_name: string; job_type: string }): Promise<AuthResponse> => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("erytmo_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`${API_BASE}/auth/complete-profile`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        return {
+          success: false,
+          error: typeof json.detail === "string" ? json.detail : "Failed to update profile.",
+        };
+      }
+
+      if (json.token && typeof window !== "undefined") {
+        localStorage.setItem("erytmo_token", json.token);
+      }
+
+      if (json.user) {
+        setUser(json.user);
+      } else {
+        await refreshSession();
+      }
+
+      return {
+        success: true,
+      };
+    } catch {
+      return {
+        success: false,
+        error: "Unable to connect to server.",
       };
     }
   };
@@ -357,6 +408,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         googleClientId,
         login,
         register,
+        completeProfile,
         loginWithGoogle,
         logout,
         verifyEmail,

@@ -56,10 +56,16 @@ def cleanup_expired_browser_sessions():
 class RegisterPayload(BaseModel):
     first_name: str
     last_name: str
+    job_type: str
     email: str
     password: str
     confirm_password: str
     phone_number: Optional[str] = None
+
+class CompleteProfilePayload(BaseModel):
+    first_name: str
+    last_name: str
+    job_type: str
 
 class VerifyEmailPayload(BaseModel):
     email: str
@@ -192,16 +198,19 @@ def get_auth_config():
 def register_user(payload: RegisterPayload, db: Session = Depends(get_db)):
     first_name = payload.first_name.strip()
     last_name = payload.last_name.strip()
+    job_type = payload.job_type.strip()
     email = payload.email.strip().lower()
     password = payload.password
     confirm_password = payload.confirm_password
     phone_number = payload.phone_number.strip() if payload.phone_number else None
 
-    # 1. Validate First and Last Name
+    # 1. Validate First Name, Last Name, and Job Type
     if not first_name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="First name cannot be empty.")
     if not last_name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Last name cannot be empty.")
+    if not job_type:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Job title / profession is required.")
 
     # 2. Validate Email Format
     email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
@@ -235,6 +244,7 @@ def register_user(payload: RegisterPayload, db: Session = Depends(get_db)):
             user = existing_user
             user.first_name = first_name
             user.last_name = last_name
+            user.job_type = job_type
             user.password_hash = hash_password(password)
             user.phone_number = phone_number
             user.updated_at = datetime.datetime.utcnow()
@@ -243,6 +253,7 @@ def register_user(payload: RegisterPayload, db: Session = Depends(get_db)):
         user = models.User(
             first_name=first_name,
             last_name=last_name,
+            job_type=job_type,
             email=email,
             password_hash=hash_password(password),
             phone_number=phone_number,
@@ -431,11 +442,17 @@ def login_user(payload: LoginPayload, response: Response, db: Session = Depends(
 
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No account found with this email. Please register first."
+        )
 
     # Check password
     if not user.password_hash or not verify_password(password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password."
+        )
 
     # Check email verification status
     if not user.email_verified:
@@ -462,9 +479,11 @@ def login_user(payload: LoginPayload, response: Response, db: Session = Depends(
             "id": user.id,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "job_type": user.job_type,
             "email": user.email,
             "phone_number": user.phone_number,
-            "email_verified": True
+            "email_verified": True,
+            "requires_profile_completion": not bool(user.job_type)
         }
     }
 
@@ -505,10 +524,11 @@ def process_google_auth_credential(token_str: str, db: Session, remember_me: boo
             else:
                 raise ValueError("Google account email is not verified.")
         else:
-            # 3. Create new Google user
+            # 3. Create new Google user (job_type is null until onboarding is completed)
             user = models.User(
                 first_name=first_name,
                 last_name=last_name,
+                job_type=None,
                 email=email,
                 google_id=google_id,
                 email_verified=True,
@@ -546,9 +566,11 @@ def google_authentication(payload: GoogleAuthPayload, response: Response, db: Se
             "id": user.id,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "job_type": user.job_type,
             "email": user.email,
             "phone_number": user.phone_number,
-            "email_verified": True
+            "email_verified": True,
+            "requires_profile_completion": not bool(user.job_type)
         }
     }
 
@@ -766,10 +788,72 @@ def get_current_user_profile(response: Response, user: Optional[models.User] = D
         "id": user.id,
         "first_name": user.first_name,
         "last_name": user.last_name,
+        "job_type": user.job_type,
         "email": user.email,
         "phone_number": user.phone_number,
         "email_verified": user.email_verified,
+        "requires_profile_completion": not bool(user.job_type),
         "created_at": user.created_at.isoformat() if user.created_at else None
+    }
+
+
+@router.post("/complete-profile")
+def complete_user_profile(
+    payload: CompleteProfilePayload,
+    response: Response,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    first_name = payload.first_name.strip()
+    last_name = payload.last_name.strip()
+    job_type = payload.job_type.strip()
+
+    if not first_name:
+        raise HTTPException(status_code=400, detail="First name cannot be empty.")
+    if not last_name:
+        raise HTTPException(status_code=400, detail="Last name cannot be empty.")
+    if not job_type:
+        raise HTTPException(status_code=400, detail="Job type / profession cannot be empty.")
+
+    current_user.first_name = first_name
+    current_user.last_name = last_name
+    current_user.job_type = job_type
+    current_user.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(current_user)
+
+    token = create_access_token({"sub": current_user.id, "email": current_user.email}, remember_me=True)
+    set_auth_cookie(response, token, REMEMBER_ME_EXPIRE_DAYS * 86400)
+
+    return {
+        "success": True,
+        "message": "Profile completed successfully.",
+        "token": token,
+        "user": {
+            "id": current_user.id,
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
+            "job_type": current_user.job_type,
+            "email": current_user.email,
+            "phone_number": current_user.phone_number,
+            "email_verified": current_user.email_verified,
+            "requires_profile_completion": False
+        }
+    }
+
+
+@router.post("/admin/clean-wipe-database")
+def admin_wipe_database():
+    """
+    Wipes all tables in the database completely clean (no users, no projects, etc.).
+    """
+    from backend.database.database import wipe_all_database_data
+    success = wipe_all_database_data()
+    if not success:
+        raise HTTPException(status_code=500, detail="Database wipe encountered an error.")
+    return {
+        "success": True,
+        "message": "All database tables have been completely wiped clean. 0 users, 0 projects."
     }
 
 

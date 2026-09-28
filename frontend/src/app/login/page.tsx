@@ -45,7 +45,11 @@ export default function LoginPage() {
       });
 
       if (res.success) {
-        window.location.href = "/projects";
+        if (res.requiresProfileCompletion) {
+          window.location.href = "/complete-profile";
+        } else {
+          window.location.href = "/projects";
+        }
       } else if (res.requiresVerification) {
         router.push(`/verify-email?email=${encodeURIComponent(res.email || email.trim().toLowerCase())}`);
       } else {

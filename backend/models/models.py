@@ -103,6 +103,7 @@ class User(Base):
     email = Column(String(191), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=True) # None for Google OAuth users without password
     phone_number = Column(String(50), nullable=True)
+    job_type = Column(String(100), nullable=True)
     google_id = Column(String(191), unique=True, index=True, nullable=True)
     email_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

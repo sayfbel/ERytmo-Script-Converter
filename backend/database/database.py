@@ -215,29 +215,39 @@ def init_db():
             except Exception as e:
                 print(f"[DB Migration] staff.auto_accept_transfers: {e}")
 
-    # Safe migration: Assign existing unassigned records to User 13 (hamza.emilie23@gmail.com)
+        # Migration: users.job_type
+        try:
+            conn.execute(text("SELECT job_type FROM users LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN job_type VARCHAR(100) NULL"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] users.job_type: {e}")
+
+def wipe_all_database_data():
+    """
+    Completely wipes all rows from all tables in the database.
+    """
+    from backend.models import models
     db = SessionLocal()
     try:
-        from backend.models import models
-        user_13 = db.query(models.User).filter(models.User.id == 13).first()
-        if user_13:
-            db.query(models.Company).filter(models.Company.user_id == None).update({models.Company.user_id: 13})
-            db.query(models.Staff).filter(models.Staff.user_id == None).update({models.Staff.user_id: 13})
-            db.query(models.ApiKey).filter(models.ApiKey.user_id == None).update({models.ApiKey.user_id: 13})
-            db.query(models.Project).filter(models.Project.user_id == None).update({models.Project.user_id: 13})
-            db.query(models.Appointment).filter(models.Appointment.user_id == None).update({models.Appointment.user_id: 13})
-
-            # Link existing projects to their company if company_id is NULL
-            proj1 = db.query(models.Project).filter(models.Project.id == 1, models.Project.company_id == None).first()
-            if proj1:
-                proj1.company_id = 2
-            proj2 = db.query(models.Project).filter(models.Project.id == 2, models.Project.company_id == None).first()
-            if proj2:
-                proj2.company_id = 1
-            db.commit()
+        db.query(models.Script).delete()
+        db.query(models.Project).delete()
+        db.query(models.Company).delete()
+        db.query(models.Appointment).delete()
+        db.query(models.Staff).delete()
+        db.query(models.ApiKey).delete()
+        db.query(models.EmailVerification).delete()
+        db.query(models.RevokedToken).delete()
+        db.query(models.User).delete()
+        db.commit()
+        print("[Database] All tables wiped clean. Database is completely empty.")
+        return True
     except Exception as e:
-        print(f"[DB Migration] Error assigning legacy records: {e}")
+        print(f"[Database Error] Wipe failed: {e}")
         db.rollback()
+        return False
     finally:
         db.close()
 

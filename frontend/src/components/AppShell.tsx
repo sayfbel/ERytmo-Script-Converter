@@ -7,12 +7,12 @@ import { useAuth } from "@/context/AuthContext";
 import Sidebar from "@/components/Sidebar";
 import IncomingTransferModal from "@/components/IncomingTransferModal";
 
-const PUBLIC_AUTH_PATHS = ["/login", "/register", "/verify-email"];
+const PUBLIC_AUTH_PATHS = ["/login", "/register", "/verify-email", "/complete-profile"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   const isLandingPage = pathname === "/" || pathname === "/welcome";
   const isAuthPage = PUBLIC_AUTH_PATHS.some((path) => pathname.startsWith(path));
@@ -22,13 +22,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
 
     if (!isAuthenticated && !isStandalone) {
-      // Redirect unauthenticated user to login
+      // 1. Strictly redirect unauthenticated user to login
       router.replace("/login");
-    } else if (isAuthenticated && isAuthPage && !pathname.startsWith("/verify-email")) {
-      // Redirect logged-in user away from login/register to dashboard
-      router.replace("/projects");
+      return;
     }
-  }, [isAuthenticated, isLoading, isAuthPage, isStandalone, pathname, router]);
+
+    if (isAuthenticated) {
+      // 2. Unskippable onboarding check: must have job_type
+      if (!user?.job_type && pathname !== "/complete-profile") {
+        router.replace("/complete-profile");
+        return;
+      }
+
+      // 3. If profile is complete and on login/register/complete-profile, send to workspace
+      if (user?.job_type && (isAuthPage || pathname === "/complete-profile") && !pathname.startsWith("/verify-email")) {
+        router.replace("/projects");
+        return;
+      }
+    }
+  }, [isAuthenticated, isLoading, isAuthPage, isStandalone, pathname, router, user]);
 
   // Loading screen prevents flashing protected content while verifying session
   if (isLoading && !isStandalone) {

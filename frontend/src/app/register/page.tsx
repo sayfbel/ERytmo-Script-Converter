@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    jobType: "",
     email: "",
     phoneNumber: "",
     password: "",
@@ -35,6 +36,7 @@ export default function RegisterPage() {
   const validate = (): string | null => {
     if (!formData.firstName.trim()) return "First name is required.";
     if (!formData.lastName.trim()) return "Last name is required.";
+    if (!formData.jobType.trim()) return "Job title / studio profession is required.";
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
@@ -74,6 +76,7 @@ export default function RegisterPage() {
       const res = await register({
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
+        job_type: formData.jobType.trim(),
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
         confirm_password: formData.confirmPassword,
@@ -165,6 +168,22 @@ export default function RegisterPage() {
                     className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-slate-900 transition-all placeholder:text-slate-400"
                   />
                 </div>
+              </div>
+
+              {/* Job Type / Profession */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Profession / Studio Role <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="jobType"
+                  value={formData.jobType}
+                  onChange={handleChange}
+                  placeholder="e.g. Dubbing Director, Sound Engineer, Actor..."
+                  required
+                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-slate-900 transition-all placeholder:text-slate-400"
+                />
               </div>
 
               {/* Email Address */}
@@ -287,7 +306,9 @@ export default function RegisterPage() {
               <GoogleAuthButton
                 mode="register"
                 onError={(err) => setError(err)}
-                onSuccess={() => router.push("/projects")}
+                onSuccess={() => {
+                  window.location.href = "/complete-profile";
+                }}
               />
             </div>
           </div>
