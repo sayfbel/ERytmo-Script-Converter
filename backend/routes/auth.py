@@ -756,7 +756,10 @@ def claim_desktop_google_auth(payload: DesktopClaimPayload, response: Response):
 
 
 @router.get("/me")
-def get_current_user_profile(user: Optional[models.User] = Depends(get_current_user_optional)):
+def get_current_user_profile(response: Response, user: Optional[models.User] = Depends(get_current_user_optional)):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     if not user:
         return None
     return {

@@ -15,11 +15,14 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
   
   const headers = new Headers(options.headers || {});
   headers.set("ngrok-skip-browser-warning", "true");
+  headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+  headers.set("Pragma", "no-cache");
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
   return fetch(url, {
+    cache: "no-store",
     ...options,
     credentials: "include",
     headers,

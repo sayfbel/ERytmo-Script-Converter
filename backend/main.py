@@ -38,8 +38,21 @@ app.add_middleware(
     allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    if (
+        request.url.path.startswith("/api/auth") or
+        request.url.path.startswith("/auth") or
+        request.url.path.startswith("/api/projects") or
+        request.url.path.startswith("/api/me")
+    ):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 # Authentication router (public registration/login/verification + self endpoints)
 app.include_router(auth.router, prefix="/api")

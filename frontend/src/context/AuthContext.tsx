@@ -89,7 +89,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const res = await fetch(`${API_BASE}/auth/me`, {
         method: "GET",
-        headers,
+        headers: {
+          ...headers,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
+        },
+        cache: "no-store",
         credentials: "include",
       });
 
