@@ -53,6 +53,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
   const [showConfigNotice, setShowConfigNotice] = useState(false);
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isGisInitializedRef = useRef(false);
 
   const [mounted, setMounted] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -76,8 +77,13 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
           loginWithGoogle(idToken).then((res) => {
             setBtnLoading(false);
             if (res.success) {
-              if (onSuccess) onSuccess();
-              else window.location.href = "/projects";
+              if (res.requiresProfileCompletion) {
+                window.location.href = "/complete-profile";
+              } else if (onSuccess) {
+                onSuccess();
+              } else {
+                window.location.href = "/projects";
+              }
             } else if (onError && res.error) {
               onError(res.error);
             }
@@ -183,6 +189,8 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
   // Initialize GIS in background on web
   const initGis = useCallback(() => {
     if (!window.google?.accounts?.id || !effectiveClientId) return;
+    if (isGisInitializedRef.current) return;
+    isGisInitializedRef.current = true;
 
     try {
       window.google.accounts.id.initialize({
@@ -193,8 +201,13 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
             const result = await loginWithGoogle(response.credential);
             setBtnLoading(false);
             if (result.success) {
-              if (onSuccess) onSuccess();
-              else window.location.href = "/projects";
+              if (result.requiresProfileCompletion) {
+                window.location.href = "/complete-profile";
+              } else if (onSuccess) {
+                onSuccess();
+              } else {
+                window.location.href = "/projects";
+              }
             } else if (result.error && onError) {
               onError(result.error);
             }
