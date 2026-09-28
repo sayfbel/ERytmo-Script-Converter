@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import GoogleAuthButton from "@/components/GoogleAuthButton";
+import AuthShowcasePanel from "@/components/AuthShowcasePanel";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export default function RegisterPage() {
@@ -259,13 +260,16 @@ export default function RegisterPage() {
                 {loading ? "Creating Account..." : "Create Account"}
               </button>
 
-              {/* Back to Login */}
-              <Link
-                href="/login"
-                className="w-full flex items-center justify-center py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-xl transition-all"
-              >
-                Already have an account? Login
-              </Link>
+              {/* Clean inline text link (a href style) */}
+              <p className="text-center text-xs text-slate-500 pt-1">
+                Already have an account?{" "}
+                <Link
+                  href="/login"
+                  className="font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                >
+                  Login
+                </Link>
+              </p>
             </form>
 
             {/* Divider */}
@@ -295,33 +299,8 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Right Side: Pastel Gradient Panel */}
-        <div className="w-full md:w-1/2 min-h-[220px] md:min-h-full bg-gradient-to-br from-[#d4c3f8] via-[#e8d5f3] to-[#fad2c0] flex flex-col items-center justify-center p-8 relative overflow-hidden order-1 md:order-2">
-          {/* Subtle background glow */}
-          <div className="absolute inset-0 bg-white/20 backdrop-blur-[1px] pointer-events-none" />
-
-          {/* Large Frosted Glass Stadium Pill */}
-          <div className="relative z-10 w-48 sm:w-64 h-32 sm:h-40 rounded-[50px] bg-white/40 backdrop-blur-md shadow-sm border border-white/50 flex items-center justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-white/60 backdrop-blur-sm p-3 shadow-xs flex items-center justify-center">
-              <Image
-                src="/app_logo.png"
-                alt="ERytmo Logo"
-                width={40}
-                height={40}
-                priority
-                className="object-contain"
-              />
-            </div>
-          </div>
-
-          {/* Carousel Indicator Dots */}
-          <div className="relative z-10 flex items-center space-x-2 mt-8">
-            <div className="w-2 h-2 rounded-full bg-slate-700/60" />
-            <div className="w-1.5 h-1.5 rounded-full bg-slate-700/25" />
-            <div className="w-1.5 h-1.5 rounded-full bg-slate-700/25" />
-            <div className="w-1.5 h-1.5 rounded-full bg-slate-700/25" />
-          </div>
-        </div>
+        {/* Right Side: Animated Dubbing Showcase Panel */}
+        <AuthShowcasePanel />
       </div>
     </div>
   );
