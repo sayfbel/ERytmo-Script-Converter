@@ -105,6 +105,26 @@ def get_token_from_request(request: Request) -> Optional[str]:
         
     return None
 
+def set_auth_cookie(response: Response, token: str, max_age_seconds: int):
+    """
+    Sets the session cookie with cross-origin HTTPS support (samesite=none, secure=True)
+    when running in production (e.g. Render / Vercel), and lax for local development.
+    """
+    is_prod = (
+        os.getenv("ENVIRONMENT") == "production" or
+        os.getenv("RENDER") is not None or
+        os.getenv("SECURE_COOKIES", "").lower() == "true"
+    )
+    response.set_cookie(
+        key="erytmo_token",
+        value=token,
+        httponly=True,
+        max_age=max_age_seconds,
+        samesite="none" if is_prod else "lax",
+        secure=is_prod,
+        path="/"
+    )
+
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.User:
     token = get_token_from_request(request)
     if not token:
@@ -130,6 +150,28 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         
     return user
+
+
+def get_current_user_optional(request: Request, db: Session = Depends(get_db)) -> Optional[models.User]:
+    token = get_token_from_request(request)
+    if not token:
+        return None
+
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    revoked = db.query(models.RevokedToken).filter(models.RevokedToken.token_hash == token_hash).first()
+    if revoked:
+        return None
+
+    payload = decode_access_token(token)
+    if not payload or not payload.get("sub"):
+        return None
+
+    try:
+        user_id = int(payload["sub"])
+    except (ValueError, TypeError):
+        return None
+
+    return db.query(models.User).filter(models.User.id == user_id).first()
 
 
 # ==========================================
@@ -308,15 +350,8 @@ def verify_email(payload: VerifyEmailPayload, response: Response, db: Session = 
     # Issue persistent session token
     token = create_access_token({"sub": user.id, "email": user.email}, remember_me=True)
 
-    # Set secure HttpOnly cookie
-    response.set_cookie(
-        key="erytmo_token",
-        value=token,
-        httponly=True,
-        max_age=REMEMBER_ME_EXPIRE_DAYS * 86400,
-        samesite="lax",
-        secure=False # Set to True in production HTTPS
-    )
+    # Set secure cookie (supports HTTPS cross-origin in cloud)
+    set_auth_cookie(response, token, REMEMBER_ME_EXPIRE_DAYS * 86400)
 
     return {
         "success": True,
@@ -418,14 +453,7 @@ def login_user(payload: LoginPayload, response: Response, db: Session = Depends(
 
     # Set cookie lifetime based on Remember Me
     max_age_seconds = (REMEMBER_ME_EXPIRE_DAYS * 86400) if remember_me else (DEFAULT_SESSION_EXPIRE_HOURS * 3600)
-    response.set_cookie(
-        key="erytmo_token",
-        value=token,
-        httponly=True,
-        max_age=max_age_seconds,
-        samesite="lax",
-        secure=False
-    )
+    set_auth_cookie(response, token, max_age_seconds)
 
     return {
         "success": True,
@@ -509,14 +537,7 @@ def google_authentication(payload: GoogleAuthPayload, response: Response, db: Se
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     max_age_seconds = (REMEMBER_ME_EXPIRE_DAYS * 86400) if remember_me else (DEFAULT_SESSION_EXPIRE_HOURS * 3600)
-    response.set_cookie(
-        key="erytmo_token",
-        value=token,
-        httponly=True,
-        max_age=max_age_seconds,
-        samesite="lax",
-        secure=False
-    )
+    set_auth_cookie(response, token, max_age_seconds)
 
     return {
         "success": True,
@@ -726,22 +747,18 @@ def claim_desktop_google_auth(payload: DesktopClaimPayload, response: Response):
 
     remember_me = session.get("remember_me", True)
     max_age_seconds = (REMEMBER_ME_EXPIRE_DAYS * 86400) if remember_me else (DEFAULT_SESSION_EXPIRE_HOURS * 3600)
-    response.set_cookie(
-        key="erytmo_token",
-        value=session["token"],
-        httponly=True,
-        max_age=max_age_seconds,
-        samesite="lax",
-        secure=False
-    )
+    set_auth_cookie(response, session["token"], max_age_seconds)
     return {
         "success": True,
+        "token": session["token"],
         "user": session["user"]
     }
 
 
 @router.get("/me")
-def get_current_user_profile(user: models.User = Depends(get_current_user)):
+def get_current_user_profile(user: Optional[models.User] = Depends(get_current_user_optional)):
+    if not user:
+        return None
     return {
         "id": user.id,
         "first_name": user.first_name,
@@ -775,11 +792,17 @@ def logout_user(request: Request, response: Response, db: Session = Depends(get_
             db.commit()
 
     # 2. Invalidate HttpOnly cookie on client
+    is_prod = (
+        os.getenv("ENVIRONMENT") == "production" or
+        os.getenv("RENDER") is not None or
+        os.getenv("SECURE_COOKIES", "").lower() == "true"
+    )
     response.delete_cookie(
         key="erytmo_token",
         path="/",
         httponly=True,
-        samesite="lax"
+        samesite="none" if is_prod else "lax",
+        secure=is_prod
     )
     return {
         "success": True,

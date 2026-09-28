@@ -102,72 +102,142 @@ def init_db():
     from backend.models import models
     Base.metadata.create_all(bind=engine)
     
-    # Safe migrations for existing SQLite databases
-    if not is_mysql:
-        with engine.connect() as conn:
+    # Safe migrations for both SQLite and MySQL databases
+    with engine.connect() as conn:
+        # Migration: companies.user_id
+        try:
+            conn.execute(text("SELECT user_id FROM companies LIMIT 1"))
+        except Exception:
             try:
-                conn.execute(text("SELECT label FROM api_keys LIMIT 1"))
-            except Exception:
-                try:
-                    conn.execute(text("ALTER TABLE api_keys ADD COLUMN label VARCHAR"))
-                    conn.commit()
-                except Exception:
-                    pass
+                if is_mysql:
+                    conn.execute(text("ALTER TABLE companies ADD COLUMN user_id INT NULL, ADD INDEX idx_companies_user_id (user_id), ADD CONSTRAINT fk_companies_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"))
+                else:
+                    conn.execute(text("ALTER TABLE companies ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] companies.user_id: {e}")
 
-            # Migration: user_id on projects table
+        # Migration: appointments.user_id
+        try:
+            conn.execute(text("SELECT user_id FROM appointments LIMIT 1"))
+        except Exception:
             try:
-                conn.execute(text("SELECT user_id FROM projects LIMIT 1"))
+                if is_mysql:
+                    conn.execute(text("ALTER TABLE appointments ADD COLUMN user_id INT NULL, ADD INDEX idx_appointments_user_id (user_id), ADD CONSTRAINT fk_appointments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"))
+                else:
+                    conn.execute(text("ALTER TABLE appointments ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] appointments.user_id: {e}")
+
+        # Migration: api_keys.user_id
+        try:
+            conn.execute(text("SELECT user_id FROM api_keys LIMIT 1"))
+        except Exception:
+            try:
+                if is_mysql:
+                    conn.execute(text("ALTER TABLE api_keys ADD COLUMN user_id INT NULL, ADD INDEX idx_api_keys_user_id (user_id), ADD CONSTRAINT fk_api_keys_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"))
+                else:
+                    conn.execute(text("ALTER TABLE api_keys ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] api_keys.user_id: {e}")
+
+        # Migration: api_keys.label
+        try:
+            conn.execute(text("SELECT label FROM api_keys LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE api_keys ADD COLUMN label VARCHAR(255)"))
+                conn.commit()
             except Exception:
-                try:
+                pass
+
+        # Migration: projects.user_id
+        try:
+            conn.execute(text("SELECT user_id FROM projects LIMIT 1"))
+        except Exception:
+            try:
+                if is_mysql:
+                    conn.execute(text("ALTER TABLE projects ADD COLUMN user_id INT NULL, ADD INDEX idx_projects_user_id (user_id), ADD CONSTRAINT fk_projects_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"))
+                else:
                     conn.execute(text("ALTER TABLE projects ADD COLUMN user_id INTEGER REFERENCES users(id)"))
-                    conn.commit()
-                except Exception as e:
-                    print(f"[DB Migration] projects.user_id: {e}")
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] projects.user_id: {e}")
 
-            # Migration: user_id on staff table
+        # Migration: staff.user_id
+        try:
+            conn.execute(text("SELECT user_id FROM staff LIMIT 1"))
+        except Exception:
             try:
-                conn.execute(text("SELECT user_id FROM staff LIMIT 1"))
-            except Exception:
-                try:
+                if is_mysql:
+                    conn.execute(text("ALTER TABLE staff ADD COLUMN user_id INT NULL, ADD INDEX idx_staff_user_id (user_id), ADD CONSTRAINT fk_staff_owner FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"))
+                else:
                     conn.execute(text("ALTER TABLE staff ADD COLUMN user_id INTEGER REFERENCES users(id)"))
-                    conn.commit()
-                except Exception as e:
-                    print(f"[DB Migration] staff.user_id: {e}")
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] staff.user_id: {e}")
 
-            # Migration: staff_user_id on staff table
+        # Migration: staff.staff_user_id
+        try:
+            conn.execute(text("SELECT staff_user_id FROM staff LIMIT 1"))
+        except Exception:
             try:
-                conn.execute(text("SELECT staff_user_id FROM staff LIMIT 1"))
-            except Exception:
-                try:
+                if is_mysql:
+                    conn.execute(text("ALTER TABLE staff ADD COLUMN staff_user_id INT NULL, ADD INDEX idx_staff_staff_user_id (staff_user_id), ADD CONSTRAINT fk_staff_user FOREIGN KEY (staff_user_id) REFERENCES users(id) ON DELETE SET NULL"))
+                else:
                     conn.execute(text("ALTER TABLE staff ADD COLUMN staff_user_id INTEGER REFERENCES users(id)"))
-                    conn.commit()
-                except Exception as e:
-                    print(f"[DB Migration] staff.staff_user_id: {e}")
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] staff.staff_user_id: {e}")
 
-    # Legacy config sync into DB if api_keys table is empty
+        # Migration: staff.access_level
+        try:
+            conn.execute(text("SELECT access_level FROM staff LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE staff ADD COLUMN access_level VARCHAR(32) NOT NULL DEFAULT 'spectator'"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] staff.access_level: {e}")
+
+        # Migration: staff.auto_accept_transfers
+        try:
+            conn.execute(text("SELECT auto_accept_transfers FROM staff LIMIT 1"))
+        except Exception:
+            try:
+                if is_mysql:
+                    conn.execute(text("ALTER TABLE staff ADD COLUMN auto_accept_transfers BOOLEAN NOT NULL DEFAULT 0"))
+                else:
+                    conn.execute(text("ALTER TABLE staff ADD COLUMN auto_accept_transfers BOOLEAN NOT NULL DEFAULT 0"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] staff.auto_accept_transfers: {e}")
+
+    # Safe migration: Assign existing unassigned records to User 13 (hamza.emilie23@gmail.com)
     db = SessionLocal()
     try:
         from backend.models import models
-        existing_count = db.query(models.ApiKey).count()
-        if existing_count == 0:
-            config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
-            if os.path.exists(config_path):
-                try:
-                    with open(config_path, "r") as f:
-                        data = json.load(f)
-                    gemini_key = data.get("GEMINI_API_KEY")
-                    openai_key = data.get("OPENAI_API_KEY")
-                    groq_key = data.get("GROQ_API_KEY")
+        user_13 = db.query(models.User).filter(models.User.id == 13).first()
+        if user_13:
+            db.query(models.Company).filter(models.Company.user_id == None).update({models.Company.user_id: 13})
+            db.query(models.Staff).filter(models.Staff.user_id == None).update({models.Staff.user_id: 13})
+            db.query(models.ApiKey).filter(models.ApiKey.user_id == None).update({models.ApiKey.user_id: 13})
+            db.query(models.Project).filter(models.Project.user_id == None).update({models.Project.user_id: 13})
+            db.query(models.Appointment).filter(models.Appointment.user_id == None).update({models.Appointment.user_id: 13})
 
-                    if gemini_key:
-                        db.add(models.ApiKey(provider="gemini", key=gemini_key, label="Gemini Key 1", is_active=True))
-                    if openai_key:
-                        db.add(models.ApiKey(provider="openai", key=openai_key, label="OpenAI Key 1", is_active=True))
-                    if groq_key:
-                        db.add(models.ApiKey(provider="groq", key=groq_key, label="Groq Key 1", is_active=True))
-                    db.commit()
-                except Exception as e:
-                    print(f"Error migrating legacy config.json keys: {e}")
+            # Link existing projects to their company if company_id is NULL
+            proj1 = db.query(models.Project).filter(models.Project.id == 1, models.Project.company_id == None).first()
+            if proj1:
+                proj1.company_id = 2
+            proj2 = db.query(models.Project).filter(models.Project.id == 2, models.Project.company_id == None).first()
+            if proj2:
+                proj2.company_id = 1
+            db.commit()
+    except Exception as e:
+        print(f"[DB Migration] Error assigning legacy records: {e}")
+        db.rollback()
     finally:
         db.close()
 

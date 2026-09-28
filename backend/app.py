@@ -86,16 +86,22 @@ class DesktopApi:
 
 desktop_api = DesktopApi()
 
+def is_port_in_use(port: int = 8000) -> bool:
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) == 0
+
 def run_server():
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="error")
 
 if __name__ == '__main__':
-    # Start the FastAPI server in a background thread
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
-    
-    # Wait a bit for the server to start
-    time.sleep(1.5)
+    # Only start background server if port 8000 is not already in use
+    if not is_port_in_use(8000):
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+        time.sleep(1.5)
+    else:
+        print("[Desktop] Reusing existing server running on port 8000.")
 
     # Create local storage directory for WebView2 session and cookie persistence
     storage_dir = os.path.join(root_dir, ".webview_storage")

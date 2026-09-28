@@ -97,6 +97,7 @@ def migrate():
         if not existing:
             tgt_db.add(models.Company(
                 id=c.id,
+                user_id=c.user_id,
                 name=c.name,
                 description=c.description,
                 rate_detection=c.rate_detection,
@@ -148,7 +149,24 @@ def migrate():
             ))
     tgt_db.commit()
 
-    # E. Api Keys
+    # E. Appointments
+    appointments = src_db.query(models.Appointment).all()
+    print(f"Migrating {len(appointments)} appointments...")
+    for a in appointments:
+        existing = tgt_db.query(models.Appointment).filter_by(id=a.id).first()
+        if not existing:
+            tgt_db.add(models.Appointment(
+                id=a.id,
+                user_id=a.user_id,
+                title=a.title,
+                type=a.type,
+                start_time=a.start_time,
+                end_time=a.end_time,
+                created_at=a.created_at
+            ))
+    tgt_db.commit()
+
+    # F. Api Keys
     keys = src_db.query(models.ApiKey).all()
     print(f"Migrating {len(keys)} api keys...")
     for k in keys:
@@ -156,6 +174,7 @@ def migrate():
         if not existing:
             tgt_db.add(models.ApiKey(
                 id=k.id,
+                user_id=k.user_id,
                 provider=k.provider,
                 key=k.key,
                 label=k.label,

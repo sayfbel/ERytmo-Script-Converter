@@ -55,12 +55,16 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const getApiBase = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    const base = process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+    return base.endsWith("/api") ? base : `${base}/api`;
+  }
   if (typeof window !== "undefined") {
-    if (window.location.port === "8000" || window.location.hostname === "localhost") {
+    if (window.location.port === "8000") {
       return `${window.location.origin}/api`;
     }
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+  return "http://localhost:8000/api";
 };
 
 const API_BASE = getApiBase();
@@ -70,17 +74,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
 
-  // Fetch current user from server session (HttpOnly cookie)
+  // Fetch current user from server session (HttpOnly cookie or Bearer token)
   const refreshSession = useCallback(async () => {
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("erytmo_token") : null;
+      const headers: Record<string, string> = {
+        "ngrok-skip-browser-warning": "true",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`${API_BASE}/auth/me`, {
         method: "GET",
+        headers,
         credentials: "include",
       });
 
       if (res.ok) {
-        const userData: User = await res.json();
-        setUser(userData);
+        const userData: User | null = await res.json();
+        setUser(userData && userData.id ? userData : null);
       } else {
         setUser(null);
       }
@@ -95,7 +108,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch Google Client ID from backend
   const fetchConfig = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/auth/config`);
+      const res = await fetch(`${API_BASE}/auth/config`, {
+        headers: { "ngrok-skip-browser-warning": "true" }
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.google_client_id) {
@@ -159,6 +174,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           success: false,
           error: typeof json.detail === "string" ? json.detail : "Verification failed. Invalid or expired code.",
         };
+      }
+
+      if (json.token && typeof window !== "undefined") {
+        localStorage.setItem("erytmo_token", json.token);
       }
 
       if (json.user) {
@@ -234,6 +253,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
+      if (json.token && typeof window !== "undefined") {
+        localStorage.setItem("erytmo_token", json.token);
+      }
+
       if (json.user) {
         setUser(json.user);
       } else {
@@ -269,6 +292,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
+      if (json.token && typeof window !== "undefined") {
+        localStorage.setItem("erytmo_token", json.token);
+      }
+
       if (json.user) {
         setUser(json.user);
       } else {
@@ -289,13 +316,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Logout (Calls server to revoke session and delete HttpOnly cookie)
   const logout = async () => {
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("erytmo_token") : null;
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
+        headers,
         credentials: "include",
       });
     } catch {
       // Ignore network errors on logout
     } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("erytmo_token");
+      }
       setUser(null);
       if (typeof window !== "undefined") {
         window.location.href = "/login";

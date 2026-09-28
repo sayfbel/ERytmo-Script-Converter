@@ -4,6 +4,7 @@ import "./globals.css";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { ConverterProvider } from "@/context/ConverterContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { SignalingProvider } from "@/context/SignalingContext";
 import AppShell from "@/components/AppShell";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -22,15 +23,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} bg-slate-50 text-slate-900 overflow-hidden flex h-screen dark:bg-slate-900 dark:text-slate-100`}>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning className={`${inter.className} bg-slate-50 text-slate-900 overflow-hidden flex h-screen dark:bg-slate-900 dark:text-slate-100`}>
         <SettingsProvider>
           <AuthProvider>
-            <ConverterProvider>
-              <AppShell>
-                {children}
-              </AppShell>
-            </ConverterProvider>
+            <SignalingProvider>
+              <ConverterProvider>
+                <AppShell>
+                  {children}
+                </AppShell>
+              </ConverterProvider>
+            </SignalingProvider>
           </AuthProvider>
         </SettingsProvider>
       </body>

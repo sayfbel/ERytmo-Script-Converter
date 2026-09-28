@@ -5,6 +5,7 @@ import { Building, Search, Plus, Mail, DollarSign, X, Loader2, Edit2, Trash2 } f
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
 import { useSettings } from "@/context/SettingsContext";
+import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 
 export interface Company {
@@ -21,6 +22,7 @@ export interface Company {
 
 export default function CompanyPage() {
   const { t } = useSettings();
+  const { user } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSoftware, setFilterSoftware] = useState("All");
@@ -76,8 +78,12 @@ export default function CompanyPage() {
   };
 
   useEffect(() => {
-    fetchCompanies();
-  }, []);
+    if (user?.id) {
+      fetchCompanies();
+    } else {
+      setCompanies([]);
+    }
+  }, [user?.id]);
 
   const fetchCompanies = async () => {
     try {
@@ -85,9 +91,12 @@ export default function CompanyPage() {
       if (res.ok) {
         const data = await res.json();
         setCompanies(data);
+      } else {
+        setCompanies([]);
       }
     } catch (err) {
       console.error(err);
+      setCompanies([]);
     }
   };
 

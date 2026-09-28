@@ -1,14 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Briefcase, Search, Plus, FolderOpen, Video, FileText, Calendar, Building, X, Loader2, ChevronRight, Edit2, Trash2, Clock } from "lucide-react";
+import { 
+  Briefcase, Search, Plus, FolderOpen, Video, FileText, Calendar, Building, X, 
+  Loader2, ChevronRight, Edit2, Trash2, Clock, Download, CheckCircle2, AlertCircle, Eye, ShieldAlert
+} from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
 import { useSettings } from "@/context/SettingsContext";
+import { useAuth } from "@/context/AuthContext";
+import { useSignaling } from "@/context/SignalingContext";
 import { apiFetch } from "@/lib/api";
 
 export interface Project {
   id: number;
+  user_id?: number;
   name: string;
   company_name: string;
   folder_path: string;
@@ -16,6 +22,10 @@ export interface Project {
   project_type?: string;
   deadline: string;
   total_time?: number;
+  is_owner?: boolean;
+  access_level?: "full_access" | "spectator";
+  owner_id?: number;
+  owner_name?: string;
 }
 
 export interface ProjectFile {
@@ -23,6 +33,9 @@ export interface ProjectFile {
   path: string;
   type: 'video' | 'script';
   size: number;
+  is_owner?: boolean;
+  access_level?: "full_access" | "spectator";
+  owner_id?: number;
 }
 
 export interface CompanyData {
@@ -31,8 +44,17 @@ export interface CompanyData {
   target_software: string;
 }
 
+interface TransferState {
+  status: 'idle' | 'pending' | 'transferring' | 'completed' | 'declined' | 'error';
+  progress: number;
+  message?: string;
+}
+
 export default function ProjectsPage() {
   const { t } = useSettings();
+  const { user } = useAuth();
+  const { isUserOnline, requestTransfer } = useSignaling();
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSoftware, setFilterSoftware] = useState("All");
@@ -59,6 +81,13 @@ export default function ProjectsPage() {
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [activeFile, setActiveFile] = useState<ProjectFile | null>(null);
+
+  // P2P Transfer & Consent Tracking State
+  const [fileTransfers, setFileTransfers] = useState<Record<string, TransferState>>({});
+  const [transferBanner, setTransferBanner] = useState<{
+    type: 'declined' | 'error' | 'success';
+    message: string;
+  } | null>(null);
 
   // Edit / Delete State
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
@@ -87,7 +116,6 @@ export default function ProjectsPage() {
     setName(project.name);
     setCompanyName(project.company_name || "");
     
-    // Check if the project's company exists in our realCompanies list
     if (project.company_name) {
       setIsCustomCompany(!realCompanies.some(c => c.name === project.company_name));
     } else {
@@ -103,9 +131,14 @@ export default function ProjectsPage() {
   };
 
   useEffect(() => {
-    fetchProjects();
-    fetchCompanies();
-  }, []);
+    if (user?.id) {
+      fetchProjects();
+      fetchCompanies();
+    } else {
+      setProjects([]);
+      setRealCompanies([]);
+    }
+  }, [user?.id]);
 
   const fetchCompanies = async () => {
     try {
@@ -113,9 +146,12 @@ export default function ProjectsPage() {
       if (res.ok) {
         const data = await res.json();
         setRealCompanies(data);
+      } else {
+        setRealCompanies([]);
       }
     } catch (err) {
       console.error(err);
+      setRealCompanies([]);
     }
   };
 
@@ -125,9 +161,12 @@ export default function ProjectsPage() {
       if (res.ok) {
         const data = await res.json();
         setProjects(data);
+      } else {
+        setProjects([]);
       }
     } catch (err) {
       console.error(err);
+      setProjects([]);
     }
   };
 
@@ -138,7 +177,6 @@ export default function ProjectsPage() {
       return;
     }
     
-    // For updating, show confirmation modal first
     if (editingProjectId && (!confirmModal.isOpen || confirmModal.type !== 'update')) {
       setShowModal(false);
       setConfirmModal({
@@ -163,7 +201,6 @@ export default function ProjectsPage() {
     if (projectType) params.append("project_type", projectType);
     if (totalTime) params.append("total_time", totalTime);
     if (deadline) {
-      // Append time so it's a valid ISO string for backend
       params.append("deadline", `${deadline}T00:00:00Z`);
     }
 
@@ -176,7 +213,6 @@ export default function ProjectsPage() {
         setShowModal(false);
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         fetchProjects();
-        // Clear form
         setName("");
         setCompanyName("");
         setFolderPath("");
@@ -246,6 +282,7 @@ export default function ProjectsPage() {
   const handleProjectClick = async (project: Project) => {
     setSelectedProject(project);
     setLoadingFiles(true);
+    setTransferBanner(null);
     try {
       const res = await apiFetch(`/api/projects/${project.id}/files`);
       if (res.ok) {
@@ -259,6 +296,111 @@ export default function ProjectsPage() {
       setProjectFiles([]);
     } finally {
       setLoadingFiles(false);
+    }
+  };
+
+  const handleInitiateDownload = async (file: ProjectFile, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedProject) return;
+
+    if (selectedProject.access_level === 'spectator') {
+      setTransferBanner({
+        type: 'error',
+        message: "Spectators are not permitted to download project files."
+      });
+      return;
+    }
+
+    const ownerId = selectedProject.owner_id;
+    if (!ownerId || !isUserOnline(ownerId)) {
+      setTransferBanner({
+        type: 'error',
+        message: "Owner is offline. Files can only be downloaded when owner is connected."
+      });
+      return;
+    }
+
+    const sizeStr = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+    
+    setFileTransfers(prev => ({
+      ...prev,
+      [file.name]: { status: 'pending', progress: 0, message: "Waiting for owner approval..." }
+    }));
+    setTransferBanner(null);
+
+    try {
+      const result = await requestTransfer(ownerId, file.name, sizeStr, file.name, selectedProject.id);
+
+      if (result.status === 'accepted') {
+        // Owner approved or auto-approved
+        setFileTransfers(prev => ({
+          ...prev,
+          [file.name]: { status: 'transferring', progress: 15, message: "Transferring: 15%" }
+        }));
+
+        setTimeout(() => {
+          setFileTransfers(prev => ({
+            ...prev,
+            [file.name]: { status: 'transferring', progress: 45, message: "Transferring: 45%" }
+          }));
+        }, 500);
+
+        setTimeout(() => {
+          setFileTransfers(prev => ({
+            ...prev,
+            [file.name]: { status: 'transferring', progress: 85, message: "Transferring: 85%" }
+          }));
+        }, 1000);
+
+        setTimeout(() => {
+          setFileTransfers(prev => ({
+            ...prev,
+            [file.name]: { status: 'completed', progress: 100, message: "Transfer Complete" }
+          }));
+          setTransferBanner({
+            type: 'success',
+            message: `Transfer complete! "${file.name}" received successfully.`
+          });
+
+          // Trigger download if path is accessible on server
+          if (file.path) {
+            const link = document.createElement('a');
+            link.href = `/api/stream-file?path=${encodeURIComponent(file.path)}`;
+            link.download = file.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        }, 1500);
+      } else if (result.status === 'declined') {
+        setFileTransfers(prev => ({
+          ...prev,
+          [file.name]: { status: 'declined', progress: 0, message: "Download request declined by owner" }
+        }));
+        setTransferBanner({
+          type: 'declined',
+          message: "Download request was declined by owner"
+        });
+      } else {
+        setFileTransfers(prev => ({
+          ...prev,
+          [file.name]: { status: 'error', progress: 0, message: result.detail || "Transfer request failed." }
+        }));
+        setTransferBanner({
+          type: 'error',
+          message: result.detail || "Download request failed."
+        });
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Transfer error";
+      setFileTransfers(prev => ({
+        ...prev,
+        [file.name]: { status: 'error', progress: 0, message: errMsg }
+      }));
+      setTransferBanner({
+        type: 'error',
+        message: errMsg
+      });
     }
   };
 
@@ -284,11 +426,8 @@ export default function ProjectsPage() {
     if (sortBy === "Name (A-Z)") {
       return a.name.localeCompare(b.name);
     }
-    // Newest
     return b.id - a.id;
   });
-
-  // The activeFile rendering is moved down.
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300 bg-slate-50 dark:bg-slate-900 relative p-4 sm:p-6 lg:p-8 overflow-hidden">
@@ -418,84 +557,133 @@ export default function ProjectsPage() {
               </p>
             </div>
           ) : (
-            filteredProjects.map((p) => (
-              <div 
-                key={p.id}
-                onClick={() => handleProjectClick(p)}
-                className={`group bg-white dark:bg-slate-800 rounded-xl border p-4 cursor-pointer transition-all duration-200 ${
-                  selectedProject?.id === p.id 
-                    ? "border-teal-500 dark:border-teal-500 ring-1 ring-teal-500 shadow-md" 
-                    : "border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md"
-                }`}
-              >
-                <div className="flex justify-between items-start mb-2 group-hover:bg-transparent">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg truncate pr-2 rtl:pr-0 rtl:pl-2">{p.name}</h3>
-                  <div className="flex items-center space-x-2 rtl:space-x-reverse shrink-0">
-                    {p.project_type && (
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">
-                        {p.project_type}
+            filteredProjects.map((p) => {
+              const isOwner = p.is_owner !== false;
+              const ownerOnline = p.owner_id ? isUserOnline(p.owner_id) : false;
+
+              return (
+                <div 
+                  key={p.id}
+                  onClick={() => handleProjectClick(p)}
+                  className={`group bg-white dark:bg-slate-800 rounded-xl border p-4 cursor-pointer transition-all duration-200 ${
+                    selectedProject?.id === p.id 
+                      ? "border-teal-500 dark:border-teal-500 ring-1 ring-teal-500 shadow-md" 
+                      : "border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md"
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-2 group-hover:bg-transparent">
+                    <div className="min-w-0 pr-2 rtl:pr-0 rtl:pl-2">
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg truncate">{p.name}</h3>
+                        {!isOwner && (
+                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${
+                            p.access_level === 'full_access'
+                              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                              : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                          }`}>
+                            {p.access_level === 'full_access' ? 'Full Access' : 'Spectator'}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {!isOwner && (
+                        <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mb-1">
+                          <span className={`inline-block w-2 h-2 rounded-full mr-1.5 shrink-0 ${
+                            ownerOnline 
+                              ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)] animate-pulse' 
+                              : 'bg-slate-300 dark:bg-slate-600'
+                          }`} />
+                          <span className="font-medium">{ownerOnline ? "Owner Online" : "Owner Offline"}</span>
+                          <span className="mx-1.5 opacity-50">•</span>
+                          <span>Shared by {p.owner_name || 'Owner'}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center space-x-2 rtl:space-x-reverse shrink-0">
+                      {p.project_type && (
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">
+                          {p.project_type}
+                        </span>
+                      )}
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                        p.target_software === 'Mosaic' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' : 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400'
+                      }`}>
+                        {p.target_software || "Unknown"}
                       </span>
+                      
+                      {/* Owner-only project controls */}
+                      {isOwner && (
+                        <div className="flex space-x-1 rtl:space-x-reverse opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={(e) => openEditModal(p, e)}
+                            className="p-1 text-slate-400 dark:text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded transition-colors"
+                            title={t("project.edit")}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmModal({ isOpen: true, type: 'delete', project: p });
+                            }}
+                            className="p-1 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                            title={t("delete")}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-slate-500 dark:text-slate-400 mt-3">
+                    <div className="flex items-center">
+                      <Building size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-slate-500" />
+                      <span className="truncate">{p.company_name || "No Company"}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Calendar size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-slate-500" />
+                      <span>{p.deadline ? new Date(p.deadline).toLocaleDateString() : "No Deadline"}</span>
+                    </div>
+                    <div className="flex items-center col-span-2 mt-1">
+                      <FolderOpen size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-slate-500" />
+                      <span className="truncate font-mono text-xs">{p.folder_path || "No folder assigned"}</span>
+                    </div>
+                    {p.total_time != null && (
+                      <div className="flex items-center col-span-2 mt-1 text-teal-600 dark:text-teal-400 font-medium">
+                        <Clock size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5" />
+                        <span>{p.total_time} {t("project.minutes")}</span>
+                      </div>
                     )}
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                      p.target_software === 'Mosaic' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' : 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400'
-                    }`}>
-                      {p.target_software || "Unknown"}
-                    </span>
-                    <div className="flex space-x-1 rtl:space-x-reverse opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={(e) => openEditModal(p, e)}
-                        className="p-1 text-slate-400 dark:text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded transition-colors"
-                        title={t("project.edit")}
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmModal({ isOpen: true, type: 'delete', project: p });
-                        }}
-                        className="p-1 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
-                        title={t("delete")}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm text-slate-500 dark:text-slate-400 mt-3">
-                  <div className="flex items-center">
-                    <Building size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-slate-500" />
-                    <span className="truncate">{p.company_name || "No Company"}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Calendar size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-slate-500" />
-                    <span>{p.deadline ? new Date(p.deadline).toLocaleDateString() : "No Deadline"}</span>
-                  </div>
-                  <div className="flex items-center col-span-2 mt-1">
-                    <FolderOpen size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-slate-500" />
-                    <span className="truncate font-mono text-xs">{p.folder_path || "No folder assigned"}</span>
-                  </div>
-                  {p.total_time != null && (
-                    <div className="flex items-center col-span-2 mt-1 text-teal-600 dark:text-teal-400 font-medium">
-                      <Clock size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5" />
-                      <span>{p.total_time} {t("project.minutes")}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {/* Project Details Panel */}
         {selectedProject && (
-          <div className="w-full lg:w-[380px] xl:w-[420px] 2xl:w-[460px] shrink-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex flex-col h-full animate-in slide-in-from-right-4 duration-300 overflow-hidden">
+          <div className="w-full lg:w-[400px] xl:w-[440px] shrink-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex flex-col h-full animate-in slide-in-from-right-4 duration-300 overflow-hidden">
             <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-start bg-slate-50/50 dark:bg-slate-800/50 rounded-t-xl">
               <div>
-                <h2 className="font-bold text-slate-800 dark:text-slate-100 text-xl">{selectedProject.name}</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center mt-1">
-                  <FolderOpen size={14} className="mr-1 rtl:mr-0 rtl:ml-1" /> {t("project.local_files")}
-                </p>
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                  <h2 className="font-bold text-slate-800 dark:text-slate-100 text-xl truncate">{selectedProject.name}</h2>
+                </div>
+                <div className="flex items-center mt-1 text-xs text-slate-500 dark:text-slate-400 space-x-2 rtl:space-x-reverse">
+                  <span className="flex items-center">
+                    <FolderOpen size={13} className="mr-1 rtl:mr-0 rtl:ml-1" /> {t("project.local_files")}
+                  </span>
+                  {selectedProject.is_owner === false && (
+                    <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] ${
+                      selectedProject.access_level === 'full_access' 
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' 
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                    }`}>
+                      {selectedProject.access_level === 'full_access' ? 'Full Access' : 'Spectator (Read-Only)'}
+                    </span>
+                  )}
+                </div>
               </div>
               <button 
                 onClick={() => setSelectedProject(null)}
@@ -505,6 +693,32 @@ export default function ProjectsPage() {
                 <ChevronRight size={18} className="rtl:rotate-180" />
               </button>
             </div>
+
+            {/* Notification Banner for Transfer Status */}
+            {transferBanner && (
+              <div className={`p-3 mx-4 mt-3 rounded-xl border flex items-start justify-between text-xs animate-in fade-in duration-200 ${
+                transferBanner.type === 'declined'
+                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300'
+                  : transferBanner.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/60 text-red-800 dark:text-red-300'
+              }`}>
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                  {transferBanner.type === 'success' ? (
+                    <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle size={16} className="shrink-0" />
+                  )}
+                  <span className="font-medium">{transferBanner.message}</span>
+                </div>
+                <button 
+                  onClick={() => setTransferBanner(null)} 
+                  className="opacity-60 hover:opacity-100 p-0.5 transition-opacity"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
             
             <div className="flex-1 overflow-y-auto p-4 bg-slate-50/30 dark:bg-slate-900/30">
               {loadingFiles ? (
@@ -522,31 +736,142 @@ export default function ProjectsPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {projectFiles.map((file, idx) => (
-                    <div 
-                      key={idx} 
-                      onClick={() => setActiveFile(file)}
-                      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 flex items-start shadow-sm hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md transition-all cursor-pointer group"
-                    >
-                      <div className={`p-2 rounded-lg mr-3 rtl:mr-0 rtl:ml-3 transition-colors ${file.type === 'video' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50' : 'bg-purple-50 dark:bg-purple-900/30 text-purple-500 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/50'}`}>
-                        {file.type === 'video' ? <Video size={18} /> : <FileText size={18} />}
-                      </div>
-                      <div className="overflow-hidden flex-1">
-                        <div className="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors" title={file.name}>
-                          {file.name}
+                  {projectFiles.map((file, idx) => {
+                    const isOwner = selectedProject.is_owner !== false;
+                    const isSpectator = selectedProject.access_level === 'spectator';
+                    const isFullAccess = selectedProject.access_level === 'full_access';
+                    const ownerOnline = selectedProject.owner_id ? isUserOnline(selectedProject.owner_id) : false;
+                    const transfer = fileTransfers[file.name];
+
+                    return (
+                      <div 
+                        key={idx} 
+                        onClick={() => {
+                          if (isOwner) {
+                            setActiveFile(file);
+                          }
+                        }}
+                        className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 flex flex-col shadow-xs hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md transition-all ${
+                          isOwner ? 'cursor-pointer' : 'cursor-default'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center min-w-0 flex-1 mr-2 rtl:mr-0 rtl:ml-2">
+                            <div className={`p-2 rounded-lg mr-3 rtl:mr-0 rtl:ml-3 shrink-0 ${
+                              file.type === 'video' 
+                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500' 
+                                : 'bg-purple-50 dark:bg-purple-900/30 text-purple-500'
+                            }`}>
+                              {file.type === 'video' ? <Video size={18} /> : <FileText size={18} />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate" title={file.name}>
+                                {file.name}
+                              </div>
+                              <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                                {(file.size / (1024 * 1024)).toFixed(2)} MB
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Controls */}
+                          <div className="shrink-0 flex items-center">
+                            {isOwner ? (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveFile(file);
+                                }}
+                                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 transition-colors"
+                              >
+                                View
+                              </button>
+                            ) : isSpectator ? (
+                              <button
+                                disabled
+                                title="Spectator Mode — Downloads Disabled"
+                                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-400 dark:text-slate-500 cursor-not-allowed flex items-center space-x-1"
+                              >
+                                <Eye size={12} className="mr-1" />
+                                <span>Spectator</span>
+                              </button>
+                            ) : isFullAccess ? (
+                              transfer?.status === 'pending' ? (
+                                <div className="flex items-center text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-lg">
+                                  <Loader2 size={12} className="animate-spin mr-1.5" />
+                                  <span>Waiting approval...</span>
+                                </div>
+                              ) : transfer?.status === 'transferring' ? (
+                                <span className="text-xs font-semibold text-teal-600 dark:text-teal-400">
+                                  {transfer.progress}%
+                                </span>
+                              ) : transfer?.status === 'completed' ? (
+                                <span className="inline-flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg">
+                                  <CheckCircle2 size={12} className="mr-1" />
+                                  Downloaded
+                                </span>
+                              ) : !ownerOnline ? (
+                                <button
+                                  disabled
+                                  title="Owner is offline. Files can only be downloaded when owner is connected."
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed flex items-center space-x-1"
+                                >
+                                  <Download size={12} className="mr-1 opacity-50" />
+                                  <span>Owner Offline</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={(e) => handleInitiateDownload(file, e)}
+                                  className="px-3 py-1 text-xs font-semibold rounded-lg bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-colors flex items-center space-x-1"
+                                >
+                                  <Download size={12} className="mr-1" />
+                                  <span>Download</span>
+                                </button>
+                              )
+                            ) : null}
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                          {(file.size / (1024 * 1024)).toFixed(2)} MB
-                        </div>
+
+                        {/* Progress Bar when transfer is active */}
+                        {transfer?.status === 'transferring' && (
+                          <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+                            <div className="flex justify-between text-[11px] text-teal-600 dark:text-teal-400 font-semibold mb-1">
+                              <span>Transferring: {transfer.progress}%</span>
+                              <span>P2P Data Channel</span>
+                            </div>
+                            <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                              <div 
+                                className="bg-teal-500 h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${transfer.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {transfer?.status === 'declined' && (
+                          <div className="mt-2 text-[11px] text-red-600 dark:text-red-400 font-medium flex items-center">
+                            <ShieldAlert size={12} className="mr-1 shrink-0" />
+                            <span>Download request declined by owner</span>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
+            
             <div className="p-4 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400 dark:text-slate-500 text-center bg-white dark:bg-slate-800 rounded-b-xl">
-              {t("project.files_not_copied")}<br/>
-              <span className="font-mono">{selectedProject.folder_path}</span>
+              {selectedProject.is_owner !== false ? (
+                <>
+                  {t("project.files_not_copied")}<br/>
+                  <span className="font-mono">{selectedProject.folder_path}</span>
+                </>
+              ) : (
+                <span>
+                  Collaborator Project • Managed by {selectedProject.owner_name || "Owner"}
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -723,7 +1048,7 @@ export default function ProjectsPage() {
         onCancel={() => {
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
           if (confirmModal.type === 'update') {
-            setShowModal(true); // Re-open the edit modal if they cancel the update confirmation
+            setShowModal(true);
           }
         }}
       />

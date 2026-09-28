@@ -69,10 +69,12 @@ class ScriptCues(BaseModel):
 from backend.database.database import SessionLocal
 from backend.models import models
 
-def get_db_active_keys(provider=None):
+def get_db_active_keys(provider=None, user_id=None):
     db = SessionLocal()
     try:
         query = db.query(models.ApiKey).filter(models.ApiKey.is_active == True)
+        if user_id is not None:
+            query = query.filter(models.ApiKey.user_id == user_id)
         if provider:
             query = query.filter(models.ApiKey.provider == provider.lower())
         return query.order_by(models.ApiKey.id.asc()).all()
@@ -277,10 +279,10 @@ SCRIPT TEXT (May be long):
     return []
 
 
-def parse_with_gemini(raw_text):
-    gemini_keys = get_db_active_keys("gemini")
-    openai_keys = get_db_active_keys("openai")
-    groq_keys = get_db_active_keys("groq")
+def parse_with_gemini(raw_text, user_id=None):
+    gemini_keys = get_db_active_keys("gemini", user_id=user_id)
+    openai_keys = get_db_active_keys("openai", user_id=user_id)
+    groq_keys = get_db_active_keys("groq", user_id=user_id)
 
     errors = []
 
@@ -450,8 +452,8 @@ def extract_audio_if_video(media_path):
         log_debug(f"FFmpeg compression failed: {e}. Falling back to original media.")
         return media_path, False
 
-def align_timecodes_with_gemini(script_cues, media_path, start_timecode="00:00:00:00"):
-    active_keys = get_db_active_keys("gemini")
+def align_timecodes_with_gemini(script_cues, media_path, start_timecode="00:00:00:00", user_id=None):
+    active_keys = get_db_active_keys("gemini", user_id=user_id)
     keys_to_try = [k.key for k in active_keys]
     
     if not keys_to_try:
@@ -1039,7 +1041,7 @@ def parse_script_locally(input_path):
 
     return []
 
-def safe_validate_and_convert(input_path, output_docx_path=None, export_mode="3line"):
+def safe_validate_and_convert(input_path, output_docx_path=None, export_mode="3line", user_id=None):
     """
     Safely validates, extracts raw text, and converts script.
     First attempts instant local parser (0.01s). If unstructured, falls back to AI engine.
@@ -1114,7 +1116,7 @@ def safe_validate_and_convert(input_path, output_docx_path=None, export_mode="3l
         if not raw_text.strip():
             raise EmptyFileError(os.path.basename(input_path))
 
-        raw_rows = parse_with_gemini(raw_text)
+        raw_rows = parse_with_gemini(raw_text, user_id=user_id)
 
         if not raw_rows:
             raise NoTimecodesFoundError(os.path.basename(input_path))

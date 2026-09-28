@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Clock, Plus, Trash2, Calendar as CalendarIcon, DollarSign } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
+import { useAuth } from "@/context/AuthContext";
 import CustomSelect from "@/components/CustomSelect";
 import { apiFetch } from "@/lib/api";
 
@@ -32,6 +33,7 @@ interface TimeEntry {
 
 export default function TimeManagementPage() {
   const { t } = useSettings();
+  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
@@ -41,20 +43,40 @@ export default function TimeManagementPage() {
   const [duration, setDuration] = useState<string>("");
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
+  const storageKey = user?.id ? `erytmo_time_entries_${user.id}` : "erytmo_time_entries";
+
   useEffect(() => {
-    fetchProjects();
-    fetchCompanies();
-    
-    // Load from local storage
-    const saved = localStorage.getItem("erytmo_time_entries");
+    if (user?.id) {
+      fetchProjects();
+      fetchCompanies();
+    } else {
+      setProjects([]);
+      setCompanies([]);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    const currentKey = `erytmo_time_entries_${user.id}`;
+    let saved = localStorage.getItem(currentKey);
+    // Legacy migration check: if current user has no entries, check legacy key
+    if (!saved && user.id === 13) {
+      saved = localStorage.getItem("erytmo_time_entries");
+      if (saved) {
+        localStorage.setItem(currentKey, saved);
+      }
+    }
     if (saved) {
       try {
         setEntries(JSON.parse(saved));
       } catch (e) {
         console.error(e);
+        setEntries([]);
       }
+    } else {
+      setEntries([]);
     }
-  }, []);
+  }, [user]);
 
   const fetchProjects = async () => {
     try {
@@ -109,7 +131,7 @@ export default function TimeManagementPage() {
     
     const updated = [...entries, newEntry];
     setEntries(updated);
-    localStorage.setItem("erytmo_time_entries", JSON.stringify(updated));
+    localStorage.setItem(storageKey, JSON.stringify(updated));
     
     setShowModal(false);
     setDuration("");
@@ -118,7 +140,7 @@ export default function TimeManagementPage() {
   const handleDeleteEntry = (id: string) => {
     const updated = entries.filter(e => e.id !== id);
     setEntries(updated);
-    localStorage.setItem("erytmo_time_entries", JSON.stringify(updated));
+    localStorage.setItem(storageKey, JSON.stringify(updated));
   };
 
   // Calculations

@@ -31,11 +31,12 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------------
--- Table structure for `companies`
+-- Table structure for `companies` (User-Scoped Isolation)
 -- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `companies`;
 CREATE TABLE `companies` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT DEFAULT NULL,
   `name` VARCHAR(255) NOT NULL,
   `description` TEXT DEFAULT NULL,
   `rate_detection` INT DEFAULT NULL,
@@ -45,7 +46,9 @@ CREATE TABLE `companies` (
   `supplier_email` VARCHAR(255) DEFAULT NULL,
   `target_software` VARCHAR(100) DEFAULT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_companies_name` (`name`)
+  INDEX `idx_companies_user_id` (`user_id`),
+  INDEX `idx_companies_name` (`name`),
+  CONSTRAINT `fk_companies_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------------
@@ -86,17 +89,20 @@ CREATE TABLE `scripts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------------
--- Table structure for `appointments`
+-- Table structure for `appointments` (User-Scoped Isolation)
 -- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `appointments`;
 CREATE TABLE `appointments` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT DEFAULT NULL,
   `title` VARCHAR(255) NOT NULL,
   `type` VARCHAR(100) NOT NULL,
   `start_time` DATETIME NOT NULL,
   `end_time` DATETIME NOT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_appointments_title` (`title`)
+  INDEX `idx_appointments_user_id` (`user_id`),
+  INDEX `idx_appointments_title` (`title`),
+  CONSTRAINT `fk_appointments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------------
@@ -110,6 +116,8 @@ CREATE TABLE `staff` (
   `name` VARCHAR(255) NOT NULL,
   `email` VARCHAR(255) DEFAULT NULL,
   `task` VARCHAR(255) DEFAULT NULL,
+  `access_level` VARCHAR(32) NOT NULL DEFAULT 'spectator',
+  `auto_accept_transfers` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX `idx_staff_user_id` (`user_id`),
   INDEX `idx_staff_staff_user_id` (`staff_user_id`),
@@ -119,17 +127,20 @@ CREATE TABLE `staff` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------------
--- Table structure for `api_keys`
+-- Table structure for `api_keys` (User-Scoped Isolation)
 -- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `api_keys`;
 CREATE TABLE `api_keys` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT DEFAULT NULL,
   `provider` VARCHAR(50) NOT NULL,
   `key` TEXT NOT NULL,
   `label` VARCHAR(255) DEFAULT NULL,
   `is_active` TINYINT(1) DEFAULT 1,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_api_keys_provider` (`provider`)
+  INDEX `idx_api_keys_user_id` (`user_id`),
+  INDEX `idx_api_keys_provider` (`provider`),
+  CONSTRAINT `fk_api_keys_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------------

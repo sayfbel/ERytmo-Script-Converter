@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 import os
 from sqlalchemy.orm import Session
 from backend.database.database import engine, Base, init_db, get_db
-from backend.routes import api, auth
+from backend.routes import api, auth, p2p_signaling
 from backend.routes.auth import (
     get_current_user,
     process_google_auth_credential,
@@ -18,10 +18,24 @@ init_db()
 
 app = FastAPI(title="ERytmo Management Dashboard API", version="2.0")
 
-# Setup CORS to allow Next.js frontend
+# Setup CORS to allow Next.js frontend (local, preview, and production Vercel)
+cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:3000",
+]
+frontend_url_env = os.getenv("FRONTEND_URL")
+if frontend_url_env:
+    for origin in frontend_url_env.split(","):
+        clean_origin = origin.strip().rstrip("/")
+        if clean_origin and clean_origin not in cors_origins:
+            cors_origins.append(clean_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000", "http://127.0.0.1:3000"],
+    allow_origins=cors_origins,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,6 +43,9 @@ app.add_middleware(
 
 # Authentication router (public registration/login/verification + self endpoints)
 app.include_router(auth.router, prefix="/api")
+
+# P2P Presence & WebSocket Signaling Router
+app.include_router(p2p_signaling.router)
 
 # System Browser (Chrome) Google Auth Landing Page
 @app.get("/auth/google-browser", response_class=HTMLResponse)
@@ -361,6 +378,12 @@ app.include_router(api.router, prefix="/api", dependencies=[Depends(get_current_
 # Custom StaticFiles handler that resolves Next.js static export paths
 # (e.g. /login -> /login.html or /login/index.html)
 class NextStaticFiles(StaticFiles):
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "websocket":
+            await send({"type": "websocket.close", "code": 1000})
+            return
+        await super().__call__(scope, receive, send)
+
     async def get_response(self, path: str, scope):
         response = await super().get_response(path, scope)
         if response.status_code != 404:

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/api";
 import { AlertCircle, ExternalLink, X } from "lucide-react";
 
 declare global {
@@ -53,11 +54,18 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check if we are running in desktop (PyWebView or port 8000)
-  const isDesktop = typeof window !== "undefined" && (
-    window.location.port === "8000" ||
-    typeof (window as unknown as { pywebview?: unknown }).pywebview !== "undefined"
-  );
+  const [mounted, setMounted] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined") {
+      setIsDesktop(
+        window.location.port === "8000" ||
+        typeof (window as unknown as { pywebview?: unknown }).pywebview !== "undefined"
+      );
+    }
+  }, []);
 
   // Clean up polling interval on unmount
   useEffect(() => {
@@ -80,7 +88,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
     setBtnLoading(true);
 
     try {
-      const res = await fetch("/api/auth/google/popup-start", {
+      const res = await apiFetch("/api/auth/google/popup-start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ remember_me: true }),
@@ -108,14 +116,14 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
         }
 
         try {
-          const statusRes = await fetch(`/api/auth/google/browser-status?session_id=${encodeURIComponent(sessionId)}`);
+          const statusRes = await apiFetch(`/api/auth/google/browser-status?session_id=${encodeURIComponent(sessionId)}`);
           const statusData = await statusRes.json();
 
           if (statusData.status === "completed") {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
             // Claim the authenticated session and set HttpOnly cookie
-            const claimRes = await fetch("/api/auth/google/desktop-claim", {
+            const claimRes = await apiFetch("/api/auth/google/desktop-claim", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ session_id: sessionId }),
@@ -126,6 +134,9 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
             setBtnLoading(false);
 
             if (claimRes.ok && claimData.success) {
+              if (claimData.token && typeof window !== "undefined") {
+                localStorage.setItem("erytmo_token", claimData.token);
+              }
               try {
                 await refreshSession();
               } catch {}
@@ -205,7 +216,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
   return (
     <div className="w-full flex flex-col items-center">
       {/* Load Google Script only when in standard web mode */}
-      {!isDesktop && (
+      {mounted && !isDesktop && (
         <Script
           src="https://accounts.google.com/gsi/client?hl=en"
           strategy="afterInteractive"
@@ -214,7 +225,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
       )}
 
       {/* DESKTOP APP MODE: Small Google Popup Flow */}
-      {isDesktop ? (
+      {mounted && isDesktop ? (
         <div className="w-full">
           {browserWaiting ? (
             /* Active Waiting State while user chooses account in small window */

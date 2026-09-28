@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import List, Optional
 from pydantic import BaseModel
 from google import genai
@@ -10,12 +11,18 @@ import os
 from backend.database.database import get_db
 from backend.models import models
 from backend.routes.auth import get_current_user
+from backend.routes.p2p_signaling import manager
 
 router = APIRouter()
 
 @router.get("/companies")
-def get_companies(db: Session = Depends(get_db)):
-    return db.query(models.Company).all()
+def get_companies(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    return db.query(models.Company).filter(
+        models.Company.user_id == current_user.id
+    ).order_by(models.Company.id.desc()).all()
 
 @router.post("/companies")
 def create_company(
@@ -27,9 +34,11 @@ def create_company(
     rate_chantant: float = None,
     supplier_email: str = None,
     target_software: str = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
     db_company = models.Company(
+        user_id=current_user.id,
         name=name, 
         description=description,
         rate_detection=rate_detection,
@@ -44,6 +53,20 @@ def create_company(
     db.refresh(db_company)
     return db_company
 
+@router.get("/companies/{company_id}")
+def get_company(
+    company_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    company = db.query(models.Company).filter(
+        models.Company.id == company_id,
+        models.Company.user_id == current_user.id
+    ).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return company
+
 @router.put("/companies/{company_id}")
 def update_company(
     company_id: int,
@@ -55,9 +78,13 @@ def update_company(
     rate_chantant: float = None,
     supplier_email: str = None,
     target_software: str = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
-    company = db.query(models.Company).filter(models.Company.id == company_id).first()
+    company = db.query(models.Company).filter(
+        models.Company.id == company_id,
+        models.Company.user_id == current_user.id
+    ).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
         
@@ -75,8 +102,15 @@ def update_company(
     return company
 
 @router.delete("/companies/{company_id}")
-def delete_company(company_id: int, db: Session = Depends(get_db)):
-    company = db.query(models.Company).filter(models.Company.id == company_id).first()
+def delete_company(
+    company_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    company = db.query(models.Company).filter(
+        models.Company.id == company_id,
+        models.Company.user_id == current_user.id
+    ).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
         
@@ -139,87 +173,246 @@ def search_users(
 
 # --- Staff Endpoints ---
 
+@router.get("/staff/online-status")
+def get_staff_online_status():
+    return {
+        "online_user_ids": list(manager.get_online_user_ids())
+    }
+
 @router.get("/staff")
 def get_staff(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     staff_list = db.query(models.Staff).filter(
-        (models.Staff.user_id == current_user.id) | (models.Staff.user_id == None)
-    ).all()
-    return [
-        {
+        models.Staff.user_id == current_user.id
+    ).order_by(models.Staff.id.desc()).all()
+
+    online_user_ids = manager.get_online_user_ids()
+    result = []
+    for s in staff_list:
+        is_online = False
+        if s.staff_user_id and s.staff_user_id in online_user_ids:
+            is_online = True
+        elif s.email:
+            linked_user = db.query(models.User).filter(models.User.email == s.email).first()
+            if linked_user and linked_user.id in online_user_ids:
+                is_online = True
+                if not s.staff_user_id:
+                    s.staff_user_id = linked_user.id
+                    db.commit()
+
+        result.append({
             "id": s.id,
             "name": s.name,
             "email": s.email,
             "task": s.task,
+            "access_level": s.access_level or "spectator",
+            "auto_accept_transfers": bool(s.auto_accept_transfers),
             "staff_user_id": s.staff_user_id,
+            "is_online": is_online,
             "created_at": s.created_at.isoformat() if s.created_at else None
-        }
-        for s in staff_list
-    ]
+        })
+    return result
 
 @router.post("/staff")
-def create_staff(
-    name: str,
+async def create_staff(
+    request: Request,
+    name: str = None,
     email: str = None,
     task: str = None,
+    access_level: str = None,
+    auto_accept_transfers: bool = None,
     staff_user_id: int = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    if isinstance(body, dict):
+        if name is None and "name" in body: name = body["name"]
+        if email is None and "email" in body: email = body["email"]
+        if task is None and "task" in body: task = body["task"]
+        if access_level is None and "access_level" in body: access_level = body["access_level"]
+        if auto_accept_transfers is None and "auto_accept_transfers" in body: auto_accept_transfers = body["auto_accept_transfers"]
+        if staff_user_id is None and "staff_user_id" in body: staff_user_id = body["staff_user_id"]
+
+    if not name or not str(name).strip():
+        raise HTTPException(status_code=422, detail="Collaborator name is required")
+
+    clean_access = (access_level or "spectator").strip().lower()
+    if clean_access not in ["full_access", "spectator"]:
+        clean_access = "spectator"
+
+    valid_staff_user_id = None
+    clean_email = email.strip().lower() if email and email.strip() else None
+
+    if staff_user_id and int(staff_user_id) > 0:
+        linked_user = db.query(models.User).filter(models.User.id == int(staff_user_id)).first()
+        if linked_user:
+            valid_staff_user_id = linked_user.id
+    elif clean_email:
+        linked_user = db.query(models.User).filter(models.User.email == clean_email).first()
+        if linked_user:
+            valid_staff_user_id = linked_user.id
+
     db_staff = models.Staff(
         user_id=current_user.id,
-        staff_user_id=staff_user_id if staff_user_id and staff_user_id > 0 else None,
-        name=name,
-        email=email,
-        task=task
+        staff_user_id=valid_staff_user_id,
+        name=str(name).strip(),
+        email=clean_email,
+        task=str(task).strip() if task else None,
+        access_level=clean_access,
+        auto_accept_transfers=bool(auto_accept_transfers)
     )
     db.add(db_staff)
     db.commit()
     db.refresh(db_staff)
+
+    online_ids = manager.get_online_user_ids()
+    is_online = valid_staff_user_id in online_ids if valid_staff_user_id else False
+
     return {
         "id": db_staff.id,
         "name": db_staff.name,
         "email": db_staff.email,
         "task": db_staff.task,
+        "access_level": db_staff.access_level,
+        "auto_accept_transfers": db_staff.auto_accept_transfers,
         "staff_user_id": db_staff.staff_user_id,
+        "is_online": is_online,
         "created_at": db_staff.created_at.isoformat() if db_staff.created_at else None
     }
 
-@router.put("/staff/{staff_id}")
-def update_staff(
+@router.get("/staff/{staff_id}")
+def get_staff_member(
     staff_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    staff_member = db.query(models.Staff).filter(
+        models.Staff.id == staff_id,
+        models.Staff.user_id == current_user.id
+    ).first()
+    if not staff_member:
+        raise HTTPException(status_code=404, detail="Staff member not found")
+
+    online_ids = manager.get_online_user_ids()
+    is_online = staff_member.staff_user_id in online_ids if staff_member.staff_user_id else False
+
+    return {
+        "id": staff_member.id,
+        "name": staff_member.name,
+        "email": staff_member.email,
+        "task": staff_member.task,
+        "access_level": staff_member.access_level or "spectator",
+        "auto_accept_transfers": bool(staff_member.auto_accept_transfers),
+        "staff_user_id": staff_member.staff_user_id,
+        "is_online": is_online,
+        "created_at": staff_member.created_at.isoformat() if staff_member.created_at else None
+    }
+
+@router.put("/staff/{staff_id}")
+async def update_staff(
+    staff_id: int,
+    request: Request,
     name: str = None,
     email: str = None,
     task: str = None,
+    access_level: str = None,
+    auto_accept_transfers: bool = None,
     staff_user_id: int = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    if isinstance(body, dict):
+        if name is None and "name" in body: name = body["name"]
+        if email is None and "email" in body: email = body["email"]
+        if task is None and "task" in body: task = body["task"]
+        if access_level is None and "access_level" in body: access_level = body["access_level"]
+        if auto_accept_transfers is None and "auto_accept_transfers" in body: auto_accept_transfers = body["auto_accept_transfers"]
+        if staff_user_id is None and "staff_user_id" in body: staff_user_id = body["staff_user_id"]
+
     staff = db.query(models.Staff).filter(
         models.Staff.id == staff_id,
-        (models.Staff.user_id == current_user.id) | (models.Staff.user_id == None)
+        models.Staff.user_id == current_user.id
     ).first()
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
-        
-    if name is not None: staff.name = name
-    if email is not None: staff.email = email
-    if task is not None: staff.task = task
+
+    if name is not None: staff.name = str(name).strip()
+    if email is not None:
+        clean_email = str(email).strip().lower() if str(email).strip() else None
+        staff.email = clean_email
+        if clean_email and not staff.staff_user_id:
+            linked_user = db.query(models.User).filter(models.User.email == clean_email).first()
+            if linked_user:
+                staff.staff_user_id = linked_user.id
+    if task is not None: staff.task = str(task).strip() if task else None
+    if access_level is not None:
+        clean_level = str(access_level).strip().lower()
+        if clean_level in ["full_access", "spectator"]:
+            staff.access_level = clean_level
+    if auto_accept_transfers is not None:
+        staff.auto_accept_transfers = bool(auto_accept_transfers)
     if staff_user_id is not None:
-        staff.staff_user_id = staff_user_id if staff_user_id > 0 else None
-    staff.user_id = current_user.id
-    
+        if int(staff_user_id) > 0:
+            linked_user = db.query(models.User).filter(models.User.id == int(staff_user_id)).first()
+            staff.staff_user_id = linked_user.id if linked_user else None
+        else:
+            staff.staff_user_id = None
+
     db.commit()
     db.refresh(staff)
+
+    online_ids = manager.get_online_user_ids()
+    is_online = staff.staff_user_id in online_ids if staff.staff_user_id else False
+
     return {
         "id": staff.id,
         "name": staff.name,
         "email": staff.email,
         "task": staff.task,
+        "access_level": staff.access_level,
+        "auto_accept_transfers": staff.auto_accept_transfers,
         "staff_user_id": staff.staff_user_id,
+        "is_online": is_online,
         "created_at": staff.created_at.isoformat() if staff.created_at else None
+    }
+
+@router.patch("/staff/{staff_id}/auto-accept")
+def toggle_staff_auto_accept(
+    staff_id: int,
+    auto_accept: Optional[bool] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    staff = db.query(models.Staff).filter(
+        models.Staff.id == staff_id,
+        models.Staff.user_id == current_user.id
+    ).first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    if auto_accept is None:
+        staff.auto_accept_transfers = not staff.auto_accept_transfers
+    else:
+        staff.auto_accept_transfers = bool(auto_accept)
+
+    db.commit()
+    db.refresh(staff)
+    return {
+        "id": staff.id,
+        "auto_accept_transfers": staff.auto_accept_transfers,
+        "message": f"Auto-accept transfers {'enabled' if staff.auto_accept_transfers else 'disabled'} successfully."
     }
 
 @router.delete("/staff/{staff_id}")
@@ -230,7 +423,7 @@ def delete_staff(
 ):
     staff = db.query(models.Staff).filter(
         models.Staff.id == staff_id,
-        (models.Staff.user_id == current_user.id) | (models.Staff.user_id == None)
+        models.Staff.user_id == current_user.id
     ).first()
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
@@ -246,14 +439,65 @@ def get_projects(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    # Auto-assign legacy unassigned projects to current user
-    unassigned = db.query(models.Project).filter(models.Project.user_id == None).all()
-    if unassigned:
-        for p in unassigned:
-            p.user_id = current_user.id
-        db.commit()
+    owned_projects = db.query(models.Project).filter(
+        models.Project.user_id == current_user.id
+    ).order_by(models.Project.id.desc()).all()
 
-    return db.query(models.Project).filter(models.Project.user_id == current_user.id).all()
+    # Find shared projects where current user is linked as a collaborator
+    collaborations = db.query(models.Staff).filter(
+        (models.Staff.staff_user_id == current_user.id) | (models.Staff.email == current_user.email)
+    ).all()
+
+    seen_ids = {p.id for p in owned_projects}
+    results = []
+
+    for p in owned_projects:
+        results.append({
+            "id": p.id,
+            "user_id": p.user_id,
+            "name": p.name,
+            "company_id": p.company_id,
+            "company_name": p.company_name,
+            "folder_path": p.folder_path,
+            "target_software": p.target_software,
+            "project_type": p.project_type,
+            "deadline": p.deadline.isoformat() if p.deadline else None,
+            "total_time": p.total_time,
+            "status": p.status,
+            "is_owner": True,
+            "access_level": "full_access",
+            "owner_id": current_user.id,
+            "owner_name": f"{current_user.first_name} {current_user.last_name}".strip(),
+            "created_at": p.created_at.isoformat() if p.created_at else None
+        })
+
+    for collab in collaborations:
+        if collab.user_id and collab.user_id != current_user.id:
+            owner = db.query(models.User).filter(models.User.id == collab.user_id).first()
+            shared_list = db.query(models.Project).filter(models.Project.user_id == collab.user_id).all()
+            for sp in shared_list:
+                if sp.id not in seen_ids:
+                    seen_ids.add(sp.id)
+                    results.append({
+                        "id": sp.id,
+                        "user_id": sp.user_id,
+                        "name": sp.name,
+                        "company_id": sp.company_id,
+                        "company_name": sp.company_name,
+                        "folder_path": sp.folder_path,
+                        "target_software": sp.target_software,
+                        "project_type": sp.project_type,
+                        "deadline": sp.deadline.isoformat() if sp.deadline else None,
+                        "total_time": sp.total_time,
+                        "status": sp.status,
+                        "is_owner": False,
+                        "access_level": collab.access_level or "spectator",
+                        "owner_id": collab.user_id,
+                        "owner_name": f"{owner.first_name} {owner.last_name}".strip() if owner else "Owner",
+                        "created_at": sp.created_at.isoformat() if sp.created_at else None
+                    })
+
+    return results
 
 import tkinter as tk
 from tkinter import filedialog
@@ -291,11 +535,24 @@ def create_project(
         except:
             pass
 
+    verified_company_id = None
+    verified_company_name = company_name
+    if company_id:
+        company = db.query(models.Company).filter(
+            models.Company.id == company_id,
+            models.Company.user_id == current_user.id
+        ).first()
+        if not company:
+            raise HTTPException(status_code=400, detail="Invalid company selected or company does not belong to you.")
+        verified_company_id = company.id
+        if not verified_company_name:
+            verified_company_name = company.name
+
     db_project = models.Project(
         user_id=current_user.id,
         name=name, 
-        company_id=company_id,
-        company_name=company_name,
+        company_id=verified_company_id,
+        company_name=verified_company_name,
         folder_path=folder_path,
         target_software=target_software,
         project_type=project_type,
@@ -307,6 +564,52 @@ def create_project(
     db.refresh(db_project)
     return db_project
 
+@router.get("/projects/{project_id}")
+def get_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    is_owner = (project.user_id == current_user.id)
+    access_level = "full_access" if is_owner else None
+    owner = None
+
+    if not is_owner:
+        collab = db.query(models.Staff).filter(
+            models.Staff.user_id == project.user_id,
+            or_(
+                models.Staff.staff_user_id == current_user.id,
+                models.Staff.email == current_user.email
+            )
+        ).first()
+        if not collab:
+            raise HTTPException(status_code=404, detail="Project not found")
+        access_level = collab.access_level or "spectator"
+        owner = db.query(models.User).filter(models.User.id == project.user_id).first()
+
+    return {
+        "id": project.id,
+        "user_id": project.user_id,
+        "name": project.name,
+        "company_id": project.company_id,
+        "company_name": project.company_name,
+        "folder_path": project.folder_path,
+        "target_software": project.target_software,
+        "project_type": project.project_type,
+        "deadline": project.deadline.isoformat() if project.deadline else None,
+        "total_time": project.total_time,
+        "status": project.status,
+        "is_owner": is_owner,
+        "access_level": access_level,
+        "owner_id": project.user_id,
+        "owner_name": f"{owner.first_name} {owner.last_name}".strip() if owner else "Owner",
+        "created_at": project.created_at.isoformat() if project.created_at else None
+    }
+
 @router.put("/projects/{project_id}")
 def update_project(
     project_id: int,
@@ -316,6 +619,7 @@ def update_project(
     target_software: str = None, 
     project_type: str = None,
     deadline: str = None, 
+    company_id: int = None,
     total_time: int = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -326,6 +630,20 @@ def update_project(
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if company_id is not None:
+        if company_id > 0:
+            comp = db.query(models.Company).filter(
+                models.Company.id == company_id,
+                models.Company.user_id == current_user.id
+            ).first()
+            if not comp:
+                raise HTTPException(status_code=400, detail="Invalid company selected or company does not belong to you.")
+            project.company_id = comp.id
+            if company_name is None:
+                project.company_name = comp.name
+        else:
+            project.company_id = None
         
     if name is not None: project.name = name
     if company_name is not None: project.company_name = company_name
@@ -366,12 +684,24 @@ def get_project_files(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    project = db.query(models.Project).filter(
-        models.Project.id == project_id,
-        models.Project.user_id == current_user.id
-    ).first()
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    is_owner = (project.user_id == current_user.id)
+    access_level = "full_access" if is_owner else None
+
+    if not is_owner:
+        collab = db.query(models.Staff).filter(
+            models.Staff.user_id == project.user_id,
+            or_(
+                models.Staff.staff_user_id == current_user.id,
+                models.Staff.email == current_user.email
+            )
+        ).first()
+        if not collab:
+            raise HTTPException(status_code=404, detail="Project not found")
+        access_level = collab.access_level or "spectator"
     
     if not project.folder_path or not os.path.exists(project.folder_path):
         return []
@@ -391,7 +721,10 @@ def get_project_files(
                         "name": filename,
                         "path": file_path,
                         "type": "video" if is_video else "script",
-                        "size": size_bytes
+                        "size": size_bytes,
+                        "is_owner": is_owner,
+                        "access_level": access_level,
+                        "owner_id": project.user_id
                     })
     except Exception as e:
         print(f"Error reading folder: {e}")
@@ -409,8 +742,13 @@ def stream_file(path: str):
     return FileResponse(path)
 
 @router.get("/appointments")
-def get_appointments(db: Session = Depends(get_db)):
-    return db.query(models.Appointment).all()
+def get_appointments(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    return db.query(models.Appointment).filter(
+        models.Appointment.user_id == current_user.id
+    ).order_by(models.Appointment.start_time.asc()).all()
 
 from datetime import datetime
 
@@ -420,7 +758,8 @@ def create_appointment(
     type: str, 
     start_time: str, 
     end_time: str, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
     try:
         start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
@@ -429,6 +768,7 @@ def create_appointment(
         raise HTTPException(status_code=400, detail="Invalid date format. Use ISO format.")
         
     db_appointment = models.Appointment(
+        user_id=current_user.id,
         title=title, 
         type=type,
         start_time=start_dt,
@@ -439,6 +779,57 @@ def create_appointment(
     db.refresh(db_appointment)
     return db_appointment
 
+@router.put("/appointments/{appointment_id}")
+def update_appointment(
+    appointment_id: int,
+    title: str = None,
+    type: str = None,
+    start_time: str = None,
+    end_time: str = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    appointment = db.query(models.Appointment).filter(
+        models.Appointment.id == appointment_id,
+        models.Appointment.user_id == current_user.id
+    ).first()
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    if title is not None: appointment.title = title
+    if type is not None: appointment.type = type
+    if start_time is not None:
+        try:
+            appointment.start_time = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    if end_time is not None:
+        try:
+            appointment.end_time = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+
+    db.commit()
+    db.refresh(appointment)
+    return appointment
+
+@router.delete("/appointments/{appointment_id}")
+def delete_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    appointment = db.query(models.Appointment).filter(
+        models.Appointment.id == appointment_id,
+        models.Appointment.user_id == current_user.id
+    ).first()
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+        
+    db.delete(appointment)
+    db.commit()
+    return {"message": "Appointment deleted successfully"}
+
 import os
 import json
 import tempfile
@@ -448,7 +839,10 @@ from backend.services.script_parser import safe_validate_and_convert, align_time
 from backend.services.script_validator import ValidationStatus
 
 @router.post("/convert")
-async def convert_script(file: UploadFile = File(...)):
+async def convert_script(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user)
+):
     # Save uploaded file to a temporary location
     try:
         suffix = os.path.splitext(file.filename)[1]
@@ -457,8 +851,8 @@ async def convert_script(file: UploadFile = File(...)):
             while chunk := await file.read(1024 * 1024):
                 temp_file.write(chunk)
         
-        # Process the file
-        report, raw_rows, format_a_cues = safe_validate_and_convert(temp_path)
+        # Process the file using user's keys
+        report, raw_rows, format_a_cues = safe_validate_and_convert(temp_path, user_id=current_user.id)
         
         # Clean up
         if os.path.exists(temp_path):
@@ -482,7 +876,8 @@ async def convert_script(file: UploadFile = File(...)):
 async def align_script(
     cues: str = Form(...), 
     start_tc: str = Form(...), 
-    media: UploadFile = File(...)
+    media: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user)
 ):
     try:
         # Save media file in chunks
@@ -493,7 +888,7 @@ async def align_script(
                 temp_media.write(chunk)
             
         parsed_cues = json.loads(cues)
-        generator = align_timecodes_with_gemini(parsed_cues, temp_media_path, start_tc)
+        generator = align_timecodes_with_gemini(parsed_cues, temp_media_path, start_tc, user_id=current_user.id)
         
         aligned_cues = list(generator)
         
@@ -885,8 +1280,12 @@ def validate_key_with_provider(provider: str, key_str: str):
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
 
 @router.get("/settings/keys")
-def get_all_keys(provider: str = None, db: Session = Depends(get_db)):
-    query = db.query(models.ApiKey)
+def get_all_keys(
+    provider: str = None, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    query = db.query(models.ApiKey).filter(models.ApiKey.user_id == current_user.id)
     if provider:
         query = query.filter(models.ApiKey.provider == provider.lower())
     keys = query.order_by(models.ApiKey.id.asc()).all()
@@ -905,16 +1304,24 @@ def get_all_keys(provider: str = None, db: Session = Depends(get_db)):
     return res
 
 @router.post("/settings/keys")
-def add_api_key(payload: ApiKeyCreatePayload, db: Session = Depends(get_db)):
+def add_api_key(
+    payload: ApiKeyCreatePayload, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     provider = payload.provider.strip().lower()
     raw_key = payload.key.strip()
     
     validate_key_with_provider(provider, raw_key)
     
-    existing_count = db.query(models.ApiKey).filter(models.ApiKey.provider == provider).count()
+    existing_count = db.query(models.ApiKey).filter(
+        models.ApiKey.provider == provider,
+        models.ApiKey.user_id == current_user.id
+    ).count()
     label = payload.label.strip() if (payload.label and payload.label.strip()) else f"{provider.capitalize()} Key {existing_count + 1}"
     
     new_key = models.ApiKey(
+        user_id=current_user.id,
         provider=provider,
         key=raw_key,
         label=label,
@@ -934,8 +1341,16 @@ def add_api_key(payload: ApiKeyCreatePayload, db: Session = Depends(get_db)):
     }
 
 @router.put("/settings/keys/{key_id}")
-def update_api_key_by_id(key_id: int, payload: ApiKeyUpdatePayload, db: Session = Depends(get_db)):
-    db_key = db.query(models.ApiKey).filter(models.ApiKey.id == key_id).first()
+def update_api_key_by_id(
+    key_id: int, 
+    payload: ApiKeyUpdatePayload, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_key = db.query(models.ApiKey).filter(
+        models.ApiKey.id == key_id,
+        models.ApiKey.user_id == current_user.id
+    ).first()
     if not db_key:
         raise HTTPException(status_code=404, detail="API Key not found")
         
@@ -962,8 +1377,15 @@ def update_api_key_by_id(key_id: int, payload: ApiKeyUpdatePayload, db: Session 
     }
 
 @router.patch("/settings/keys/{key_id}/toggle")
-def toggle_api_key_status(key_id: int, db: Session = Depends(get_db)):
-    db_key = db.query(models.ApiKey).filter(models.ApiKey.id == key_id).first()
+def toggle_api_key_status(
+    key_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_key = db.query(models.ApiKey).filter(
+        models.ApiKey.id == key_id,
+        models.ApiKey.user_id == current_user.id
+    ).first()
     if not db_key:
         raise HTTPException(status_code=404, detail="API Key not found")
         
@@ -978,8 +1400,15 @@ def toggle_api_key_status(key_id: int, db: Session = Depends(get_db)):
     }
 
 @router.delete("/settings/keys/{key_id}")
-def delete_api_key_by_id(key_id: int, db: Session = Depends(get_db)):
-    db_key = db.query(models.ApiKey).filter(models.ApiKey.id == key_id).first()
+def delete_api_key_by_id(
+    key_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_key = db.query(models.ApiKey).filter(
+        models.ApiKey.id == key_id,
+        models.ApiKey.user_id == current_user.id
+    ).first()
     if not db_key:
         raise HTTPException(status_code=404, detail="API Key not found")
         
@@ -987,10 +1416,17 @@ def delete_api_key_by_id(key_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "API key deleted successfully"}
 
-# Legacy endpoints compatibility
+# Legacy endpoints compatibility - scoped to current_user
 @router.get("/settings/api-key")
-def get_api_key(db: Session = Depends(get_db)):
-    first_key = db.query(models.ApiKey).filter(models.ApiKey.provider == "gemini", models.ApiKey.is_active == True).first()
+def get_api_key(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    first_key = db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+        models.ApiKey.provider == "gemini", 
+        models.ApiKey.is_active == True
+    ).first()
     if first_key:
         return {"has_key": True, "masked_key": mask_api_key(first_key.key)}
     return {"has_key": False, "masked_key": ""}
@@ -999,76 +1435,148 @@ class ApiKeyUpdate(BaseModel):
     api_key: str
 
 @router.post("/settings/api-key")
-def set_api_key(data: ApiKeyUpdate, db: Session = Depends(get_db)):
+def set_api_key(
+    data: ApiKeyUpdate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     api_key = data.api_key.strip()
     validate_key_with_provider("gemini", api_key)
-    first_key = db.query(models.ApiKey).filter(models.ApiKey.provider == "gemini").first()
+    first_key = db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+        models.ApiKey.provider == "gemini"
+    ).first()
     if first_key:
         first_key.key = api_key
         first_key.is_active = True
     else:
-        first_key = models.ApiKey(provider="gemini", key=api_key, label="Gemini Key 1", is_active=True)
+        first_key = models.ApiKey(
+            user_id=current_user.id,
+            provider="gemini", 
+            key=api_key, 
+            label="Gemini Key 1", 
+            is_active=True
+        )
         db.add(first_key)
     db.commit()
     return {"success": True}
 
 @router.delete("/settings/api-key")
-def delete_api_key(db: Session = Depends(get_db)):
-    db.query(models.ApiKey).filter(models.ApiKey.provider == "gemini").delete()
+def delete_api_key(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+        models.ApiKey.provider == "gemini"
+    ).delete()
     db.commit()
     return {"success": True}
 
 @router.get("/settings/openai-key")
-def get_openai_key(db: Session = Depends(get_db)):
-    first_key = db.query(models.ApiKey).filter(models.ApiKey.provider == "openai", models.ApiKey.is_active == True).first()
+def get_openai_key(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    first_key = db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+        models.ApiKey.provider == "openai", 
+        models.ApiKey.is_active == True
+    ).first()
     if first_key:
         return {"has_key": True, "masked_key": mask_api_key(first_key.key)}
     return {"has_key": False, "masked_key": ""}
 
 @router.post("/settings/openai-key")
-def set_openai_key(data: ApiKeyUpdate, db: Session = Depends(get_db)):
+def set_openai_key(
+    data: ApiKeyUpdate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     api_key = data.api_key.strip()
     validate_key_with_provider("openai", api_key)
-    first_key = db.query(models.ApiKey).filter(models.ApiKey.provider == "openai").first()
+    first_key = db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+        models.ApiKey.provider == "openai"
+    ).first()
     if first_key:
         first_key.key = api_key
         first_key.is_active = True
     else:
-        first_key = models.ApiKey(provider="openai", key=api_key, label="OpenAI Key 1", is_active=True)
+        first_key = models.ApiKey(
+            user_id=current_user.id,
+            provider="openai", 
+            key=api_key, 
+            label="OpenAI Key 1", 
+            is_active=True
+        )
         db.add(first_key)
     db.commit()
     return {"success": True}
 
 @router.delete("/settings/openai-key")
-def delete_openai_key(db: Session = Depends(get_db)):
-    db.query(models.ApiKey).filter(models.ApiKey.provider == "openai").delete()
+def delete_openai_key(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+        models.ApiKey.provider == "openai"
+    ).delete()
     db.commit()
     return {"success": True}
 
 @router.get("/settings/groq-key")
-def get_groq_key(db: Session = Depends(get_db)):
-    first_key = db.query(models.ApiKey).filter(models.ApiKey.provider == "groq", models.ApiKey.is_active == True).first()
+def get_groq_key(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    first_key = db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+        models.ApiKey.provider == "groq", 
+        models.ApiKey.is_active == True
+    ).first()
     if first_key:
         return {"has_key": True, "masked_key": mask_api_key(first_key.key)}
     return {"has_key": False, "masked_key": ""}
 
 @router.post("/settings/groq-key")
-def set_groq_key(data: ApiKeyUpdate, db: Session = Depends(get_db)):
+def set_groq_key(
+    data: ApiKeyUpdate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     api_key = data.api_key.strip()
     validate_key_with_provider("groq", api_key)
-    first_key = db.query(models.ApiKey).filter(models.ApiKey.provider == "groq").first()
+    first_key = db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+        models.ApiKey.provider == "groq"
+    ).first()
     if first_key:
         first_key.key = api_key
         first_key.is_active = True
     else:
-        first_key = models.ApiKey(provider="groq", key=api_key, label="Groq Key 1", is_active=True)
+        first_key = models.ApiKey(
+            user_id=current_user.id,
+            provider="groq", 
+            key=api_key, 
+            label="Groq Key 1", 
+            is_active=True
+        )
         db.add(first_key)
     db.commit()
     return {"success": True}
 
 @router.delete("/settings/groq-key")
-def delete_groq_key(db: Session = Depends(get_db)):
-    db.query(models.ApiKey).filter(models.ApiKey.provider == "groq").delete()
+def delete_groq_key(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+        models.ApiKey.provider == "groq"
+    ).delete()
     db.commit()
     return {"success": True}
+
 

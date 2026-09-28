@@ -7,6 +7,7 @@ class Company(Base):
     __tablename__ = "companies"
     
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     name = Column(String(255), index=True)
     description = Column(Text, nullable=True)
     rate_detection = Column(Integer, nullable=True)
@@ -17,6 +18,7 @@ class Company(Base):
     target_software = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
+    user = relationship("User", back_populates="companies")
     projects = relationship("Project", back_populates="company")
 
 class Project(Base):
@@ -37,7 +39,7 @@ class Project(Base):
     
     user = relationship("User", back_populates="projects")
     company = relationship("Company", back_populates="projects")
-    scripts = relationship("Script", back_populates="project")
+    scripts = relationship("Script", back_populates="project", cascade="all, delete-orphan")
 
 class Script(Base):
     __tablename__ = "scripts"
@@ -54,11 +56,14 @@ class Appointment(Base):
     __tablename__ = "appointments"
     
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     title = Column(String(255), index=True)
     type = Column(String(100))
     start_time = Column(DateTime)
     end_time = Column(DateTime)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="appointments")
 
 class Staff(Base):
     __tablename__ = "staff"
@@ -69,20 +74,25 @@ class Staff(Base):
     name = Column(String(255), index=True)
     email = Column(String(255), nullable=True)
     task = Column(String(255), nullable=True)
+    access_level = Column(String(32), default="spectator", nullable=False)
+    auto_accept_transfers = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
-    owner = relationship("User", foreign_keys=[user_id])
+    owner = relationship("User", foreign_keys=[user_id], back_populates="staff_members")
     staff_user = relationship("User", foreign_keys=[staff_user_id])
 
 class ApiKey(Base):
     __tablename__ = "api_keys"
     
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     provider = Column(String(50), index=True) # gemini, openai, groq
     key = Column(Text)
     label = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="api_keys")
 
 class User(Base):
     __tablename__ = "users"
@@ -99,6 +109,10 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    companies = relationship("Company", back_populates="user", cascade="all, delete-orphan")
+    staff_members = relationship("Staff", foreign_keys="Staff.user_id", back_populates="owner", cascade="all, delete-orphan")
+    appointments = relationship("Appointment", back_populates="user", cascade="all, delete-orphan")
+    api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
     verifications = relationship("EmailVerification", back_populates="user", cascade="all, delete-orphan")
 
 class EmailVerification(Base):

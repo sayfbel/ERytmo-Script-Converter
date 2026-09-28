@@ -44,7 +44,7 @@ export default function LoginPage() {
       });
 
       if (res.success) {
-        router.push("/");
+        window.location.href = "/";
       } else if (res.requiresVerification) {
         router.push(`/verify-email?email=${encodeURIComponent(res.email || email.trim().toLowerCase())}`);
       } else {

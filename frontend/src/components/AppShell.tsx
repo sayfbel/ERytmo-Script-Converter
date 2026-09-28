@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Sidebar from "@/components/Sidebar";
+import IncomingTransferModal from "@/components/IncomingTransferModal";
 
 const PUBLIC_AUTH_PATHS = ["/login", "/register", "/verify-email"];
 
@@ -80,6 +81,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      <IncomingTransferModal />
     </>
   );
 }
