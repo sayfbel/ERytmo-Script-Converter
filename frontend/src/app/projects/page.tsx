@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Briefcase, Search, Plus, FolderOpen, Video, FileText, Calendar, Building, X, 
   Loader2, ChevronRight, Edit2, Trash2, Clock, Download, CheckCircle2, AlertCircle, Eye, ShieldAlert
@@ -96,6 +96,8 @@ export default function ProjectsPage() {
     type: 'update' | 'delete';
     project: Project | null;
   }>({ isOpen: false, type: 'update', project: null });
+
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   const openCreateModal = () => {
     setEditingProjectId(null);
@@ -266,16 +268,25 @@ export default function ProjectsPage() {
   };
 
   const handleBrowseFolder = async () => {
-    try {
-      const res = await apiFetch("/api/browse-folder");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.path) {
-          setFolderPath(data.path);
+    // 1. If running in desktop app (PyWebView on port 8000)
+    if (typeof window !== "undefined" && window.location.port === "8000") {
+      try {
+        const res = await apiFetch("/api/browse-folder");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.path) {
+            setFolderPath(data.path);
+            return;
+          }
         }
+      } catch (err) {
+        console.warn("Desktop browse folder notice:", err);
       }
-    } catch (err) {
-      console.error("Failed to browse folder", err);
+    }
+
+    // 2. On Web: trigger native browser folder selection
+    if (folderInputRef.current) {
+      folderInputRef.current.click();
     }
   };
 
@@ -910,19 +921,35 @@ export default function ProjectsPage() {
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("project.form.folder")} *</label>
                 <div className="flex space-x-2 rtl:space-x-reverse">
+                  <input
+                    type="file"
+                    ref={folderInputRef}
+                    className="hidden"
+                    // @ts-expect-error webkitdirectory is standard in browsers
+                    webkitdirectory=""
+                    directory=""
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        const firstFile = files[0];
+                        const rel = firstFile.webkitRelativePath || "";
+                        const rootName = rel.split("/")[0] || firstFile.name;
+                        setFolderPath(rootName);
+                      }
+                    }}
+                  />
                   <input 
                     type="text"
                     required
-                    readOnly
-                    placeholder="Click Browse to select folder..."
+                    placeholder="e.g. C:/Projects/Episode1 or click Browse..."
                     value={folderPath}
                     onChange={(e) => setFolderPath(e.target.value)}
-                    className="flex-1 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 cursor-not-allowed text-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
+                    className="flex-1 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
                   />
                   <button
                     type="button"
                     onClick={handleBrowseFolder}
-                    className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                    className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-lg transition-colors text-sm cursor-pointer shrink-0"
                   >
                     {t("project.form.browse")}
                   </button>
