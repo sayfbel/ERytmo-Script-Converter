@@ -225,6 +225,16 @@ def init_db():
             except Exception as e:
                 print(f"[DB Migration] users.job_type: {e}")
 
+        # Migration: projects.files_index
+        try:
+            conn.execute(text("SELECT files_index FROM projects LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN files_index TEXT NULL"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] projects.files_index: {e}")
+
 def wipe_all_database_data():
     """
     Completely wipes all rows from all tables in the database.

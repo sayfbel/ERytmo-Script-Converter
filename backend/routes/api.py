@@ -8,6 +8,7 @@ from google import genai
 from datetime import datetime
 import os
 import shutil
+import json
 
 from backend.database.database import get_db
 from backend.models import models
@@ -686,6 +687,10 @@ def delete_project(
     db.commit()
     return {"message": "Project deleted successfully"}
 
+class ProjectIndexPayload(BaseModel):
+    files: List[dict]
+    folder_path: Optional[str] = None
+
 @router.get("/projects/{project_id}/files")
 def get_project_files(
     project_id: int, 
@@ -714,52 +719,61 @@ def get_project_files(
     files_list = []
     seen_filenames = set()
 
-    def scan_dir(dir_path):
-        if not dir_path or not os.path.exists(dir_path):
-            return
+    # 1. Load saved indexed files metadata if present
+    if project.files_index:
         try:
-            for filename in os.listdir(dir_path):
-                if filename in seen_filenames or filename.startswith('.'):
-                    continue
-                file_path = os.path.join(dir_path, filename)
-                if os.path.isfile(file_path):
-                    ext = os.path.splitext(filename)[1].lower()
-                    is_video = ext in ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.webm']
-                    is_script = ext in ['.txt', '.srt', '.doc', '.docx', '.pdf', '.rtf', '.xml', '.json']
-                    is_audio = ext in ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac']
-                    
-                    if is_video or is_script or is_audio:
-                        try:
-                            size_bytes = os.path.getsize(file_path)
-                        except Exception:
-                            size_bytes = 0
+            indexed = json.loads(project.files_index)
+            if isinstance(indexed, list):
+                for item in indexed:
+                    name = item.get("name")
+                    if name and name not in seen_filenames:
                         files_list.append({
-                            "name": filename,
-                            "path": file_path,
-                            "type": "video" if is_video else ("audio" if is_audio else "script"),
-                            "size": size_bytes,
+                            "name": name,
+                            "path": item.get("path") or name,
+                            "type": item.get("type", "script"),
+                            "size": item.get("size", 0),
                             "is_owner": is_owner,
                             "access_level": access_level,
                             "owner_id": project.user_id
                         })
-                        seen_filenames.add(filename)
+                        seen_filenames.add(name)
         except Exception as e:
-            print(f"Error reading folder {dir_path}: {e}")
+            print(f"Error parsing project files_index: {e}")
 
-    # 1. Scan cloud / project uploads directory
-    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "projects", str(project.id))
-    scan_dir(upload_dir)
-
-    # 2. Scan local desktop folder if configured and exists
-    if project.folder_path:
-        scan_dir(project.folder_path)
+    # 2. If running locally (desktop app or local server) and folder_path exists, scan direct disk
+    if project.folder_path and os.path.exists(project.folder_path):
+        try:
+            for entry in os.scandir(project.folder_path):
+                if entry.is_file() and not entry.name.startswith('.'):
+                    if entry.name not in seen_filenames:
+                        ext = os.path.splitext(entry.name)[1].lower()
+                        is_video = ext in ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.webm']
+                        is_script = ext in ['.txt', '.srt', '.doc', '.docx', '.pdf', '.rtf', '.xml', '.json', '.mos', '.awf']
+                        is_audio = ext in ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac']
+                        if is_video or is_script or is_audio:
+                            try:
+                                size_bytes = entry.stat().st_size
+                            except Exception:
+                                size_bytes = 0
+                            files_list.append({
+                                "name": entry.name,
+                                "path": entry.path,
+                                "type": "video" if is_video else ("audio" if is_audio else "script"),
+                                "size": size_bytes,
+                                "is_owner": is_owner,
+                                "access_level": access_level,
+                                "owner_id": project.user_id
+                            })
+                            seen_filenames.add(entry.name)
+        except Exception as e:
+            print(f"Local folder scan notification: {e}")
 
     return files_list
 
-@router.post("/projects/{project_id}/upload")
-async def upload_project_files(
+@router.put("/projects/{project_id}/index")
+def update_project_files_index(
     project_id: int,
-    files: List[UploadFile] = File(...),
+    payload: ProjectIndexPayload,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -777,22 +791,36 @@ async def upload_project_files(
             )
         ).first()
         if not collab or collab.access_level != "full_access":
-            raise HTTPException(status_code=403, detail="Permission denied. Only owners or full access collaborators can upload files.")
+            raise HTTPException(status_code=403, detail="Permission denied. Only owners or full access collaborators can update project index.")
 
-    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "projects", str(project.id))
-    os.makedirs(upload_dir, exist_ok=True)
+    if payload.folder_path is not None:
+        project.folder_path = payload.folder_path.strip()
 
-    uploaded_items = []
-    for file in files:
-        safe_name = os.path.basename(file.filename or "")
-        if not safe_name:
+    clean_files = []
+    seen = set()
+    for f in payload.files:
+        name = str(f.get("name", "")).strip()
+        if not name or name in seen:
             continue
-        dest_path = os.path.join(upload_dir, safe_name)
-        with open(dest_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        uploaded_items.append(safe_name)
+        ext = os.path.splitext(name)[1].lower()
+        is_video = ext in ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.webm']
+        is_script = ext in ['.txt', '.srt', '.doc', '.docx', '.pdf', '.rtf', '.xml', '.json', '.mos', '.awf']
+        is_audio = ext in ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac']
+        clean_files.append({
+            "name": name,
+            "path": f.get("path") or name,
+            "type": "video" if is_video else ("audio" if is_audio else "script"),
+            "size": int(f.get("size") or 0),
+            "is_owner": is_owner,
+            "owner_id": project.user_id,
+            "access_level": "full_access" if is_owner else "spectator"
+        })
+        seen.add(name)
 
-    return {"message": f"Successfully uploaded {len(uploaded_items)} files", "files": uploaded_items}
+    project.files_index = json.dumps(clean_files)
+    db.commit()
+    db.refresh(project)
+    return {"success": True, "files": clean_files, "folder_path": project.folder_path}
 
 @router.delete("/projects/{project_id}/files")
 def delete_project_file(
@@ -807,20 +835,21 @@ def delete_project_file(
 
     is_owner = (project.user_id == current_user.id)
     if not is_owner:
-        raise HTTPException(status_code=403, detail="Only the project owner can delete files.")
+        raise HTTPException(status_code=403, detail="Only the project owner can remove files from index.")
 
     safe_name = os.path.basename(filename)
-    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "projects", str(project.id))
-    target_path = os.path.join(upload_dir, safe_name)
-
-    if os.path.exists(target_path) and os.path.isfile(target_path):
+    if project.files_index:
         try:
-            os.remove(target_path)
-            return {"message": f"File {safe_name} deleted successfully"}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+            indexed = json.loads(project.files_index)
+            if isinstance(indexed, list):
+                updated_indexed = [f for f in indexed if f.get("name") != safe_name]
+                project.files_index = json.dumps(updated_indexed)
+                db.commit()
+                return {"message": f"File {safe_name} removed from index"}
+        except Exception:
+            pass
 
-    raise HTTPException(status_code=404, detail="File not found in project uploads")
+    return {"message": f"File {safe_name} processed"}
 
 @router.get("/stream-file")
 def stream_file(path: str):

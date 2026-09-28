@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Briefcase, Search, Plus, FolderOpen, Video, FileText, Calendar, Building, X, 
   Loader2, ChevronRight, Edit2, Trash2, Clock, Download, CheckCircle2, AlertCircle, Eye, ShieldAlert,
-  Upload
+  Play, Music, HardDrive
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
@@ -51,6 +51,20 @@ interface TransferState {
   message?: string;
 }
 
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes <= 0) return "0 B";
+  if (bytes >= 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${bytes} B`;
+};
+
 export default function ProjectsPage() {
   const { t } = useSettings();
   const { user } = useAuth();
@@ -83,6 +97,17 @@ export default function ProjectsPage() {
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [activeFile, setActiveFile] = useState<ProjectFile | null>(null);
 
+  // Local File Handles & Instant Media Playback State
+  const [localFileHandles, setLocalFileHandles] = useState<Map<string, File>>(new Map());
+  const [previewMedia, setPreviewMedia] = useState<{
+    name: string;
+    type: 'video' | 'audio' | 'script';
+    url?: string;
+    content?: string;
+    size: number;
+  } | null>(null);
+  const [isIndexing, setIsIndexing] = useState(false);
+
   // P2P Transfer & Consent Tracking State
   const [fileTransfers, setFileTransfers] = useState<Record<string, TransferState>>({});
   const [transferBanner, setTransferBanner] = useState<{
@@ -99,11 +124,9 @@ export default function ProjectsPage() {
   }>({ isOpen: false, type: 'update', project: null });
 
   const folderInputRef = useRef<HTMLInputElement | null>(null);
-  const panelFileInputRef = useRef<HTMLInputElement | null>(null);
   const panelFolderInputRef = useRef<HTMLInputElement | null>(null);
+  const panelFileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFilesForNewProject, setSelectedFilesForNewProject] = useState<File[]>([]);
-  const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const openCreateModal = () => {
     setEditingProjectId(null);
@@ -223,7 +246,7 @@ export default function ProjectsPage() {
         const targetId = resultProject?.id || editingProjectId;
         
         if (selectedFilesForNewProject.length > 0 && targetId) {
-          uploadFilesToProject(targetId, selectedFilesForNewProject);
+          indexProjectFiles(targetId, selectedFilesForNewProject, folderPath);
         }
 
         setShowModal(false);
@@ -333,41 +356,90 @@ export default function ProjectsPage() {
     await fetchProjectFiles(project.id);
   };
 
-  const uploadFilesToProject = async (projectId: number, files: File[]) => {
+  const indexProjectFiles = async (projectId: number, files: File[], customFolderPath?: string) => {
     if (!files || files.length === 0) return;
-    setUploadingFiles(true);
-    setUploadProgress(`Uploading ${files.length} file${files.length > 1 ? 's' : ''}...`);
+    setIsIndexing(true);
+
+    // Save in-memory handles for zero-lag instant local playback
+    setLocalFileHandles(prev => {
+      const next = new Map(prev);
+      files.forEach(f => next.set(f.name, f));
+      return next;
+    });
+
+    const filesPayload = files.map(f => ({
+      name: f.name,
+      path: f.webkitRelativePath || f.name,
+      size: f.size
+    }));
+
     try {
-      const formData = new FormData();
-      for (const file of files) {
-        formData.append("files", file);
-      }
-      const res = await apiFetch(`/api/projects/${projectId}/upload`, {
-        method: "POST",
-        body: formData,
+      const res = await apiFetch(`/api/projects/${projectId}/index`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: filesPayload,
+          folder_path: customFolderPath || folderPath || undefined
+        })
       });
+
       if (res.ok) {
         setTransferBanner({
           type: "success",
-          message: `Successfully uploaded ${files.length} file${files.length > 1 ? 's' : ''}!`
+          message: `Indexed ${files.length} file${files.length > 1 ? 's' : ''} locally! Zero-upload storage active.`
         });
         await fetchProjectFiles(projectId);
       } else {
         const data = await res.json();
         setTransferBanner({
           type: "error",
-          message: data.detail || "Failed to upload files"
+          message: data.detail || "Failed to index files"
         });
       }
     } catch (err) {
-      console.error("Upload error:", err);
+      console.error("Indexing error:", err);
       setTransferBanner({
         type: "error",
-        message: "Error uploading files to server."
+        message: "Error indexing local project files."
       });
     } finally {
-      setUploadingFiles(false);
-      setUploadProgress(null);
+      setIsIndexing(false);
+    }
+  };
+
+  const handleOpenFile = async (file: ProjectFile, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const localFile = localFileHandles.get(file.name);
+
+    if (file.type === 'video' || file.type === 'audio') {
+      let mediaUrl: string;
+      if (localFile) {
+        mediaUrl = URL.createObjectURL(localFile);
+      } else {
+        mediaUrl = getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path || file.name)}`);
+      }
+      setPreviewMedia({
+        name: file.name,
+        type: file.type,
+        url: mediaUrl,
+        size: file.size
+      });
+    } else {
+      let textContent = "";
+      if (localFile) {
+        try {
+          textContent = await localFile.text();
+        } catch {
+          textContent = "Binary / document file. Cannot preview text directly.";
+        }
+      }
+      setPreviewMedia({
+        name: file.name,
+        type: 'script',
+        content: textContent || undefined,
+        url: getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path || file.name)}`),
+        size: file.size
+      });
     }
   };
 
@@ -790,20 +862,21 @@ export default function ProjectsPage() {
                 {selectedProject.is_owner !== false && (
                   <>
                     <button
-                      onClick={() => panelFileInputRef.current?.click()}
-                      disabled={uploadingFiles}
+                      onClick={() => panelFolderInputRef.current?.click()}
+                      disabled={isIndexing}
                       className="p-1.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
-                      title="Upload Files"
+                      title="Select Folder to Index (Zero Upload)"
                     >
-                      <Upload size={15} />
+                      <HardDrive size={15} />
+                      <span className="hidden sm:inline">Index Folder</span>
                     </button>
                     <button
-                      onClick={() => panelFolderInputRef.current?.click()}
-                      disabled={uploadingFiles}
+                      onClick={() => panelFileInputRef.current?.click()}
+                      disabled={isIndexing}
                       className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
-                      title="Upload Folder"
+                      title="Add Local Files"
                     >
-                      <FolderOpen size={15} />
+                      <Plus size={15} />
                     </button>
                   </>
                 )}
@@ -817,7 +890,7 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            {/* Hidden upload inputs for this project */}
+            {/* Hidden indexing inputs for this project */}
             <input
               type="file"
               ref={panelFileInputRef}
@@ -825,7 +898,7 @@ export default function ProjectsPage() {
               multiple
               onChange={(e) => {
                 if (e.target.files && e.target.files.length > 0 && selectedProject) {
-                  uploadFilesToProject(selectedProject.id, Array.from(e.target.files));
+                  indexProjectFiles(selectedProject.id, Array.from(e.target.files));
                   e.target.value = "";
                 }
               }}
@@ -839,17 +912,19 @@ export default function ProjectsPage() {
               directory=""
               onChange={(e) => {
                 if (e.target.files && e.target.files.length > 0 && selectedProject) {
-                  uploadFilesToProject(selectedProject.id, Array.from(e.target.files));
+                  const files = Array.from(e.target.files);
+                  const rootFolder = files[0]?.webkitRelativePath?.split("/")[0] || selectedProject.folder_path;
+                  indexProjectFiles(selectedProject.id, files, rootFolder);
                   e.target.value = "";
                 }
               }}
             />
 
-            {/* Uploading Status Banner */}
-            {uploadingFiles && (
+            {/* Indexing Status Banner */}
+            {isIndexing && (
               <div className="p-3 mx-4 mt-3 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 flex items-center space-x-2 text-xs animate-in fade-in duration-200">
                 <Loader2 size={15} className="animate-spin text-teal-600 dark:text-teal-400 shrink-0" />
-                <span className="font-medium">{uploadProgress || "Uploading files..."}</span>
+                <span className="font-medium">Indexing local folder files directly... Zero server disk upload.</span>
               </div>
             )}
 
@@ -889,26 +964,26 @@ export default function ProjectsPage() {
                 selectedProject.is_owner !== false ? (
                   <div className="flex flex-col items-center justify-center h-full text-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-white/40 dark:bg-slate-800/40">
                     <div className="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 dark:text-teal-400 mb-3">
-                      <Upload size={22} />
+                      <FolderOpen size={22} />
                     </div>
-                    <p className="text-slate-700 dark:text-slate-200 font-bold text-sm">No files uploaded yet</p>
+                    <p className="text-slate-700 dark:text-slate-200 font-bold text-sm">No files indexed yet</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs mb-4">
-                      Upload your script files (.docx, .pdf, .txt, .srt) or media (.mp4, .mkv) to access them anywhere.
+                      Select your project folder or local files to index them and enjoy instant zero-lag playback without cloud uploads.
                     </p>
                     <div className="flex flex-wrap gap-2 justify-center">
                       <button
-                        onClick={() => panelFileInputRef.current?.click()}
-                        disabled={uploadingFiles}
+                        onClick={() => panelFolderInputRef.current?.click()}
+                        disabled={isIndexing}
                         className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                       >
-                        <Plus size={14} /> Upload Files
+                        <FolderOpen size={14} /> Index Folder
                       </button>
                       <button
-                        onClick={() => panelFolderInputRef.current?.click()}
-                        disabled={uploadingFiles}
+                        onClick={() => panelFileInputRef.current?.click()}
+                        disabled={isIndexing}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
                       >
-                        <FolderOpen size={14} /> Upload Folder
+                        <Plus size={14} /> Add Files
                       </button>
                     </div>
                   </div>
@@ -935,7 +1010,7 @@ export default function ProjectsPage() {
                         key={idx} 
                         onClick={() => {
                           if (isOwner) {
-                            setActiveFile(file);
+                            handleOpenFile(file);
                           }
                         }}
                         className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 flex flex-col shadow-xs hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md transition-all ${
@@ -951,14 +1026,21 @@ export default function ProjectsPage() {
                                 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500'
                                 : 'bg-purple-50 dark:bg-purple-900/30 text-purple-500'
                             }`}>
-                              {file.type === 'video' ? <Video size={18} /> : file.type === 'audio' ? <FileText size={18} /> : <FileText size={18} />}
+                              {file.type === 'video' ? <Video size={18} /> : file.type === 'audio' ? <Music size={18} /> : <FileText size={18} />}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate" title={file.name}>
                                 {file.name}
                               </div>
-                              <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                {(file.size / (1024 * 1024)).toFixed(2)} MB
+                              <div className="flex items-center space-x-2 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                                <span className="font-medium text-slate-600 dark:text-slate-300 font-mono">
+                                  {formatFileSize(file.size)}
+                                </span>
+                                {localFileHandles.has(file.name) && (
+                                  <span className="inline-flex items-center text-[10px] text-teal-600 dark:text-teal-400 font-medium">
+                                    • Local
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -968,13 +1050,21 @@ export default function ProjectsPage() {
                             {isOwner ? (
                               <>
                                 <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveFile(file);
-                                  }}
-                                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 transition-colors"
+                                  onClick={(e) => handleOpenFile(file, e)}
+                                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  title={file.type === 'video' || file.type === 'audio' ? "Instant Playback" : "View"}
                                 >
-                                  View
+                                  {file.type === 'video' || file.type === 'audio' ? (
+                                    <>
+                                      <Play size={12} className="fill-current" />
+                                      <span>Play</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Eye size={12} />
+                                      <span>View</span>
+                                    </>
+                                  )}
                                 </button>
                                 <a
                                   href={getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path)}`)}
@@ -1155,7 +1245,7 @@ export default function ProjectsPage() {
                 {selectedFilesForNewProject.length > 0 && (
                   <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-1.5 text-xs text-teal-600 dark:text-teal-400 font-medium">
                     <CheckCircle2 size={13} className="shrink-0" />
-                    <span>{selectedFilesForNewProject.length} files detected (will be uploaded automatically upon creation)</span>
+                    <span>{selectedFilesForNewProject.length} files detected (will be indexed locally, zero cloud upload)</span>
                   </div>
                 )}
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">{t("project.form.folder_desc")}</p>
@@ -1261,6 +1351,91 @@ export default function ProjectsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Media Player / Script Preview Modal */}
+      {previewMedia && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/70">
+              <div className="flex items-center space-x-3 rtl:space-x-reverse min-w-0">
+                <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400 shrink-0">
+                  {previewMedia.type === 'video' ? <Video size={20} /> : previewMedia.type === 'audio' ? <Music size={20} /> : <FileText size={20} />}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-white text-base truncate">{previewMedia.name}</h3>
+                  <div className="flex items-center space-x-2 text-xs text-slate-400 mt-0.5">
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-teal-400 font-mono font-medium">
+                      {formatFileSize(previewMedia.size)}
+                    </span>
+                    <span>• Zero-Lag Local Direct Playback</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (previewMedia.url && previewMedia.url.startsWith('blob:')) {
+                    try { URL.revokeObjectURL(previewMedia.url); } catch {}
+                  }
+                  setPreviewMedia(null);
+                }}
+                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 flex items-center justify-center bg-black/50 min-h-[300px] overflow-auto">
+              {previewMedia.type === 'video' && previewMedia.url && (
+                <div className="w-full flex justify-center">
+                  <video
+                    src={previewMedia.url}
+                    controls
+                    autoPlay
+                    className="w-full max-h-[65vh] rounded-xl shadow-2xl border border-slate-800 outline-none"
+                  />
+                </div>
+              )}
+              {previewMedia.type === 'audio' && previewMedia.url && (
+                <div className="w-full max-w-md p-8 bg-slate-800/80 rounded-2xl border border-slate-700 text-center flex flex-col items-center shadow-xl">
+                  <div className="w-20 h-20 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-6 animate-pulse">
+                    <Music size={40} />
+                  </div>
+                  <p className="font-bold text-lg text-white mb-1 truncate max-w-full">{previewMedia.name}</p>
+                  <p className="text-xs text-slate-400 mb-6 font-mono">{formatFileSize(previewMedia.size)}</p>
+                  <audio
+                    src={previewMedia.url}
+                    controls
+                    autoPlay
+                    className="w-full rounded-lg"
+                  />
+                </div>
+              )}
+              {previewMedia.type === 'script' && (
+                previewMedia.content ? (
+                  <pre className="w-full max-h-[65vh] overflow-y-auto p-4 bg-slate-950 text-slate-200 rounded-xl font-mono text-xs whitespace-pre-wrap select-text border border-slate-800 leading-relaxed">
+                    {previewMedia.content}
+                  </pre>
+                ) : (
+                  <div className="text-center p-8">
+                    <FileText size={48} className="mx-auto text-slate-600 mb-3" />
+                    <p className="text-slate-300 font-medium">Binary / Document script</p>
+                    <p className="text-xs text-slate-500 mt-1 mb-4">To view or edit in your native editor, download the file below.</p>
+                    {previewMedia.url && (
+                      <a
+                        href={previewMedia.url}
+                        download={previewMedia.name}
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-2 cursor-pointer shadow-md"
+                      >
+                        <Download size={14} /> Download File
+                      </a>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
           </div>
         </div>
       )}

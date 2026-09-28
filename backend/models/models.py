@@ -35,6 +35,7 @@ class Project(Base):
     deadline = Column(DateTime, nullable=True)
     total_time = Column(Integer, nullable=True)
     status = Column(String(50), default="active") # active, completed, etc.
+    files_index = Column(Text, nullable=True) # JSON list of indexed project files metadata
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     user = relationship("User", back_populates="projects")
