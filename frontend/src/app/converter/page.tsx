@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { UploadCloud, Play, FileDown, CheckCircle2, Loader2, X, RefreshCw, FolderOpen, ExternalLink } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { useConverter } from "@/context/ConverterContext";
+import { apiFetch } from "@/lib/api";
 
 type Cue = Record<string, string>;
 
@@ -11,6 +12,7 @@ const uploadWithProgress = (url: string, formData: FormData, onProgress: (pct: n
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
+    xhr.withCredentials = true;
     
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -87,7 +89,7 @@ export default function Converter() {
     }, 150);
 
     try {
-      const data = await uploadWithProgress("http://127.0.0.1:8000/api/convert", formData, (pct) => {
+      const data = await uploadWithProgress("/api/convert", formData, (pct) => {
         setScriptProgress(Math.min(90, pct));
       });
       clearInterval(interval);
@@ -130,7 +132,7 @@ export default function Converter() {
     let interval: ReturnType<typeof setInterval> | null = null;
 
     try {
-      const data = await uploadWithProgress("http://127.0.0.1:8000/api/align", formData, (pct) => {
+      const data = await uploadWithProgress("/api/align", formData, (pct) => {
         const mappedProgress = Math.round(pct / 2); // 0 to 50% for upload
         setAlignProgress(mappedProgress);
         
@@ -156,7 +158,7 @@ export default function Converter() {
     try {
       const fd = new FormData();
       fd.append("path", filePath);
-      await fetch("http://127.0.0.1:8000/api/open-file", { method: "POST", body: fd });
+      await apiFetch("/api/open-file", { method: "POST", body: fd });
     } catch (e) {
       console.error("Failed to open file", e);
     }
@@ -166,7 +168,7 @@ export default function Converter() {
     try {
       const fd = new FormData();
       fd.append("path", filePath);
-      await fetch("http://127.0.0.1:8000/api/open-folder", { method: "POST", body: fd });
+      await apiFetch("/api/open-folder", { method: "POST", body: fd });
     } catch (e) {
       console.error("Failed to open folder", e);
     }
@@ -190,7 +192,7 @@ export default function Converter() {
     }
     
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/download", {
+      const response = await apiFetch("/api/download", {
         method: "POST",
         body: formData,
       });

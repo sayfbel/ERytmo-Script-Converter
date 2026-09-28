@@ -22,6 +22,9 @@ Thumbs.db
 *.exe
 *.lnk
 config.json
+.env
+.env*.local
+*.env
 samples/
 
 # Databases & local logs
@@ -39,3 +42,7 @@ frontend/out/
 
 # Sample files
 *.xlsx
+
+# PyWebView Storage
+.webview_storage/
+

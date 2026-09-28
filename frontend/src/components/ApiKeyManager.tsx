@@ -8,6 +8,7 @@ import {
 import { useSettings } from "@/context/SettingsContext";
 import Link from "next/link";
 import ConfirmModal from "@/components/ConfirmModal";
+import { apiFetch } from "@/lib/api";
 
 export interface ApiKeyItem {
   id: number;
@@ -60,7 +61,7 @@ export default function ApiKeyManager({
   const fetchKeys = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`http://127.0.0.1:8000/api/settings/keys?provider=${provider}`);
+      const res = await apiFetch(`/api/settings/keys?provider=${provider}`);
       if (res.ok) {
         const data = await res.json();
         setKeys(data);
@@ -86,7 +87,7 @@ export default function ApiKeyManager({
     setStatus(null);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/settings/keys", {
+      const res = await apiFetch("/api/settings/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -115,7 +116,7 @@ export default function ApiKeyManager({
 
   const handleToggleActive = async (id: number) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/settings/keys/${id}/toggle`, {
+      const res = await apiFetch(`/api/settings/keys/${id}/toggle`, {
         method: "PATCH",
       });
       if (res.ok) {
@@ -147,7 +148,7 @@ export default function ApiKeyManager({
         payload.key = editKeyValue.trim();
       }
 
-      const res = await fetch(`http://127.0.0.1:8000/api/settings/keys/${id}`, {
+      const res = await apiFetch(`/api/settings/keys/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -172,7 +173,7 @@ export default function ApiKeyManager({
     if (!deleteTargetId) return;
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/settings/keys/${deleteTargetId}`, {
+      const res = await apiFetch(`/api/settings/keys/${deleteTargetId}`, {
         method: "DELETE",
       });
 

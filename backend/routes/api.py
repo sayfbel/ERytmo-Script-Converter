@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from google import genai
+from datetime import datetime
+import os
 
 from backend.database.database import get_db
 from backend.models import models
+from backend.routes.auth import get_current_user
 
 router = APIRouter()
 
@@ -81,24 +84,108 @@ def delete_company(company_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Company deleted successfully"}
 
+# --- User Search Endpoint ---
+
+@router.get("/users/search")
+def search_users(
+    q: str = "",
+    limit: int = 15,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Search registered users by first name, last name, full name, or email.
+    Used by the Staff management page to find user accounts and add/link them as staff.
+    """
+    query = q.strip().lower()
+    users_query = db.query(models.User)
+    
+    if query:
+        tokens = query.split()
+        if len(tokens) >= 2:
+            first_part, second_part = tokens[0], tokens[1]
+            users_query = users_query.filter(
+                (
+                    models.User.first_name.ilike(f"%{first_part}%") & 
+                    models.User.last_name.ilike(f"%{second_part}%")
+                ) | (
+                    models.User.first_name.ilike(f"%{second_part}%") & 
+                    models.User.last_name.ilike(f"%{first_part}%")
+                ) | (
+                    models.User.email.ilike(f"%{query}%")
+                )
+            )
+        else:
+            term = f"%{query}%"
+            users_query = users_query.filter(
+                models.User.first_name.ilike(term) |
+                models.User.last_name.ilike(term) |
+                models.User.email.ilike(term)
+            )
+    
+    users = users_query.limit(limit).all()
+    
+    return [
+        {
+            "id": u.id,
+            "first_name": u.first_name,
+            "last_name": u.last_name,
+            "name": f"{u.first_name} {u.last_name}".strip(),
+            "email": u.email,
+            "phone_number": u.phone_number
+        }
+        for u in users
+    ]
+
 # --- Staff Endpoints ---
 
 @router.get("/staff")
-def get_staff(db: Session = Depends(get_db)):
-    return db.query(models.Staff).all()
+def get_staff(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    staff_list = db.query(models.Staff).filter(
+        (models.Staff.user_id == current_user.id) | (models.Staff.user_id == None)
+    ).all()
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "email": s.email,
+            "task": s.task,
+            "staff_user_id": s.staff_user_id,
+            "created_at": s.created_at.isoformat() if s.created_at else None
+        }
+        for s in staff_list
+    ]
 
 @router.post("/staff")
 def create_staff(
     name: str,
     email: str = None,
     task: str = None,
-    db: Session = Depends(get_db)
+    staff_user_id: int = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
-    db_staff = models.Staff(name=name, email=email, task=task)
+    db_staff = models.Staff(
+        user_id=current_user.id,
+        staff_user_id=staff_user_id if staff_user_id and staff_user_id > 0 else None,
+        name=name,
+        email=email,
+        task=task
+    )
     db.add(db_staff)
     db.commit()
     db.refresh(db_staff)
-    return db_staff
+    return {
+        "id": db_staff.id,
+        "name": db_staff.name,
+        "email": db_staff.email,
+        "task": db_staff.task,
+        "staff_user_id": db_staff.staff_user_id,
+        "created_at": db_staff.created_at.isoformat() if db_staff.created_at else None
+    }
 
 @router.put("/staff/{staff_id}")
 def update_staff(
@@ -106,23 +193,45 @@ def update_staff(
     name: str = None,
     email: str = None,
     task: str = None,
-    db: Session = Depends(get_db)
+    staff_user_id: int = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
-    staff = db.query(models.Staff).filter(models.Staff.id == staff_id).first()
+    staff = db.query(models.Staff).filter(
+        models.Staff.id == staff_id,
+        (models.Staff.user_id == current_user.id) | (models.Staff.user_id == None)
+    ).first()
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
         
     if name is not None: staff.name = name
     if email is not None: staff.email = email
     if task is not None: staff.task = task
+    if staff_user_id is not None:
+        staff.staff_user_id = staff_user_id if staff_user_id > 0 else None
+    staff.user_id = current_user.id
     
     db.commit()
     db.refresh(staff)
-    return staff
+    return {
+        "id": staff.id,
+        "name": staff.name,
+        "email": staff.email,
+        "task": staff.task,
+        "staff_user_id": staff.staff_user_id,
+        "created_at": staff.created_at.isoformat() if staff.created_at else None
+    }
 
 @router.delete("/staff/{staff_id}")
-def delete_staff(staff_id: int, db: Session = Depends(get_db)):
-    staff = db.query(models.Staff).filter(models.Staff.id == staff_id).first()
+def delete_staff(
+    staff_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    staff = db.query(models.Staff).filter(
+        models.Staff.id == staff_id,
+        (models.Staff.user_id == current_user.id) | (models.Staff.user_id == None)
+    ).first()
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
         
@@ -130,9 +239,21 @@ def delete_staff(staff_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Staff deleted successfully"}
 
+# --- Project Endpoints (User-Scoped) ---
+
 @router.get("/projects")
-def get_projects(db: Session = Depends(get_db)):
-    return db.query(models.Project).all()
+def get_projects(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Auto-assign legacy unassigned projects to current user
+    unassigned = db.query(models.Project).filter(models.Project.user_id == None).all()
+    if unassigned:
+        for p in unassigned:
+            p.user_id = current_user.id
+        db.commit()
+
+    return db.query(models.Project).filter(models.Project.user_id == current_user.id).all()
 
 import tkinter as tk
 from tkinter import filedialog
@@ -160,7 +281,8 @@ def create_project(
     deadline: str = None, 
     company_id: int = None, 
     total_time: int = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
     dl_dt = None
     if deadline:
@@ -170,6 +292,7 @@ def create_project(
             pass
 
     db_project = models.Project(
+        user_id=current_user.id,
         name=name, 
         company_id=company_id,
         company_name=company_name,
@@ -194,9 +317,13 @@ def update_project(
     project_type: str = None,
     deadline: str = None, 
     total_time: int = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    project = db.query(models.Project).filter(
+        models.Project.id == project_id,
+        models.Project.user_id == current_user.id
+    ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
         
@@ -217,8 +344,15 @@ def update_project(
     return project
 
 @router.delete("/projects/{project_id}")
-def delete_project(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+def delete_project(
+    project_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(
+        models.Project.id == project_id,
+        models.Project.user_id == current_user.id
+    ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
         
@@ -227,8 +361,15 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     return {"message": "Project deleted successfully"}
 
 @router.get("/projects/{project_id}/files")
-def get_project_files(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+def get_project_files(
+    project_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(
+        models.Project.id == project_id,
+        models.Project.user_id == current_user.id
+    ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
@@ -240,8 +381,6 @@ def get_project_files(project_id: int, db: Session = Depends(get_db)):
         for filename in os.listdir(project.folder_path):
             file_path = os.path.join(project.folder_path, filename)
             if os.path.isfile(file_path):
-                # Filter specific files or return all?
-                # We can return scripts and videos
                 ext = os.path.splitext(filename)[1].lower()
                 is_video = ext in ['.mp4', '.mkv', '.avi', '.mov', '.wmv']
                 is_script = ext in ['.txt', '.srt', '.doc', '.docx', '.pdf']

@@ -5,6 +5,7 @@ import { Briefcase, Search, Plus, FolderOpen, Video, FileText, Calendar, Buildin
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
 import { useSettings } from "@/context/SettingsContext";
+import { apiFetch } from "@/lib/api";
 
 export interface Project {
   id: number;
@@ -108,7 +109,7 @@ export default function ProjectsPage() {
 
   const fetchCompanies = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/companies");
+      const res = await apiFetch("/api/companies");
       if (res.ok) {
         const data = await res.json();
         setRealCompanies(data);
@@ -120,7 +121,7 @@ export default function ProjectsPage() {
 
   const fetchProjects = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/projects");
+      const res = await apiFetch("/api/projects");
       if (res.ok) {
         const data = await res.json();
         setProjects(data);
@@ -167,7 +168,7 @@ export default function ProjectsPage() {
     }
 
     try {
-      const res = await fetch(`${url}?${params.toString()}`, {
+      const res = await apiFetch(`${url}?${params.toString()}`, {
         method: method,
       });
 
@@ -201,7 +202,7 @@ export default function ProjectsPage() {
     
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/projects/${confirmModal.project.id}`, {
+      const res = await apiFetch(`/api/projects/${confirmModal.project.id}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -230,7 +231,7 @@ export default function ProjectsPage() {
 
   const handleBrowseFolder = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/browse-folder");
+      const res = await apiFetch("/api/browse-folder");
       if (res.ok) {
         const data = await res.json();
         if (data.path) {
@@ -246,7 +247,7 @@ export default function ProjectsPage() {
     setSelectedProject(project);
     setLoadingFiles(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}/files`);
+      const res = await apiFetch(`/api/projects/${project.id}/files`);
       if (res.ok) {
         const files = await res.json();
         setProjectFiles(files);

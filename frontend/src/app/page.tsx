@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Clock, Plus, Trash2, Calendar as CalendarIcon, DollarSign } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import CustomSelect from "@/components/CustomSelect";
+import { apiFetch } from "@/lib/api";
 
 interface Project {
   id: number;
@@ -57,7 +58,7 @@ export default function TimeManagementPage() {
 
   const fetchProjects = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/projects");
+      const res = await apiFetch("/api/projects");
       if (res.ok) setProjects(await res.json());
     } catch (err) {
       console.error(err);
@@ -66,7 +67,7 @@ export default function TimeManagementPage() {
 
   const fetchCompanies = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/companies");
+      const res = await apiFetch("/api/companies");
       if (res.ok) setCompanies(await res.json());
     } catch (err) {
       console.error(err);

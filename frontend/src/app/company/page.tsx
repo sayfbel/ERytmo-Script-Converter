@@ -5,6 +5,7 @@ import { Building, Search, Plus, Mail, DollarSign, X, Loader2, Edit2, Trash2 } f
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
 import { useSettings } from "@/context/SettingsContext";
+import { apiFetch } from "@/lib/api";
 
 export interface Company {
   id: number;
@@ -80,7 +81,7 @@ export default function CompanyPage() {
 
   const fetchCompanies = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/companies");
+      const res = await apiFetch("/api/companies");
       if (res.ok) {
         const data = await res.json();
         setCompanies(data);
@@ -125,7 +126,7 @@ export default function CompanyPage() {
     if (targetSoftware) params.append("target_software", targetSoftware);
 
     try {
-      const res = await fetch(`${url}?${params.toString()}`, {
+      const res = await apiFetch(`${url}?${params.toString()}`, {
         method: method,
       });
 
@@ -160,7 +161,7 @@ export default function CompanyPage() {
     
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/companies/${confirmModal.company.id}`, {
+      const res = await apiFetch(`/api/companies/${confirmModal.company.id}`, {
         method: 'DELETE',
       });
       if (res.ok) {
