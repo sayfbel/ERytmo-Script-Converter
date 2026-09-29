@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
 import { DubFlowIcon } from "@/components/DubFlowLogo";
 import CustomSelect, { SelectOption } from "@/components/CustomSelect";
-import { Briefcase, User as UserIcon, AlertCircle, ArrowRight, ArrowLeft, ShieldCheck, X } from "lucide-react";
+import { Briefcase, User as UserIcon, AlertCircle, ArrowRight, ArrowLeft, X } from "lucide-react";
 
 const ROLE_OPTIONS: SelectOption[] = [
   { value: "Dubbing Director", label: "Dubbing Director", icon: <Briefcase size={14} className="text-amber-400/90" /> },

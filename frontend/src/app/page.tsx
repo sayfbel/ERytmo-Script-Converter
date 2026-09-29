@@ -4,11 +4,9 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
-  ArrowRight, X, Monitor, Globe, Download, 
-  ShieldCheck, Zap, FolderSync, Share2, Layers, Lock, 
-  CheckCircle2, ChevronRight, Sparkles, Clock, Check,
-  Building, Video, FileText, Briefcase, HardDrive, WifiOff, Cpu,
-  Minus, Square
+  ArrowRight, X, Globe, Download, 
+  FolderSync, Share2, Layers, Lock, 
+  Sparkles, Clock, Minus, Square
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
