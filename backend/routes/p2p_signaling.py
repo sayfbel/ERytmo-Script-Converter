@@ -19,29 +19,38 @@ class ConnectionManager:
         self.active_connections: Dict[int, Set[WebSocket]] = {}
         # WebSocket -> user_id
         self.ws_to_user: Dict[WebSocket, int] = {}
+        # WebSocket -> client_id
+        self.ws_to_client_id: Dict[WebSocket, str] = {}
+        # client_id -> WebSocket
+        self.client_id_to_ws: Dict[str, WebSocket] = {}
         # Pending transfer requests: request_id -> dict
         self.pending_requests: Dict[str, dict] = {}
         self.lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket, user_id: int, email: Optional[str] = None):
+    async def connect(self, websocket: WebSocket, user_id: int, client_id: Optional[str] = None, email: Optional[str] = None):
+        cid = client_id or str(uuid.uuid4())
         async with self.lock:
             if user_id not in self.active_connections:
                 self.active_connections[user_id] = set()
             self.active_connections[user_id].add(websocket)
             self.ws_to_user[websocket] = user_id
+            self.ws_to_client_id[websocket] = cid
+            self.client_id_to_ws[cid] = websocket
             first_conn = len(self.active_connections[user_id]) == 1
 
-        print(f"[P2P Signaling] User {user_id} connected (Total sockets: {len(self.active_connections[user_id])})")
+        print(f"[P2P Signaling] User {user_id} (Client {cid}) connected (Total devices for user: {len(self.active_connections[user_id])})")
         
-        # Broadcast presence to all connected peers if newly online
-        if first_conn:
-            await self.broadcast_presence(user_id, "online", email)
+        # Broadcast presence to all connected peers
+        await self.broadcast_presence(user_id, "online", email)
 
     async def disconnect(self, websocket: WebSocket):
         user_id = None
         went_offline = False
         async with self.lock:
             user_id = self.ws_to_user.pop(websocket, None)
+            cid = self.ws_to_client_id.pop(websocket, None)
+            if cid:
+                self.client_id_to_ws.pop(cid, None)
             if user_id and user_id in self.active_connections:
                 self.active_connections[user_id].discard(websocket)
                 if not self.active_connections[user_id]:
@@ -50,20 +59,25 @@ class ConnectionManager:
 
         if user_id:
             print(f"[P2P Signaling] User {user_id} socket disconnected")
-            if went_offline:
-                await self.broadcast_presence(user_id, "offline")
+            status_text = "offline" if went_offline else "online"
+            await self.broadcast_presence(user_id, status_text)
 
     def is_user_online(self, user_id: int) -> bool:
         return user_id in self.active_connections and len(self.active_connections[user_id]) > 0
+
+    def get_user_device_count(self, user_id: int) -> int:
+        return len(self.active_connections.get(user_id, set()))
 
     def get_online_user_ids(self) -> Set[int]:
         return set(self.active_connections.keys())
 
     async def broadcast_presence(self, user_id: int, status: str, email: Optional[str] = None):
+        count = self.get_user_device_count(user_id)
         message = {
             "type": "PRESENCE_UPDATE",
             "user_id": user_id,
             "status": status,
+            "devices_count": count,
             "email": email,
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
@@ -84,18 +98,34 @@ class ConnectionManager:
         for ws in dead_sockets:
             await self.disconnect(ws)
 
-    async def send_to_user(self, user_id: int, message: dict) -> bool:
+    async def send_to_user(
+        self, 
+        user_id: int, 
+        message: dict, 
+        exclude_ws: Optional[WebSocket] = None, 
+        target_client_id: Optional[str] = None
+    ) -> bool:
         text_data = json.dumps(message)
         sent = False
         dead_sockets = []
         async with self.lock:
-            sockets = self.active_connections.get(user_id, set()).copy()
-            for ws in sockets:
+            if target_client_id and target_client_id in self.client_id_to_ws:
+                ws = self.client_id_to_ws[target_client_id]
                 try:
                     await ws.send_text(text_data)
-                    sent = True
+                    return True
                 except Exception:
                     dead_sockets.append(ws)
+            else:
+                sockets = self.active_connections.get(user_id, set()).copy()
+                for ws in sockets:
+                    if exclude_ws and ws == exclude_ws:
+                        continue
+                    try:
+                        await ws.send_text(text_data)
+                        sent = True
+                    except Exception:
+                        dead_sockets.append(ws)
 
         for ws in dead_sockets:
             await self.disconnect(ws)
@@ -153,15 +183,18 @@ async def p2p_signaling_websocket(websocket: WebSocket, db: Session = Depends(ge
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
         return
 
-    await manager.connect(websocket, user.id, user.email)
+    cid = websocket.query_params.get("client_id") or str(uuid.uuid4())
+    await manager.connect(websocket, user.id, client_id=cid, email=user.email)
 
-    # Send initial welcome and online users list
+    # Send initial welcome and online users list + devices count
     try:
         await websocket.send_text(json.dumps({
             "type": "INIT_STATE",
             "current_user_id": user.id,
+            "client_id": cid,
             "user_id": user.id,
-            "online_user_ids": list(manager.get_online_user_ids())
+            "online_user_ids": list(manager.get_online_user_ids()),
+            "devices_count": manager.get_user_device_count(user.id)
         }))
     except Exception:
         await manager.disconnect(websocket)
@@ -194,9 +227,12 @@ async def p2p_signaling_websocket(websocket: WebSocket, db: Session = Depends(ge
 
             # 4. Peer-to-Peer messaging & data transfer passthrough (WebRTC signals & file chunks)
             elif data.get("to_user_id"):
-                target_user_id = data.get("to_user_id")
+                target_user_id = int(data.get("to_user_id"))
+                target_client_id = data.get("to_client_id")
                 data["from_user_id"] = user.id
-                await manager.send_to_user(int(target_user_id), data)
+                data["from_client_id"] = manager.ws_to_client_id.get(websocket)
+                exclude = websocket if target_user_id == user.id else None
+                await manager.send_to_user(target_user_id, data, exclude_ws=exclude, target_client_id=target_client_id)
 
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
@@ -207,8 +243,7 @@ async def p2p_signaling_websocket(websocket: WebSocket, db: Session = Depends(ge
 
 async def handle_transfer_request(data: dict, requester: models.User, ws: WebSocket):
     """
-    Handles a download / transfer request from a collaborator.
-    Enforces access_level check, auto_accept check, and prompts owner if needed.
+    Handles a download / transfer request from a collaborator or another device of the same user.
     """
     owner_id = data.get("to_user_id")
     target_file_id = data.get("target_file_id") or data.get("file_name", "unknown")
@@ -226,15 +261,43 @@ async def handle_transfer_request(data: dict, requester: models.User, ws: WebSoc
 
     owner_id = int(owner_id)
 
-    # Same-user self transfer auto-approves
+    # Same-user self cross-device transfer (e.g. PC 1 to PC 2 with same account)
     if owner_id == requester.id:
+        requester_cid = manager.ws_to_client_id.get(ws, "")
+        other_devices = [s for s in manager.active_connections.get(requester.id, set()) if s != ws]
+        if not other_devices:
+            await ws.send_text(json.dumps({
+                "type": "TRANSFER_ERROR",
+                "file_name": file_name,
+                "code": 404,
+                "detail": "Your other PC is currently offline. Please open ERytmo on the other PC where the files are stored."
+            }))
+            return
+
+        # Auto-accept since it's the SAME user account
         await ws.send_text(json.dumps({
             "type": "TRANSFER_RESPONSE",
             "status": "accepted",
             "target_file_id": target_file_id,
             "file_name": file_name,
-            "from_user_id": owner_id
+            "from_user_id": owner_id,
+            "auto_approved": True,
+            "is_self_sync": True
         }))
+
+        # Tell other device(s) of this user (PC 1) to stream the file data to this device (PC 2)!
+        await manager.send_to_user(
+            user_id=requester.id,
+            message={
+                "type": "SEND_FILE_DATA",
+                "to_user_id": requester.id,
+                "to_client_id": requester_cid,
+                "file_name": file_name,
+                "project_id": project_id,
+                "is_self_sync": True
+            },
+            exclude_ws=ws
+        )
         return
 
     # Check project and staff records in database

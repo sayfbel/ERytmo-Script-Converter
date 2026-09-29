@@ -29,6 +29,7 @@ export interface TransferState {
 interface SignalingContextType {
   isConnected: boolean;
   onlineUserIds: number[];
+  otherDevicesCount: number;
   incomingRequest: IncomingTransferRequest | null;
   fileTransfers: Record<string, TransferState>;
   transferBanner: { type: 'declined' | 'error' | 'success'; message: string } | null;
@@ -41,6 +42,16 @@ interface SignalingContextType {
 }
 
 const SignalingContext = createContext<SignalingContextType | undefined>(undefined);
+
+const getClientId = (): string => {
+  if (typeof window === "undefined") return "";
+  let cid = sessionStorage.getItem("erytmo_client_id");
+  if (!cid) {
+    cid = `dev_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    sessionStorage.setItem("erytmo_client_id", cid);
+  }
+  return cid;
+};
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   let binary = "";
@@ -66,6 +77,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState<number[]>([]);
+  const [otherDevicesCount, setOtherDevicesCount] = useState<number>(0);
   const [incomingRequest, setIncomingRequest] = useState<IncomingTransferRequest | null>(null);
   const [fileTransfers, setFileTransfers] = useState<Record<string, TransferState>>({});
   const [transferBanner, setTransferBanner] = useState<{
@@ -97,7 +109,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const streamFileToPeer = useCallback(async (toUserId: number, fileName: string, fileOrBlob: Blob | File) => {
+  const streamFileToPeer = useCallback(async (toUserId: number, fileName: string, fileOrBlob: Blob | File, toClientId?: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     const CHUNK_SIZE = 64 * 1024; // 64 KB per chunk
     const totalChunks = Math.ceil(fileOrBlob.size / CHUNK_SIZE);
@@ -111,6 +123,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
       wsRef.current.send(JSON.stringify({
         type: "FILE_CHUNK",
         to_user_id: toUserId,
+        to_client_id: toClientId,
         file_name: fileName,
         chunk_index: i,
         total_chunks: totalChunks,
@@ -128,6 +141,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
       wsRef.current.send(JSON.stringify({
         type: "FILE_COMPLETE",
         to_user_id: toUserId,
+        to_client_id: toClientId,
         file_name: fileName,
         mime_type: fileOrBlob.type
       }));
@@ -140,13 +154,14 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const clientId = getClientId();
     let wsUrl = "";
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     if (apiUrl) {
       try {
         const parsed = new URL(apiUrl);
         const wsProto = parsed.protocol === "https:" ? "wss:" : "ws:";
-        wsUrl = `${wsProto}//${parsed.host}/ws/signaling`;
+        wsUrl = `${wsProto}//${parsed.host}/ws/signaling?client_id=${encodeURIComponent(clientId)}`;
       } catch {
         // Fallback
       }
@@ -155,7 +170,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
     if (!wsUrl) {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.port === "3000" ? "localhost:8000" : window.location.host;
-      wsUrl = `${protocol}//${host}/ws/signaling`;
+      wsUrl = `${protocol}//${host}/ws/signaling?client_id=${encodeURIComponent(clientId)}`;
     }
 
     try {
@@ -176,6 +191,9 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
             if (Array.isArray(data.online_user_ids)) {
               setOnlineUserIds(data.online_user_ids);
             }
+            if (typeof data.devices_count === "number") {
+              setOtherDevicesCount(Math.max(0, data.devices_count - 1));
+            }
           } else if (type === "PRESENCE_UPDATE") {
             const uid = data.user_id;
             const status = data.status;
@@ -186,6 +204,9 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
                 return prev.filter((id) => id !== uid);
               }
             });
+            if (user && uid === user.id && typeof data.devices_count === "number") {
+              setOtherDevicesCount(Math.max(0, data.devices_count - 1));
+            }
           } else if (type === "INCOMING_TRANSFER_REQUEST") {
             setIncomingRequest({
               request_id: data.request_id,
@@ -228,16 +249,16 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
               if (isAccepted) {
                 setFileTransfers(prev => ({
                   ...prev,
-                  [fileName]: { status: 'transferring', progress: 5, message: "Connected to owner. Streaming..." }
+                  [fileName]: { status: 'transferring', progress: 5, message: data.is_self_sync ? "Syncing from your other PC..." : "Connected to owner. Streaming..." }
                 }));
               } else {
                 setFileTransfers(prev => ({
                   ...prev,
-                  [fileName]: { status: 'declined', progress: 0, message: "Download request declined by owner" }
+                  [fileName]: { status: 'declined', progress: 0, message: "Download request declined" }
                 }));
                 setTransferBanner({
                   type: 'declined',
-                  message: `Download request for "${fileName}" was declined by owner.`
+                  message: `Download request for "${fileName}" was declined.`
                 });
               }
             }
@@ -263,13 +284,13 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
               message: data.detail || "Transfer request failed."
             });
           } else if (type === "SEND_FILE_DATA") {
-            // Owner side: stream file chunks to requester
-            const { to_user_id, file_name } = data;
+            // Source device (e.g. PC 1): stream file chunks to requester (collaborator or PC 2)
+            const { to_user_id, to_client_id, file_name } = data;
             if (fileProviderRef.current) {
               try {
                 const fileOrBlob = await fileProviderRef.current(file_name);
                 if (fileOrBlob) {
-                  await streamFileToPeer(to_user_id, file_name, fileOrBlob);
+                  await streamFileToPeer(to_user_id, file_name, fileOrBlob, to_client_id);
                   return;
                 }
               } catch (err) {
@@ -277,17 +298,20 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
               }
             }
 
-            // File not found in active session
+            // File not found on this device
             if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
               wsRef.current.send(JSON.stringify({
                 type: "FILE_UNAVAILABLE",
                 to_user_id: to_user_id,
+                to_client_id: to_client_id,
                 file_name: file_name,
-                detail: `File "${file_name}" is not loaded in owner's active browser session. Ask owner to index the project folder.`
+                detail: data.is_self_sync 
+                  ? `File "${file_name}" is not loaded on your other PC. Please open/select the project folder on that PC.`
+                  : `File "${file_name}" is not loaded in owner's active browser session.`
               }));
             }
           } else if (type === "FILE_CHUNK") {
-            // Collaborator side: receive binary chunk
+            // Target device (collaborator or PC 2): receive binary chunk
             const { file_name, chunk_index, total_chunks, mime_type, data: base64 } = data;
             if (!incomingChunksRef.current.has(file_name)) {
               incomingChunksRef.current.set(file_name, { chunks: [], totalChunks: total_chunks, mimeType: mime_type });
@@ -299,10 +323,10 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
             const progress = Math.min(99, Math.round(((chunk_index + 1) / total_chunks) * 100));
             setFileTransfers(prev => ({
               ...prev,
-              [file_name]: { status: 'transferring', progress, message: `Transferring: ${progress}%` }
+              [file_name]: { status: 'transferring', progress, message: `Syncing: ${progress}%` }
             }));
           } else if (type === "FILE_COMPLETE") {
-            // Collaborator side: assemble blob & download locally
+            // Target device: assemble blob & download locally
             const { file_name, mime_type } = data;
             const record = incomingChunksRef.current.get(file_name);
             if (record && record.chunks.length > 0) {
@@ -321,7 +345,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
 
               setFileTransfers(prev => ({
                 ...prev,
-                [file_name]: { status: 'completed', progress: 100, message: "Transfer Complete" }
+                [file_name]: { status: 'completed', progress: 100, message: "Sync Complete" }
               }));
               setTransferBanner({
                 type: 'success',
@@ -332,11 +356,11 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
             const fileName = data.file_name || "File";
             setFileTransfers(prev => ({
               ...prev,
-              [fileName]: { status: 'error', progress: 0, message: data.detail || "File unavailable on owner device." }
+              [fileName]: { status: 'error', progress: 0, message: data.detail || "File unavailable on remote PC." }
             }));
             setTransferBanner({
               type: 'error',
-              message: data.detail || `"${fileName}" is currently unavailable from owner.`
+              message: data.detail || `"${fileName}" is currently unavailable from remote PC.`
             });
           }
         } catch {
@@ -371,6 +395,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
       }
       setIsConnected(false);
       setOnlineUserIds([]);
+      setOtherDevicesCount(0);
       setIncomingRequest(null);
     }
 
@@ -409,7 +434,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
     setIncomingRequest(null);
   }, []);
 
-  // Collaborator initiates a transfer request
+  // Initiates a transfer request (collaborator -> owner OR same-user PC 2 -> PC 1)
   const requestTransfer = useCallback(
     async (toUserId: number, fileName: string, fileSize: string, targetFileId?: string, projectId?: number): Promise<TransferResult> => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -422,7 +447,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
         const timeout = setTimeout(() => {
           if (pendingRequestsRef.current.has(tempId)) {
             pendingRequestsRef.current.delete(tempId);
-            resolve({ status: "error", detail: "Transfer request timed out without owner response." });
+            resolve({ status: "error", detail: "Transfer request timed out without response from device." });
           }
         }, 45000);
 
@@ -457,6 +482,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
       value={{
         isConnected,
         onlineUserIds,
+        otherDevicesCount,
         incomingRequest,
         fileTransfers,
         transferBanner,

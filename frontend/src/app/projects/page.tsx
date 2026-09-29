@@ -69,7 +69,8 @@ export default function ProjectsPage() {
     fileTransfers, 
     transferBanner, 
     setTransferBanner, 
-    registerFileProvider 
+    registerFileProvider,
+    otherDevicesCount
   } = useSignaling();
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -531,8 +532,26 @@ export default function ProjectsPage() {
       return;
     }
 
-    const ownerId = selectedProject.owner_id;
-    if (!ownerId || !isUserOnline(ownerId)) {
+    const ownerId = selectedProject.owner_id || (selectedProject.is_owner ? user?.id : undefined);
+    if (!ownerId) {
+      setTransferBanner({
+        type: 'error',
+        message: "Unable to find project owner."
+      });
+      return;
+    }
+
+    const isSelfSync = Boolean(user?.id && ownerId === user.id);
+
+    if (isSelfSync) {
+      if (otherDevicesCount <= 0) {
+        setTransferBanner({
+          type: 'error',
+          message: "Your other PC (PC 1) is offline. Please make sure the app is open on PC 1 to stream and sync files."
+        });
+        return;
+      }
+    } else if (!isUserOnline(ownerId)) {
       setTransferBanner({
         type: 'error',
         message: "Owner is offline. Files can only be downloaded when owner is connected."
@@ -846,7 +865,22 @@ export default function ProjectsPage() {
                   <span className="flex items-center">
                     <FolderOpen size={13} className="mr-1 rtl:mr-0 rtl:ml-1" /> {t("project.local_files")}
                   </span>
-                  {selectedProject.is_owner === false && (
+                  {selectedProject.is_owner !== false ? (
+                    <span className={`px-2 py-0.5 rounded font-bold text-[9px] flex items-center gap-1 ${
+                      otherDevicesCount > 0 
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                    }`}>
+                      {otherDevicesCount > 0 ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>{otherDevicesCount} Other PC Online (P2P Ready)</span>
+                        </>
+                      ) : (
+                        <span>This Device</span>
+                      )}
+                    </span>
+                  ) : (
                     <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] ${
                       selectedProject.access_level === 'full_access' 
                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' 
@@ -1013,6 +1047,7 @@ export default function ProjectsPage() {
                 <div className="space-y-3">
                   {projectFiles.map((file, idx) => {
                     const isOwner = selectedProject.is_owner !== false;
+                    const hasLocal = localFileHandles.has(file.name);
                     const isSpectator = selectedProject.access_level === 'spectator';
                     const isFullAccess = selectedProject.access_level === 'full_access';
                     const ownerOnline = selectedProject.owner_id ? isUserOnline(selectedProject.owner_id) : false;
@@ -1023,7 +1058,16 @@ export default function ProjectsPage() {
                         key={idx} 
                         onClick={() => {
                           if (isOwner) {
-                            handleOpenFile(file);
+                            if (hasLocal) {
+                              handleOpenFile(file);
+                            } else if (otherDevicesCount > 0) {
+                              handleInitiateDownload(file, { stopPropagation: () => {} } as React.MouseEvent);
+                            } else {
+                              setTransferBanner({
+                                type: 'error',
+                                message: "This file is on your PC 1. Keep PC 1 open to sync or stream it."
+                              });
+                            }
                           }
                         }}
                         className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 flex flex-col shadow-xs hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md transition-all ${
@@ -1049,11 +1093,15 @@ export default function ProjectsPage() {
                                 <span className="font-medium text-slate-600 dark:text-slate-300 font-mono">
                                   {formatFileSize(file.size)}
                                 </span>
-                                {localFileHandles.has(file.name) && (
+                                {hasLocal ? (
                                   <span className="inline-flex items-center text-[10px] text-teal-600 dark:text-teal-400 font-medium">
                                     • Local
                                   </span>
-                                )}
+                                ) : isOwner ? (
+                                  <span className="inline-flex items-center text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                                    • On Other PC
+                                  </span>
+                                ) : null}
                               </div>
                             </div>
                           </div>
@@ -1061,54 +1109,100 @@ export default function ProjectsPage() {
                           {/* Action Controls */}
                           <div className="shrink-0 flex items-center space-x-1 rtl:space-x-reverse">
                             {isOwner ? (
-                              <>
-                                <button 
-                                  onClick={(e) => handleOpenFile(file, e)}
-                                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 flex items-center gap-1.5 transition-colors cursor-pointer"
-                                  title={file.type === 'video' || file.type === 'audio' ? "Instant Playback" : "View"}
-                                >
-                                  {file.type === 'video' || file.type === 'audio' ? (
-                                    <>
-                                      <Play size={12} className="fill-current" />
-                                      <span>Play</span>
-                                    </>
+                              hasLocal ? (
+                                <>
+                                  <button 
+                                    onClick={(e) => handleOpenFile(file, e)}
+                                    className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                    title={file.type === 'video' || file.type === 'audio' ? "Instant Playback" : "View"}
+                                  >
+                                    {file.type === 'video' || file.type === 'audio' ? (
+                                      <>
+                                        <Play size={12} className="fill-current" />
+                                        <span>Play</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Eye size={12} />
+                                        <span>View</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const local = localFileHandles.get(file.name);
+                                      if (local) {
+                                        const url = URL.createObjectURL(local);
+                                        const a = document.createElement("a");
+                                        a.href = url;
+                                        a.download = file.name;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        setTimeout(() => URL.revokeObjectURL(url), 10000);
+                                      } else {
+                                        handleOpenFile(file, e);
+                                      }
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer"
+                                    title="Download Local"
+                                  >
+                                    <Download size={14} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleDeleteFile(file, e)}
+                                    className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                    title="Delete file"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              ) : (
+                                // Cross-device same-account: PC 2 requesting file from PC 1
+                                <div className="flex items-center space-x-1 rtl:space-x-reverse">
+                                  {transfer?.status === 'pending' ? (
+                                    <div className="flex items-center text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 rounded-lg">
+                                      <Loader2 size={12} className="animate-spin mr-1.5" />
+                                      <span>Requesting PC 1...</span>
+                                    </div>
+                                  ) : transfer?.status === 'transferring' ? (
+                                    <span className="text-xs font-semibold text-teal-600 dark:text-teal-400">
+                                      {transfer.progress}%
+                                    </span>
+                                  ) : transfer?.status === 'completed' ? (
+                                    <span className="inline-flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg">
+                                      <CheckCircle2 size={12} className="mr-1" />
+                                      Downloaded
+                                    </span>
+                                  ) : otherDevicesCount <= 0 ? (
+                                    <button
+                                      disabled
+                                      title="Your other PC (PC 1) is offline. Keep PC 1 online to sync files directly."
+                                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed flex items-center space-x-1"
+                                    >
+                                      <Download size={12} className="mr-1 opacity-50" />
+                                      <span>PC 1 Offline</span>
+                                    </button>
                                   ) : (
-                                    <>
-                                      <Eye size={12} />
-                                      <span>View</span>
-                                    </>
+                                    <button
+                                      onClick={(e) => handleInitiateDownload(file, e)}
+                                      className="px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors flex items-center space-x-1 cursor-pointer"
+                                      title="Download directly from PC 1 via P2P"
+                                    >
+                                      <Download size={12} className="mr-1" />
+                                      <span>Sync from PC 1</span>
+                                    </button>
                                   )}
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const local = localFileHandles.get(file.name);
-                                    if (local) {
-                                      const url = URL.createObjectURL(local);
-                                      const a = document.createElement("a");
-                                      a.href = url;
-                                      a.download = file.name;
-                                      document.body.appendChild(a);
-                                      a.click();
-                                      document.body.removeChild(a);
-                                      setTimeout(() => URL.revokeObjectURL(url), 10000);
-                                    } else {
-                                      handleOpenFile(file, e);
-                                    }
-                                  }}
-                                  className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer"
-                                  title="Download"
-                                >
-                                  <Download size={14} />
-                                </button>
-                                <button
-                                  onClick={(e) => handleDeleteFile(file, e)}
-                                  className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                  title="Delete file"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </>
+                                  <button
+                                    onClick={(e) => handleDeleteFile(file, e)}
+                                    className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                    title="Delete file"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              )
                             ) : isSpectator ? (
                               <button
                                 disabled
@@ -1159,8 +1253,8 @@ export default function ProjectsPage() {
                         {transfer?.status === 'transferring' && (
                           <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
                             <div className="flex justify-between text-[11px] text-teal-600 dark:text-teal-400 font-semibold mb-1">
-                              <span>Transferring: {transfer.progress}%</span>
-                              <span>P2P Data Channel</span>
+                              <span>{isOwner && !hasLocal ? "Syncing from PC 1" : "Transferring"}: {transfer.progress}%</span>
+                              <span>P2P Data Stream</span>
                             </div>
                             <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
                               <div 
