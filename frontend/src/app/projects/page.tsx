@@ -309,6 +309,41 @@ export default function ProjectsPage() {
     }
   };
 
+  interface DirectoryPickerEntry {
+    kind: 'file' | 'directory';
+    name: string;
+    getFile: () => Promise<File>;
+  }
+
+  interface DirectoryPickerHandle {
+    name: string;
+    values: () => AsyncIterable<DirectoryPickerEntry>;
+  }
+
+  const pickFolderModern = async (): Promise<{ folderName: string; files: File[] } | null> => {
+    if (typeof window !== "undefined" && "showDirectoryPicker" in window) {
+      try {
+        const picker = (window as unknown as { showDirectoryPicker: (opt?: { mode: string }) => Promise<DirectoryPickerHandle> }).showDirectoryPicker;
+        const dirHandle = await picker({ mode: "read" });
+        const files: File[] = [];
+        for await (const entry of dirHandle.values()) {
+          if (entry.kind === "file") {
+            const file = await entry.getFile();
+            files.push(file);
+          }
+        }
+        return { folderName: dirHandle.name, files };
+      } catch (err: unknown) {
+        const error = err as { name?: string };
+        if (error?.name === "AbortError") {
+          return null;
+        }
+        console.warn("Directory picker notice:", err);
+      }
+    }
+    return null;
+  };
+
   const handleBrowseFolder = async () => {
     // 1. If running in desktop app (PyWebView on port 8000)
     if (typeof window !== "undefined" && window.location.port === "8000") {
@@ -326,7 +361,18 @@ export default function ProjectsPage() {
       }
     }
 
-    // 2. On Web: trigger native browser folder selection
+    // 2. Modern Chrome/Edge File System Access API (Zero "Upload" popup)
+    const picked = await pickFolderModern();
+    if (picked) {
+      setFolderPath(picked.folderName);
+      setSelectedFilesForNewProject(picked.files);
+      if (!name) {
+        setName(picked.folderName);
+      }
+      return;
+    }
+
+    // 3. Fallback for older browsers
     if (folderInputRef.current) {
       folderInputRef.current.click();
     }
@@ -862,7 +908,14 @@ export default function ProjectsPage() {
                 {selectedProject.is_owner !== false && (
                   <>
                     <button
-                      onClick={() => panelFolderInputRef.current?.click()}
+                      onClick={async () => {
+                        const picked = await pickFolderModern();
+                        if (picked && selectedProject) {
+                          indexProjectFiles(selectedProject.id, picked.files, picked.folderName);
+                        } else if (panelFolderInputRef.current) {
+                          panelFolderInputRef.current.click();
+                        }
+                      }}
                       disabled={isIndexing}
                       className="p-1.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
                       title="Select Folder to Index (Zero Upload)"
@@ -972,7 +1025,14 @@ export default function ProjectsPage() {
                     </p>
                     <div className="flex flex-wrap gap-2 justify-center">
                       <button
-                        onClick={() => panelFolderInputRef.current?.click()}
+                        onClick={async () => {
+                          const picked = await pickFolderModern();
+                          if (picked && selectedProject) {
+                            indexProjectFiles(selectedProject.id, picked.files, picked.folderName);
+                          } else if (panelFolderInputRef.current) {
+                            panelFolderInputRef.current.click();
+                          }
+                        }}
                         disabled={isIndexing}
                         className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                       >
