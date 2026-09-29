@@ -14,8 +14,8 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
   { id: "about", label: "About us" },
   { id: "web", label: "Web App" },
   { id: "desktop", label: "Desktop App" },
-  { id: "synergy", label: "Comparatif" },
-  { id: "security", label: "Sécurité & NDA" }
+  { id: "comparatif", label: "Comparatif" },
+  { id: "faq", label: "FAQ" }
 ];
 
 interface FloatingNavProps {
@@ -46,18 +46,18 @@ export default function FloatingNav({
 
       if (!isHomePage) return;
 
-      const sectionIds = ["home", "about", "web", "desktop", "synergy", "security"];
+      const sectionIds = ["home", "about", "web", "desktop", "comparatif", "faq"];
 
       if (scrollParent) {
         const atBottom = scrollParent.scrollHeight - scrollParent.scrollTop - scrollParent.clientHeight < 70;
         if (atBottom) {
-          setLocalActiveSection("security");
+          setLocalActiveSection("faq");
           return;
         }
       } else {
         const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 70;
         if (atBottom) {
-          setLocalActiveSection("security");
+          setLocalActiveSection("faq");
           return;
         }
       }

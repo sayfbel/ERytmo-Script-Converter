@@ -16,6 +16,7 @@ interface CustomSelectProps {
   placeholder?: string;
   className?: string;
   variant?: "default" | "studio";
+  icon?: React.ReactNode;
 }
 
 export default function CustomSelect({
@@ -25,12 +26,28 @@ export default function CustomSelect({
   placeholder = "Select an option",
   className = "",
   variant = "default",
+  icon,
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpwards, setOpenUpwards] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const isStudio = variant === "studio";
 
   const selectedOption = options.find((opt) => opt.value === value);
+
+  // Auto-detect if dropdown should open upwards when space below is limited
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const estimatedDropdownHeight = 260;
+      if (spaceBelow < estimatedDropdownHeight && rect.top > estimatedDropdownHeight) {
+        setOpenUpwards(true);
+      } else {
+        setOpenUpwards(false);
+      }
+    }
+  }, [isOpen]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -46,7 +63,7 @@ export default function CustomSelect({
   }, []);
 
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
+    <div className={`relative ${isOpen ? "z-[9999]" : "z-10"} ${className}`} ref={containerRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -63,13 +80,18 @@ export default function CustomSelect({
         <div className={`flex items-center gap-2 truncate ${isStudio ? "text-[#f4efe6]" : "text-slate-700 dark:text-slate-200"}`}>
           {selectedOption ? (
             <>
-              {selectedOption.icon && (
+              {selectedOption.icon ? (
                 <div className="shrink-0">{selectedOption.icon}</div>
-              )}
+              ) : icon ? (
+                <div className="shrink-0">{icon}</div>
+              ) : null}
               <span className="truncate">{selectedOption.label}</span>
             </>
           ) : (
-            <span className={isStudio ? "text-[#555555]" : "text-slate-400 dark:text-slate-500"}>{placeholder}</span>
+            <>
+              {icon && <div className="shrink-0">{icon}</div>}
+              <span className={isStudio ? "text-[#555555]" : "text-slate-400 dark:text-slate-500"}>{placeholder}</span>
+            </>
           )}
         </div>
 
@@ -92,8 +114,12 @@ export default function CustomSelect({
         <div
           className={
             isStudio
-              ? "absolute z-50 w-full mt-2 bg-[#161618] border border-white/10 rounded-[18px] shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden p-1.5 animate-in fade-in zoom-in-95 duration-100 backdrop-blur-xl"
-              : "absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100 p-1"
+              ? `absolute ${
+                  openUpwards ? "bottom-full mb-2" : "top-full mt-2"
+                } left-0 z-[99999] w-full bg-[#161618] border border-white/15 rounded-[18px] shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden p-1.5 animate-in fade-in zoom-in-95 duration-100 backdrop-blur-2xl`
+              : `absolute ${
+                  openUpwards ? "bottom-full mb-1" : "top-full mt-1"
+                } left-0 z-[99999] w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 p-1`
           }
         >
           <div className="max-h-60 overflow-y-auto custom-scrollbar">

@@ -35,6 +35,19 @@ html {
   animation: section-pulse-glow 0.8s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - var(--gap, 1.5rem)));
+  }
+}
+
+.animate-marquee {
+  animation: marquee var(--duration, 35s) linear infinite;
+}
+
 @keyframes nav-label-swap {
   0% {
     opacity: 0;

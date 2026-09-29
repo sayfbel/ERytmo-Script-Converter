@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { DubFlowIcon } from "./DubFlowLogo";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Sidebar from "@/components/Sidebar";
@@ -28,8 +27,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     if (isAuthenticated) {
-      // 2. Unskippable onboarding check: must have job_type
-      if (!user?.job_type && pathname !== "/complete-profile") {
+      // 2. Unskippable onboarding check: must have job_type to access protected workspace
+      // Landing page (welcome) is accessible; workspace routes force complete-profile
+      if (!user?.job_type && !isLandingPage && pathname !== "/complete-profile" && pathname !== "/login") {
         router.replace("/complete-profile");
         return;
       }
@@ -40,26 +40,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         return;
       }
     }
-  }, [isAuthenticated, isLoading, isAuthPage, isStandalone, pathname, router, user]);
+  }, [isAuthenticated, isLoading, isAuthPage, isStandalone, isLandingPage, pathname, router, user]);
 
-  // Loading screen prevents flashing protected content while verifying session
+  // Prevent flashing protected content while verifying session
   if (isLoading && !isStandalone) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#090d16] text-slate-100">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 p-3 border border-teal-500/30 shadow-[0_0_30px_rgba(20,184,166,0.3)] flex items-center justify-center">
-              <DubFlowIcon className="w-10 h-10 text-teal-400 animate-pulse" />
-            </div>
-            <div className="absolute -inset-1 rounded-2xl bg-teal-500/20 blur-md -z-10" />
-          </div>
-          <div className="flex items-center space-x-2 text-teal-400 text-sm font-semibold">
-            <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-            <span>Loading DubFlow...</span>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // If on standalone page (landing / welcome / login / register), render full screen

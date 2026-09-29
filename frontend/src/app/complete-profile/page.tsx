@@ -7,27 +7,36 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
 import { DubFlowIcon } from "@/components/DubFlowLogo";
-import { Briefcase, User as UserIcon, AlertCircle, ArrowRight, ShieldCheck } from "lucide-react";
+import CustomSelect, { SelectOption } from "@/components/CustomSelect";
+import { Briefcase, User as UserIcon, AlertCircle, ArrowRight, ArrowLeft, ShieldCheck, X } from "lucide-react";
 
-const SUGGESTED_ROLES = [
-  "Dubbing Director",
-  "Voice Actor",
-  "Rhythmist / Adaptateur",
-  "Sound Engineer",
-  "Translator",
-  "Project Manager",
-  "Studio Technician",
+const ROLE_OPTIONS: SelectOption[] = [
+  { value: "Dubbing Director", label: "Dubbing Director", icon: <Briefcase size={14} className="text-amber-400/90" /> },
+  { value: "Rhythmist / Adaptateur", label: "Rhythmist / Adaptateur", icon: <Briefcase size={14} className="text-amber-400/90" /> },
+  { value: "Voice Actor", label: "Voice Actor", icon: <Briefcase size={14} className="text-amber-400/90" /> },
+  { value: "Autre", label: "Autre (Saisir manuellement...)", icon: <Briefcase size={14} className="text-amber-400/90" /> },
 ];
 
 export default function CompleteProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading, completeProfile } = useAuth();
+  const { user, isAuthenticated, isLoading, completeProfile, logout } = useAuth();
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [jobType, setJobType] = useState("");
+  const [isCustom, setIsCustom] = useState(false);
+  const [customRole, setCustomRole] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const handleBackToLogin = async () => {
+    try {
+      await logout();
+    } catch {
+      // ignore
+    }
+    router.replace("/login");
+  };
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -38,7 +47,13 @@ export default function CompleteProfilePage() {
     if (user) {
       if (user.first_name && !firstName) setFirstName(user.first_name);
       if (user.last_name && !lastName) setLastName(user.last_name);
-      if (user.job_type && !jobType) setJobType(user.job_type);
+      if (user.job_type && !jobType) {
+        setJobType(user.job_type);
+        if (!ROLE_OPTIONS.some((o) => o.value === user.job_type) && user.job_type !== "Autre") {
+          setIsCustom(true);
+          setCustomRole(user.job_type);
+        }
+      }
 
       // If user already has a complete profile, send them to workspace
       if (user.job_type && user.first_name && user.last_name) {
@@ -120,25 +135,23 @@ export default function CompleteProfilePage() {
         <div className="h-16 sm:h-20 w-full shrink-0" />
 
         {/* Main Stage: Profile Setup Card */}
-        <main className="relative z-20 w-full max-w-[980px] my-auto rounded-[32px] sm:rounded-[40px] overflow-hidden bg-[#111113]/90 backdrop-blur-2xl border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.9)] p-4 sm:p-7 md:p-8 grid grid-cols-1 lg:grid-cols-[6fr_5fr] gap-6">
+        <main className="relative z-20 w-full max-w-[980px] my-auto rounded-[32px] sm:rounded-[40px] overflow-visible bg-[#111113]/90 backdrop-blur-2xl border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.9)] p-4 sm:p-7 md:p-8 grid grid-cols-1 lg:grid-cols-[6fr_5fr] gap-6">
 
           {/* Left Column: Form Pane */}
           <div className="relative z-10 flex flex-col justify-center">
             
             {/* Top Badge Header */}
             <div className="flex items-center justify-between mb-5 pb-4 border-b border-white/10">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl border border-white/20 bg-black/60 shadow-sm shrink-0 flex items-center justify-center p-2">
-                  <DubFlowIcon className="w-6 h-6 text-amber-400" />
-                </div>
+              <div className="flex items-center gap-3">
+                <DubFlowIcon className="w-7 h-7 text-amber-400 shrink-0" />
                 <div>
-                  <span className="font-extrabold text-[#f4efe6] tracking-tight text-base block">DubFlow Studio*</span>
-                  <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1">
-                    <ShieldCheck size={13} /> Account Setup (Step 2 of 2)
+                  <span className="font-extrabold text-[#f4efe6] tracking-tight text-base block leading-tight">DubFlow</span>
+                  <span className="text-[11px] text-amber-400 font-semibold block leading-tight pt-0.5">
+                    Account Setup (Step 2 of 2)
                   </span>
                 </div>
               </div>
-              <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/30">
+              <span className="text-[11px] font-bold tracking-wide text-amber-400">
                 Mandatory
               </span>
             </div>
@@ -149,7 +162,18 @@ export default function CompleteProfilePage() {
                 Complete your profile
               </h1>
               <p className="text-xs sm:text-sm text-[#88888e] mt-1 leading-relaxed">
-                Please confirm your identity and specify your studio role to activate your workspace access.
+                Please confirm the identity of{" "}
+                <span className="font-mono text-[#f4efe6] font-semibold">
+                  {user?.email ? (
+                    (() => {
+                      const parts = user.email.split("@");
+                      return parts.length === 2 ? `${parts[0].slice(0, 3)}******@${parts[1]}` : user.email;
+                    })()
+                  ) : (
+                    "your account"
+                  )}
+                </span>{" "}
+                and specify your studio role to activate your workspace access.
               </p>
             </div>
 
@@ -211,56 +235,58 @@ export default function CompleteProfilePage() {
                 <label className="block text-xs font-semibold text-[#a1a1aa] mb-1.5">
                   Profession / Studio Role <span className="text-rose-400">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
+
+                {isCustom ? (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={customRole}
+                      onChange={(e) => {
+                        setCustomRole(e.target.value);
+                        setJobType(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      placeholder="Saisissez votre profession / rôle studio..."
+                      required
+                      className="w-full h-[46px] bg-[#1a1a1c] border border-amber-400/40 hover:border-amber-400/60 focus:border-amber-400 rounded-[16px] pl-10 pr-11 text-sm text-[#f4efe6] placeholder:text-[#555555] outline-none transition-all shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)] font-medium"
+                    />
+                    <Briefcase className="w-4 h-4 text-amber-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustom(false);
+                        setCustomRole("");
+                        setJobType("");
+                      }}
+                      title="Revenir à la liste déroulante"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-zinc-400 flex items-center justify-center transition-colors text-xs"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <CustomSelect
+                    variant="studio"
+                    options={ROLE_OPTIONS}
                     value={jobType}
-                    onChange={(e) => {
-                      setJobType(e.target.value);
+                    icon={<Briefcase size={14} className="text-[#71717a]" />}
+                    placeholder="Sélectionnez votre rôle / métier..."
+                    onChange={(val) => {
+                      if (val === "Autre") {
+                        setIsCustom(true);
+                        setCustomRole("");
+                        setJobType("");
+                      } else {
+                        setJobType(val);
+                        setIsCustom(false);
+                      }
                       if (error) setError(null);
                     }}
-                    placeholder="e.g. Dubbing Director, Sound Engineer..."
-                    required
-                    className="w-full h-[46px] bg-[#1a1a1c] border border-white/10 hover:border-white/15 focus:border-white/25 rounded-[16px] pl-10 pr-3.5 text-sm text-[#f4efe6] placeholder:text-[#555555] outline-none transition-all shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)] font-medium"
                   />
-                  <Briefcase className="w-4 h-4 text-[#71717a] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                </div>
-
-                {/* Suggested Roles Pills */}
-                <div className="mt-3">
-                  <span className="text-[11px] text-[#71717a] block mb-1.5 font-medium">Or choose a suggested title:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {SUGGESTED_ROLES.map((role) => {
-                      const isSelected = jobType === role;
-                      return (
-                        <button
-                          key={role}
-                          type="button"
-                          onClick={() => {
-                            setJobType(role);
-                            if (error) setError(null);
-                          }}
-                          className={`px-3 py-1.5 text-[11.5px] rounded-xl border transition-all cursor-pointer ${
-                            isSelected
-                              ? "bg-[#ECE8DF] text-black border-[#ECE8DF] font-bold shadow-[0_2px_12px_rgba(236,232,223,0.25)] scale-[1.02]"
-                              : "bg-[#18181a] hover:bg-[#222226] text-[#a1a1aa] hover:text-[#f4efe6] border-white/10"
-                          }`}
-                        >
-                          {role}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                )}
               </div>
 
-              {/* Connected Account (Read-only) */}
-              {user?.email && (
-                <div className="p-3 bg-[#18181a] border border-white/10 rounded-[16px] text-xs flex items-center justify-between">
-                  <span className="text-[#88888e]">Connected Account:</span>
-                  <span className="font-mono text-[#f4efe6] font-medium">{user.email}</span>
-                </div>
-              )}
 
               {/* Submit Button */}
               <button
@@ -282,9 +308,28 @@ export default function CompleteProfilePage() {
               </button>
             </form>
 
-            <p className="text-center text-[11px] text-[#71717a] mt-4">
+            <p className="text-center text-[11px] text-[#71717a] mt-3">
               This setup is required once to organize collaboration and permission scopes.
             </p>
+
+            {/* Back to Login & Return to Home Navigation */}
+            <div className="mt-4 pt-3.5 border-t border-white/5 flex items-center justify-between text-xs">
+              <button
+                type="button"
+                onClick={handleBackToLogin}
+                className="inline-flex items-center gap-1.5 text-zinc-400 hover:text-amber-400 transition-colors cursor-pointer group font-medium"
+              >
+                <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform text-amber-400/80" />
+                <span>Back to Login</span>
+              </button>
+
+              <Link
+                href="/"
+                className="text-zinc-500 hover:text-[#f4efe6] transition-colors"
+              >
+                Return to Home
+              </Link>
+            </div>
           </div>
 
           {/* Right Column: Visual Pane with Dubbing Studio Image */}

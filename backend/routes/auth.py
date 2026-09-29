@@ -1128,21 +1128,6 @@ def reset_forgot_password(payload: ForgotPasswordResetPayload, db: Session = Dep
     }
 
 
-@router.post("/admin/clean-wipe-database")
-def admin_wipe_database():
-    """
-    Wipes all tables in the database completely clean (no users, no projects, etc.).
-    """
-    from backend.database.database import wipe_all_database_data
-    success = wipe_all_database_data()
-    if not success:
-        raise HTTPException(status_code=500, detail="Database wipe encountered an error.")
-    return {
-        "success": True,
-        "message": "All database tables have been completely wiped clean. 0 users, 0 projects."
-    }
-
-
 @router.post("/logout")
 def logout_user(request: Request, response: Response, db: Session = Depends(get_db)):
     # 1. Server-side token invalidation

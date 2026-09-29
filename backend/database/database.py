@@ -235,30 +235,4 @@ def init_db():
             except Exception as e:
                 print(f"[DB Migration] projects.files_index: {e}")
 
-def wipe_all_database_data():
-    """
-    Completely wipes all rows from all tables in the database.
-    """
-    from backend.models import models
-    db = SessionLocal()
-    try:
-        db.query(models.Script).delete()
-        db.query(models.Project).delete()
-        db.query(models.Company).delete()
-        db.query(models.Appointment).delete()
-        db.query(models.Staff).delete()
-        db.query(models.ApiKey).delete()
-        db.query(models.EmailVerification).delete()
-        db.query(models.RevokedToken).delete()
-        db.query(models.User).delete()
-        db.commit()
-        print("[Database] All tables wiped clean. Database is completely empty.")
-        return True
-    except Exception as e:
-        print(f"[Database Error] Wipe failed: {e}")
-        db.rollback()
-        return False
-    finally:
-        db.close()
-
 
