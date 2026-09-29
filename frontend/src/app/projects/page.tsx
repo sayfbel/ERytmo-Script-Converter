@@ -137,14 +137,12 @@ export default function ProjectsPage() {
   }>({ isOpen: false, type: 'update', project: null, fileToDelete: null });
 
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const createFileInputRef = useRef<HTMLInputElement | null>(null);
   const panelFolderInputRef = useRef<HTMLInputElement | null>(null);
   const panelFileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFilesForNewProject, setSelectedFilesForNewProject] = useState<File[]>([]);
-
-  // Folder Access Permission Modal State (replaces browser native prompt)
-  const [folderPermModalOpen, setFolderPermModalOpen] = useState(false);
-  const [folderPermAction, setFolderPermAction] = useState<'create' | 'panel'>('create');
-  const [dontAskFolderPerm, setDontAskFolderPerm] = useState(false);
+  const [isDraggingNewProject, setIsDraggingNewProject] = useState(false);
+  const [isDraggingPanel, setIsDraggingPanel] = useState(false);
 
   const openCreateModal = () => {
     setEditingProjectId(null);
@@ -329,46 +327,69 @@ export default function ProjectsPage() {
     }
   };
 
-  const requestOpenFolder = (action: 'create' | 'panel') => {
-    // 1. If running in desktop app (PyWebView on port 8000)
-    if (typeof window !== "undefined" && window.location.port === "8000") {
-      apiFetch("/api/browse-folder")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.path && action === 'create') {
-            setFolderPath(data.path);
-          }
-        })
-        .catch(() => {});
-      return;
+  const extractFilesFromDrop = async (e: React.DragEvent): Promise<{ files: File[]; folderName: string }> => {
+    e.preventDefault();
+    e.stopPropagation();
+    const items = e.dataTransfer.items;
+    const files: File[] = [];
+    let detectedFolder = "";
+
+    interface WebkitEntry {
+      isFile: boolean;
+      isDirectory: boolean;
+      name: string;
+      file: (successCallback: (file: File) => void) => void;
+      createReader: () => {
+        readEntries: (successCallback: (entries: WebkitEntry[]) => void) => void;
+      };
     }
 
-    // 2. Check if user previously checked "Don't ask again"
-    const savedPref = typeof window !== 'undefined' ? localStorage.getItem('erytmo_dont_ask_folder_perm') === 'true' : false;
-    if (savedPref) {
-      executeFolderPicker(action);
-      return;
-    }
+    const traverse = async (entry: WebkitEntry): Promise<void> => {
+      if (entry.isFile) {
+        const f: File = await new Promise((res) => entry.file(res));
+        files.push(f);
+      } else if (entry.isDirectory) {
+        if (!detectedFolder) detectedFolder = entry.name;
+        const reader = entry.createReader();
+        const entries: WebkitEntry[] = await new Promise((res) => reader.readEntries(res));
+        for (const child of entries) {
+          await traverse(child);
+        }
+      }
+    };
 
-    setFolderPermAction(action);
-    setFolderPermModalOpen(true);
+    if (items && items.length > 0) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const entry = item.webkitGetAsEntry ? (item.webkitGetAsEntry() as unknown as WebkitEntry) : null;
+        if (entry) {
+          await traverse(entry);
+        } else {
+          const f = item.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+    }
+    return { files, folderName: detectedFolder };
   };
 
-  const handleConfirmFolderPermission = () => {
-    if (dontAskFolderPerm) {
-      try {
-        localStorage.setItem('erytmo_dont_ask_folder_perm', 'true');
-      } catch {}
+  const handleDropNewProject = async (e: React.DragEvent) => {
+    setIsDraggingNewProject(false);
+    const { files, folderName } = await extractFilesFromDrop(e);
+    if (files.length > 0) {
+      setSelectedFilesForNewProject(files);
+      const nameToSet = folderName || (files[0].webkitRelativePath ? files[0].webkitRelativePath.split("/")[0] : files[0].name.split(".")[0]);
+      setFolderPath(nameToSet);
+      if (!name) setName(nameToSet);
     }
-    setFolderPermModalOpen(false);
-    executeFolderPicker(folderPermAction);
   };
 
-  const executeFolderPicker = (action: 'create' | 'panel') => {
-    if (action === 'create') {
-      folderInputRef.current?.click();
-    } else {
-      panelFolderInputRef.current?.click();
+  const handleDropPanel = async (e: React.DragEvent) => {
+    setIsDraggingPanel(false);
+    if (!selectedProject) return;
+    const { files, folderName } = await extractFilesFromDrop(e);
+    if (files.length > 0) {
+      indexProjectFiles(selectedProject.id, files, folderName || selectedProject.folder_path);
     }
   };
 
@@ -909,21 +930,22 @@ export default function ProjectsPage() {
                 {selectedProject.is_owner !== false && (
                   <>
                     <button
-                      onClick={() => requestOpenFolder('panel')}
+                      onClick={() => panelFileInputRef.current?.click()}
                       disabled={isIndexing}
                       className="p-1.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
-                      title="Select Folder to Index (Zero Upload)"
+                      title="Select files directly without browser prompts"
+                    >
+                      <Plus size={15} />
+                      <span className="hidden sm:inline">Add Files</span>
+                    </button>
+                    <button
+                      onClick={() => panelFolderInputRef.current?.click()}
+                      disabled={isIndexing}
+                      className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                      title="Index entire folder"
                     >
                       <HardDrive size={15} />
                       <span className="hidden sm:inline">Index Folder</span>
-                    </button>
-                    <button
-                      onClick={() => panelFileInputRef.current?.click()}
-                      disabled={isIndexing}
-                      className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
-                      title="Add Local Files"
-                    >
-                      <Plus size={15} />
                     </button>
                   </>
                 )}
@@ -1001,7 +1023,16 @@ export default function ProjectsPage() {
               </div>
             )}
             
-            <div className="flex-1 overflow-y-auto p-4 bg-slate-50/30 dark:bg-slate-900/30">
+            <div 
+              onDragOver={(e) => { e.preventDefault(); setIsDraggingPanel(true); }}
+              onDragLeave={() => setIsDraggingPanel(false)}
+              onDrop={handleDropPanel}
+              className={`flex-1 overflow-y-auto p-4 transition-colors ${
+                isDraggingPanel 
+                  ? 'bg-teal-50/50 dark:bg-teal-950/30 border-2 border-dashed border-teal-500' 
+                  : 'bg-slate-50/30 dark:bg-slate-900/30'
+              }`}
+            >
               {loadingFiles ? (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500">
                   <Loader2 size={24} className="animate-spin mb-2" />
@@ -1019,18 +1050,19 @@ export default function ProjectsPage() {
                     </p>
                     <div className="flex flex-wrap gap-2 justify-center">
                       <button
-                        onClick={() => requestOpenFolder('panel')}
+                        onClick={() => panelFileInputRef.current?.click()}
                         disabled={isIndexing}
                         className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                        title="Pick files without Chrome warning"
                       >
-                        <FolderOpen size={14} /> Index Folder
+                        <Plus size={14} /> Add Files
                       </button>
                       <button
-                        onClick={() => panelFileInputRef.current?.click()}
+                        onClick={() => panelFolderInputRef.current?.click()}
                         disabled={isIndexing}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
                       >
-                        <Plus size={14} /> Add Files
+                        <FolderOpen size={14} /> Select Folder
                       </button>
                     </div>
                   </div>
@@ -1325,50 +1357,106 @@ export default function ProjectsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("project.form.folder")} *</label>
-                <div className="flex space-x-2 rtl:space-x-reverse">
-                  <input
-                    type="file"
-                    ref={folderInputRef}
-                    className="hidden"
-                    // @ts-expect-error webkitdirectory is standard in browsers
-                    webkitdirectory=""
-                    directory=""
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (files && files.length > 0) {
-                        const fileArray = Array.from(files);
-                        setSelectedFilesForNewProject(fileArray);
-                        const firstFile = files[0];
-                        const rel = firstFile.webkitRelativePath || "";
-                        const rootName = rel.split("/")[0] || firstFile.name;
-                        setFolderPath(rootName);
-                      }
-                    }}
-                  />
-                  <input 
-                    type="text"
-                    required
-                    placeholder="e.g. C:/Projects/Episode1 or click Browse..."
-                    value={folderPath}
-                    onChange={(e) => setFolderPath(e.target.value)}
-                    className="flex-1 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => requestOpenFolder('create')}
-                    className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-lg transition-colors text-sm cursor-pointer shrink-0"
-                  >
-                    {t("project.form.browse")}
-                  </button>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Local Folder / Files *
+                </label>
+                
+                <input
+                  type="file"
+                  ref={folderInputRef}
+                  className="hidden"
+                  // @ts-expect-error webkitdirectory is standard in browsers
+                  webkitdirectory=""
+                  directory=""
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files && files.length > 0) {
+                      const fileArray = Array.from(files);
+                      setSelectedFilesForNewProject(fileArray);
+                      const firstFile = files[0];
+                      const rel = firstFile.webkitRelativePath || "";
+                      const rootName = rel.split("/")[0] || firstFile.name;
+                      setFolderPath(rootName);
+                      if (!name) setName(rootName);
+                    }
+                  }}
+                />
+
+                <input
+                  type="file"
+                  ref={createFileInputRef}
+                  className="hidden"
+                  multiple
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files && files.length > 0) {
+                      const fileArray = Array.from(files);
+                      setSelectedFilesForNewProject(fileArray);
+                      const rootName = fileArray[0].webkitRelativePath?.split("/")[0] || fileArray[0].name.split(".")[0];
+                      setFolderPath(rootName);
+                      if (!name) setName(rootName);
+                    }
+                  }}
+                />
+
+                {/* Drag and Drop Zone + Button Controls */}
+                <div 
+                  onDragOver={(e) => { e.preventDefault(); setIsDraggingNewProject(true); }}
+                  onDragLeave={() => setIsDraggingNewProject(false)}
+                  onDrop={handleDropNewProject}
+                  className={`p-3.5 rounded-xl border-2 border-dashed transition-all ${
+                    isDraggingNewProject 
+                      ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-950/50 scale-[1.01]' 
+                      : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center space-x-2.5 rtl:space-x-reverse min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 border border-teal-500/20">
+                        <FolderOpen size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. C:/Projects/Episode1 or drop folder here"
+                          value={folderPath}
+                          onChange={(e) => setFolderPath(e.target.value)}
+                          className="w-full bg-transparent border-none text-xs font-mono font-semibold text-slate-800 dark:text-slate-200 focus:outline-none placeholder:text-slate-400"
+                        />
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Drag &amp; drop folder here (0 alerts), or click buttons on right
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => createFileInputRef.current?.click()}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                        title="Pick files directly (Chrome never shows alert)"
+                      >
+                        Select Files (Ctrl+A)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => folderInputRef.current?.click()}
+                        className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                        title="Pick folder via explorer"
+                      >
+                        Select Folder
+                      </button>
+                    </div>
+                  </div>
                 </div>
+
                 {selectedFilesForNewProject.length > 0 && (
-                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-1.5 text-xs text-teal-600 dark:text-teal-400 font-medium">
-                    <CheckCircle2 size={13} className="shrink-0" />
-                    <span>{selectedFilesForNewProject.length} files detected (will be indexed locally, zero cloud upload)</span>
+                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-2 text-xs text-teal-600 dark:text-teal-400 font-medium">
+                    <CheckCircle2 size={14} className="shrink-0" />
+                    <span>{selectedFilesForNewProject.length} files detected (indexed locally in browser, zero cloud upload)</span>
                   </div>
                 )}
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">{t("project.form.folder_desc")}</p>
               </div>
 
               <div className="flex gap-4">
@@ -1474,22 +1562,6 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
-
-      {/* Folder Permission Modal (custom dialog with Don't ask again) */}
-      <ConfirmModal
-        isOpen={folderPermModalOpen}
-        title="Allow Local Folder Access"
-        message="Allow ERytmo to view and index local project files directly on your computer? Files will be streamed via P2P without uploading to any server."
-        type="info"
-        confirmText="Allow Access"
-        cancelText="Cancel"
-        showDontAskAgain={true}
-        dontAskAgain={dontAskFolderPerm}
-        onToggleDontAskAgain={(checked) => setDontAskFolderPerm(checked)}
-        icon={<FolderOpen size={24} className="text-teal-600 dark:text-teal-400" />}
-        onConfirm={handleConfirmFolderPermission}
-        onCancel={() => setFolderPermModalOpen(false)}
-      />
 
       {/* Confirmation Modal */}
       <ConfirmModal 
