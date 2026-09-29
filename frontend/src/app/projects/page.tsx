@@ -141,6 +141,11 @@ export default function ProjectsPage() {
   const panelFileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFilesForNewProject, setSelectedFilesForNewProject] = useState<File[]>([]);
 
+  // Folder Access Permission Modal State (replaces browser native prompt)
+  const [folderPermModalOpen, setFolderPermModalOpen] = useState(false);
+  const [folderPermAction, setFolderPermAction] = useState<'create' | 'panel'>('create');
+  const [dontAskFolderPerm, setDontAskFolderPerm] = useState(false);
+
   const openCreateModal = () => {
     setEditingProjectId(null);
     setName("");
@@ -324,72 +329,46 @@ export default function ProjectsPage() {
     }
   };
 
-  interface DirectoryPickerEntry {
-    kind: 'file' | 'directory';
-    name: string;
-    getFile: () => Promise<File>;
-  }
-
-  interface DirectoryPickerHandle {
-    name: string;
-    values: () => AsyncIterable<DirectoryPickerEntry>;
-  }
-
-  const pickFolderModern = async (): Promise<{ folderName: string; files: File[] } | null> => {
-    if (typeof window !== "undefined" && "showDirectoryPicker" in window) {
-      try {
-        const picker = (window as unknown as { showDirectoryPicker: (opt?: { mode: string }) => Promise<DirectoryPickerHandle> }).showDirectoryPicker;
-        const dirHandle = await picker({ mode: "read" });
-        const files: File[] = [];
-        for await (const entry of dirHandle.values()) {
-          if (entry.kind === "file") {
-            const file = await entry.getFile();
-            files.push(file);
-          }
-        }
-        return { folderName: dirHandle.name, files };
-      } catch (err: unknown) {
-        const error = err as { name?: string };
-        if (error?.name === "AbortError") {
-          return null;
-        }
-        console.warn("Directory picker notice:", err);
-      }
-    }
-    return null;
-  };
-
-  const handleBrowseFolder = async () => {
+  const requestOpenFolder = (action: 'create' | 'panel') => {
     // 1. If running in desktop app (PyWebView on port 8000)
     if (typeof window !== "undefined" && window.location.port === "8000") {
-      try {
-        const res = await apiFetch("/api/browse-folder");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.path) {
+      apiFetch("/api/browse-folder")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.path && action === 'create') {
             setFolderPath(data.path);
-            return;
           }
-        }
-      } catch (err) {
-        console.warn("Desktop browse folder notice:", err);
-      }
-    }
-
-    // 2. Modern Chrome/Edge File System Access API (Zero "Upload" popup)
-    const picked = await pickFolderModern();
-    if (picked) {
-      setFolderPath(picked.folderName);
-      setSelectedFilesForNewProject(picked.files);
-      if (!name) {
-        setName(picked.folderName);
-      }
+        })
+        .catch(() => {});
       return;
     }
 
-    // 3. Fallback for older browsers
-    if (folderInputRef.current) {
-      folderInputRef.current.click();
+    // 2. Check if user previously checked "Don't ask again"
+    const savedPref = typeof window !== 'undefined' ? localStorage.getItem('erytmo_dont_ask_folder_perm') === 'true' : false;
+    if (savedPref) {
+      executeFolderPicker(action);
+      return;
+    }
+
+    setFolderPermAction(action);
+    setFolderPermModalOpen(true);
+  };
+
+  const handleConfirmFolderPermission = () => {
+    if (dontAskFolderPerm) {
+      try {
+        localStorage.setItem('erytmo_dont_ask_folder_perm', 'true');
+      } catch {}
+    }
+    setFolderPermModalOpen(false);
+    executeFolderPicker(folderPermAction);
+  };
+
+  const executeFolderPicker = (action: 'create' | 'panel') => {
+    if (action === 'create') {
+      folderInputRef.current?.click();
+    } else {
+      panelFolderInputRef.current?.click();
     }
   };
 
@@ -930,14 +909,7 @@ export default function ProjectsPage() {
                 {selectedProject.is_owner !== false && (
                   <>
                     <button
-                      onClick={async () => {
-                        const picked = await pickFolderModern();
-                        if (picked && selectedProject) {
-                          indexProjectFiles(selectedProject.id, picked.files, picked.folderName);
-                        } else if (panelFolderInputRef.current) {
-                          panelFolderInputRef.current.click();
-                        }
-                      }}
+                      onClick={() => requestOpenFolder('panel')}
                       disabled={isIndexing}
                       className="p-1.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
                       title="Select Folder to Index (Zero Upload)"
@@ -1047,14 +1019,7 @@ export default function ProjectsPage() {
                     </p>
                     <div className="flex flex-wrap gap-2 justify-center">
                       <button
-                        onClick={async () => {
-                          const picked = await pickFolderModern();
-                          if (picked && selectedProject) {
-                            indexProjectFiles(selectedProject.id, picked.files, picked.folderName);
-                          } else if (panelFolderInputRef.current) {
-                            panelFolderInputRef.current.click();
-                          }
-                        }}
+                        onClick={() => requestOpenFolder('panel')}
                         disabled={isIndexing}
                         className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                       >
@@ -1391,7 +1356,7 @@ export default function ProjectsPage() {
                   />
                   <button
                     type="button"
-                    onClick={handleBrowseFolder}
+                    onClick={() => requestOpenFolder('create')}
                     className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-lg transition-colors text-sm cursor-pointer shrink-0"
                   >
                     {t("project.form.browse")}
@@ -1509,6 +1474,22 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
+
+      {/* Folder Permission Modal (custom dialog with Don't ask again) */}
+      <ConfirmModal
+        isOpen={folderPermModalOpen}
+        title="Allow Local Folder Access"
+        message="Allow ERytmo to view and index local project files directly on your computer? Files will be streamed via P2P without uploading to any server."
+        type="info"
+        confirmText="Allow Access"
+        cancelText="Cancel"
+        showDontAskAgain={true}
+        dontAskAgain={dontAskFolderPerm}
+        onToggleDontAskAgain={(checked) => setDontAskFolderPerm(checked)}
+        icon={<FolderOpen size={24} className="text-teal-600 dark:text-teal-400" />}
+        onConfirm={handleConfirmFolderPermission}
+        onCancel={() => setFolderPermModalOpen(false)}
+      />
 
       {/* Confirmation Modal */}
       <ConfirmModal 
