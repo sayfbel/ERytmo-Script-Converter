@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
+import { DubFlowIcon } from "./DubFlowLogo";
 
 export interface NavItem {
   id: string;
@@ -11,10 +11,11 @@ export interface NavItem {
 
 export const DEFAULT_NAV_ITEMS: NavItem[] = [
   { id: "home", label: "DubFlow" },
-  { id: "workflows", label: "Workflows" },
-  { id: "vision", label: "Sécurité" },
-  { id: "impact", label: "Impact & ROI" },
-  { id: "formules", label: "Questions" }
+  { id: "about", label: "About us" },
+  { id: "web", label: "Web App" },
+  { id: "desktop", label: "Desktop App" },
+  { id: "synergy", label: "Comparatif" },
+  { id: "security", label: "Sécurité & NDA" }
 ];
 
 interface FloatingNavProps {
@@ -45,18 +46,18 @@ export default function FloatingNav({
 
       if (!isHomePage) return;
 
-      const sectionIds = ["home", "workflows", "vision", "impact", "formules"];
+      const sectionIds = ["home", "about", "web", "desktop", "synergy", "security"];
 
       if (scrollParent) {
         const atBottom = scrollParent.scrollHeight - scrollParent.scrollTop - scrollParent.clientHeight < 70;
         if (atBottom) {
-          setLocalActiveSection("formules");
+          setLocalActiveSection("security");
           return;
         }
       } else {
         const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 70;
         if (atBottom) {
-          setLocalActiveSection("formules");
+          setLocalActiveSection("security");
           return;
         }
       }
@@ -101,7 +102,7 @@ export default function FloatingNav({
       return;
     }
 
-    if (sectionId === "home" || sectionId === "about") {
+    if (sectionId === "home") {
       if (isHomePage) {
         if (typeof window !== "undefined" && window.location.hash) {
           history.replaceState(null, "", window.location.pathname);
@@ -186,15 +187,9 @@ export default function FloatingNav({
               key={currentActiveItem.id} 
               className="text-xs sm:text-[13px] font-semibold text-[#f4efe6] tracking-wide animate-nav-label-swap whitespace-nowrap flex items-center"
             >
-              {currentActiveItem.id === "home" || currentActiveItem.id === "about" ? (
+              {currentActiveItem.id === "home" ? (
                 <span className="flex items-center gap-1.5">
-                  <Image
-                    src="/dubflow_icon.png"
-                    alt="DubFlow"
-                    width={15}
-                    height={15}
-                    className="object-contain shrink-0"
-                  />
+                  <DubFlowIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span>DubFlow</span>
                   <span className="font-editorial italic text-amber-300 text-sm ml-0.5">*</span>
                 </span>
@@ -226,15 +221,9 @@ export default function FloatingNav({
                     : "text-[#9e988c] hover:text-[#f4efe6]"
                 }`}
               >
-                {item.id === "home" || item.id === "about" ? (
+                {item.id === "home" ? (
                   <span className="flex items-center gap-1.5">
-                    <Image
-                      src="/dubflow_icon.png"
-                      alt="DubFlow"
-                      width={15}
-                      height={15}
-                      className="object-contain shrink-0"
-                    />
+                    <DubFlowIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     <span className="font-extrabold tracking-tight">DubFlow</span>
                     <span className="font-editorial italic text-amber-300 text-sm ml-0.5">*</span>
                   </span>

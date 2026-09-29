@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
+import { DubFlowIcon } from "@/components/DubFlowLogo";
 import { AlertCircle, Check, RefreshCw, ArrowLeft, ShieldCheck } from "lucide-react";
 
 function VerifyEmailContent() {
@@ -173,14 +174,8 @@ function VerifyEmailContent() {
             {/* Top Brand & Step */}
             <div className="flex items-center justify-between mb-5 pb-4 border-b border-white/10">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl overflow-hidden relative border border-white/20 bg-black/40 shadow-sm shrink-0">
-                  <Image
-                    src="/DubFlow.jpg"
-                    alt="DubFlow Studio"
-                    fill
-                    priority
-                    className="object-cover"
-                  />
+                <div className="w-10 h-10 rounded-2xl border border-white/20 bg-black/60 shadow-sm shrink-0 flex items-center justify-center p-2">
+                  <DubFlowIcon className="w-6 h-6 text-amber-400" />
                 </div>
                 <div>
                   <span className="font-extrabold text-[#f4efe6] tracking-tight text-base block">DubFlow Studio*</span>

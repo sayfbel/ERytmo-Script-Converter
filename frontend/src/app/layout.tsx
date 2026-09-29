@@ -14,7 +14,10 @@ export const metadata: Metadata = {
   description:
     "L'écosystème nouvelle génération pour la post-synchronisation et l'adaptation de scripts. Convertissez instantanément vos bandes rythmo multi-formats, gérez vos productions et collaborez en toute sécurité grâce à une architecture locale à zéro stockage cloud.",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico" },
+    ],
   },
 };
 

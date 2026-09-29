@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { DubFlowIcon } from "./DubFlowLogo";
 import { usePathname } from "next/navigation";
 import { 
   Calendar, Users, Building,
@@ -66,29 +66,15 @@ export default function Sidebar() {
             className="flex items-center justify-center p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all hover:scale-105"
             title="Expand Sidebar"
           >
-            <div className="w-8 h-8 relative rounded-xl bg-slate-900 flex items-center justify-center p-1 shadow-sm shrink-0 overflow-hidden">
-              <Image
-                src="/app_logo.png"
-                alt="DubFlow Logo"
-                width={24}
-                height={24}
-                priority
-                className="w-6 h-6 object-contain"
-              />
+            <div className="w-8 h-8 relative rounded-xl bg-slate-900 flex items-center justify-center p-1.5 shadow-sm shrink-0 overflow-hidden">
+              <DubFlowIcon className="w-5 h-5 text-amber-400" />
             </div>
           </button>
         ) : (
           <>
             <div className="flex items-center space-x-2.5 rtl:space-x-reverse font-bold text-slate-800 dark:text-slate-100 min-w-0">
-              <div className="w-8 h-8 relative rounded-xl bg-slate-900 flex items-center justify-center p-1 shadow-sm shrink-0 overflow-hidden">
-                <Image
-                  src="/app_logo.png"
-                  alt="DubFlow Logo"
-                  width={24}
-                  height={24}
-                  priority
-                  className="w-6 h-6 object-contain"
-                />
+              <div className="w-8 h-8 relative rounded-xl bg-slate-900 flex items-center justify-center p-1.5 shadow-sm shrink-0 overflow-hidden">
+                <DubFlowIcon className="w-5 h-5 text-amber-400" />
               </div>
               <span className="text-base tracking-tight font-extrabold truncate">{t("app.name").split(" ")[0]}</span>
             </div>
