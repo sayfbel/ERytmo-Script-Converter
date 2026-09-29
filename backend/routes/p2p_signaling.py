@@ -192,12 +192,11 @@ async def p2p_signaling_websocket(websocket: WebSocket, db: Session = Depends(ge
             elif msg_type == "TRANSFER_RESPONSE":
                 await handle_transfer_response(data, user, websocket)
 
-            # 4. WebRTC Signaling passthrough (OFFER, ANSWER, ICE_CANDIDATE)
-            elif msg_type in ["P2P_OFFER", "P2P_ANSWER", "P2P_ICE_CANDIDATE"]:
+            # 4. Peer-to-Peer messaging & data transfer passthrough (WebRTC signals & file chunks)
+            elif data.get("to_user_id"):
                 target_user_id = data.get("to_user_id")
-                if target_user_id:
-                    data["from_user_id"] = user.id
-                    await manager.send_to_user(int(target_user_id), data)
+                data["from_user_id"] = user.id
+                await manager.send_to_user(int(target_user_id), data)
 
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
@@ -270,6 +269,13 @@ async def handle_transfer_request(data: dict, requester: models.User, ws: WebSoc
                 "from_user_id": owner_id,
                 "auto_approved": True
             }))
+            # Instruct owner's client to stream the file data directly to requester
+            await manager.send_to_user(owner_id, {
+                "type": "SEND_FILE_DATA",
+                "to_user_id": requester.id,
+                "file_name": file_name,
+                "project_id": project_id
+            })
             return
 
         # Check if owner is online
@@ -372,6 +378,15 @@ async def handle_transfer_response(data: dict, owner: models.User, ws: WebSocket
         "target_file_id": req["target_file_id"] if req else data.get("target_file_id", ""),
         "from_user_id": owner.id
     })
+
+    if status_choice == "accepted":
+        # Instruct owner's client to stream the file data directly to requester
+        await ws.send_text(json.dumps({
+            "type": "SEND_FILE_DATA",
+            "to_user_id": requester_id,
+            "file_name": req["file_name"] if req else data.get("file_name", ""),
+            "project_id": req.get("project_id") if req else None
+        }))
 
 
 # ==============================================================================

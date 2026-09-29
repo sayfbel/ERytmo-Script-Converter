@@ -45,11 +45,6 @@ export interface CompanyData {
   target_software: string;
 }
 
-interface TransferState {
-  status: 'idle' | 'pending' | 'transferring' | 'completed' | 'declined' | 'error';
-  progress: number;
-  message?: string;
-}
 
 const formatFileSize = (bytes: number): string => {
   if (!bytes || bytes <= 0) return "0 B";
@@ -68,7 +63,14 @@ const formatFileSize = (bytes: number): string => {
 export default function ProjectsPage() {
   const { t } = useSettings();
   const { user } = useAuth();
-  const { isUserOnline, requestTransfer } = useSignaling();
+  const { 
+    isUserOnline, 
+    requestTransfer, 
+    fileTransfers, 
+    transferBanner, 
+    setTransferBanner, 
+    registerFileProvider 
+  } = useSignaling();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -108,12 +110,21 @@ export default function ProjectsPage() {
   } | null>(null);
   const [isIndexing, setIsIndexing] = useState(false);
 
-  // P2P Transfer & Consent Tracking State
-  const [fileTransfers, setFileTransfers] = useState<Record<string, TransferState>>({});
-  const [transferBanner, setTransferBanner] = useState<{
-    type: 'declined' | 'error' | 'success';
-    message: string;
-  } | null>(null);
+  // Register real P2P File Provider with SignalingContext
+  useEffect(() => {
+    registerFileProvider(async (fileName: string) => {
+      if (localFileHandles.has(fileName)) {
+        return localFileHandles.get(fileName)!;
+      }
+      if (typeof window !== "undefined" && window.location.port === "8000") {
+        try {
+          const res = await fetch(`http://localhost:8000/api/stream-file?path=${encodeURIComponent(fileName)}`);
+          if (res.ok) return await res.blob();
+        } catch {}
+      }
+      return null;
+    });
+  }, [localFileHandles, registerFileProvider]);
 
   // Edit / Delete State
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
@@ -529,83 +540,25 @@ export default function ProjectsPage() {
       return;
     }
 
-    const sizeStr = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
-    
-    setFileTransfers(prev => ({
-      ...prev,
-      [file.name]: { status: 'pending', progress: 0, message: "Waiting for owner approval..." }
-    }));
+    const sizeStr = formatFileSize(file.size);
     setTransferBanner(null);
 
     try {
       const result = await requestTransfer(ownerId, file.name, sizeStr, file.name, selectedProject.id);
 
-      if (result.status === 'accepted') {
-        // Owner approved or auto-approved
-        setFileTransfers(prev => ({
-          ...prev,
-          [file.name]: { status: 'transferring', progress: 15, message: "Transferring: 15%" }
-        }));
-
-        setTimeout(() => {
-          setFileTransfers(prev => ({
-            ...prev,
-            [file.name]: { status: 'transferring', progress: 45, message: "Transferring: 45%" }
-          }));
-        }, 500);
-
-        setTimeout(() => {
-          setFileTransfers(prev => ({
-            ...prev,
-            [file.name]: { status: 'transferring', progress: 85, message: "Transferring: 85%" }
-          }));
-        }, 1000);
-
-        setTimeout(() => {
-          setFileTransfers(prev => ({
-            ...prev,
-            [file.name]: { status: 'completed', progress: 100, message: "Transfer Complete" }
-          }));
-          setTransferBanner({
-            type: 'success',
-            message: `Transfer complete! "${file.name}" received successfully.`
-          });
-
-          // Trigger download if path is accessible on server
-          if (file.path) {
-            const link = document.createElement('a');
-            link.href = getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path)}`);
-            link.download = file.name;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
-        }, 1500);
-      } else if (result.status === 'declined') {
-        setFileTransfers(prev => ({
-          ...prev,
-          [file.name]: { status: 'declined', progress: 0, message: "Download request declined by owner" }
-        }));
+      if (result.status === 'declined') {
         setTransferBanner({
           type: 'declined',
-          message: "Download request was declined by owner"
+          message: `Download request for "${file.name}" was declined by owner.`
         });
-      } else {
-        setFileTransfers(prev => ({
-          ...prev,
-          [file.name]: { status: 'error', progress: 0, message: result.detail || "Transfer request failed." }
-        }));
+      } else if (result.status === 'error') {
         setTransferBanner({
           type: 'error',
           message: result.detail || "Download request failed."
         });
       }
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : "Transfer error";
-      setFileTransfers(prev => ({
-        ...prev,
-        [file.name]: { status: 'error', progress: 0, message: errMsg }
-      }));
+      const errMsg = err instanceof Error ? err.message : "Transfer communication error";
       setTransferBanner({
         type: 'error',
         message: errMsg
@@ -1126,15 +1079,28 @@ export default function ProjectsPage() {
                                     </>
                                   )}
                                 </button>
-                                <a
-                                  href={getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path)}`)}
-                                  download={file.name}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const local = localFileHandles.get(file.name);
+                                    if (local) {
+                                      const url = URL.createObjectURL(local);
+                                      const a = document.createElement("a");
+                                      a.href = url;
+                                      a.download = file.name;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                      setTimeout(() => URL.revokeObjectURL(url), 10000);
+                                    } else {
+                                      handleOpenFile(file, e);
+                                    }
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer"
                                   title="Download"
                                 >
                                   <Download size={14} />
-                                </a>
+                                </button>
                                 <button
                                   onClick={(e) => handleDeleteFile(file, e)}
                                   className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"

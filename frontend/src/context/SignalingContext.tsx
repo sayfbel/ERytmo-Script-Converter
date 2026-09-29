@@ -20,27 +20,68 @@ export interface TransferResult {
   auto_approved?: boolean;
 }
 
+export interface TransferState {
+  status: 'idle' | 'pending' | 'transferring' | 'completed' | 'declined' | 'error';
+  progress: number;
+  message?: string;
+}
+
 interface SignalingContextType {
   isConnected: boolean;
   onlineUserIds: number[];
   incomingRequest: IncomingTransferRequest | null;
+  fileTransfers: Record<string, TransferState>;
+  transferBanner: { type: 'declined' | 'error' | 'success'; message: string } | null;
+  setTransferBanner: React.Dispatch<React.SetStateAction<{ type: 'declined' | 'error' | 'success'; message: string } | null>>;
   respondTransfer: (requestId: string, status: "accepted" | "declined", rememberPreference: boolean) => void;
   requestTransfer: (toUserId: number, fileName: string, fileSize: string, targetFileId?: string, projectId?: number) => Promise<TransferResult>;
+  registerFileProvider: (provider: (fileName: string) => Promise<Blob | File | null> | Blob | File | null) => void;
   isUserOnline: (userId?: number | null) => boolean;
   refreshOnlineStatus: () => Promise<void>;
 }
 
 const SignalingContext = createContext<SignalingContextType | undefined>(undefined);
 
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+};
+
+const base64ToUint8Array = (base64: string): Uint8Array => {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+};
+
 export function SignalingProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState<number[]>([]);
   const [incomingRequest, setIncomingRequest] = useState<IncomingTransferRequest | null>(null);
+  const [fileTransfers, setFileTransfers] = useState<Record<string, TransferState>>({});
+  const [transferBanner, setTransferBanner] = useState<{
+    type: 'declined' | 'error' | 'success';
+    message: string;
+  } | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingRequestsRef = useRef<Map<string, { resolve: (res: TransferResult) => void; timeout: NodeJS.Timeout }>>(new Map());
+  const fileProviderRef = useRef<((fileName: string) => Promise<Blob | File | null> | Blob | File | null) | null>(null);
+  const incomingChunksRef = useRef<Map<string, { chunks: Uint8Array[]; totalChunks: number; mimeType?: string }>>(new Map());
+
+  const registerFileProvider = useCallback((provider: (fileName: string) => Promise<Blob | File | null> | Blob | File | null) => {
+    fileProviderRef.current = provider;
+  }, []);
 
   const refreshOnlineStatus = useCallback(async () => {
     try {
@@ -53,6 +94,43 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       // Ignore background sync errors
+    }
+  }, []);
+
+  const streamFileToPeer = useCallback(async (toUserId: number, fileName: string, fileOrBlob: Blob | File) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    const CHUNK_SIZE = 64 * 1024; // 64 KB per chunk
+    const totalChunks = Math.ceil(fileOrBlob.size / CHUNK_SIZE);
+
+    for (let i = 0; i < totalChunks; i++) {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) break;
+      const slice = fileOrBlob.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+      const buffer = await slice.arrayBuffer();
+      const base64 = arrayBufferToBase64(buffer);
+
+      wsRef.current.send(JSON.stringify({
+        type: "FILE_CHUNK",
+        to_user_id: toUserId,
+        file_name: fileName,
+        chunk_index: i,
+        total_chunks: totalChunks,
+        mime_type: fileOrBlob.type,
+        data: base64
+      }));
+
+      // Yield event loop every few chunks
+      if (i % 8 === 0) {
+        await new Promise(r => setTimeout(r, 10));
+      }
+    }
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: "FILE_COMPLETE",
+        to_user_id: toUserId,
+        file_name: fileName,
+        mime_type: fileOrBlob.type
+      }));
     }
   }, []);
 
@@ -89,7 +167,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
         refreshOnlineStatus();
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
           const type = data.type;
@@ -120,27 +198,47 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
             });
           } else if (type === "TRANSFER_RESPONSE") {
             const reqId = data.request_id;
+            const isAccepted = data.status === "accepted";
+            const fileName = data.file_name;
+
             if (reqId && pendingRequestsRef.current.has(reqId)) {
               const pending = pendingRequestsRef.current.get(reqId);
               if (pending) {
                 clearTimeout(pending.timeout);
                 pending.resolve({
-                  status: data.status === "accepted" ? "accepted" : "declined",
+                  status: isAccepted ? "accepted" : "declined",
                   auto_approved: !!data.auto_approved,
                 });
                 pendingRequestsRef.current.delete(reqId);
               }
             } else {
-              // Direct broadcast match
               const entries = Array.from(pendingRequestsRef.current.entries());
               if (entries.length > 0) {
                 const [id, pending] = entries[0];
                 clearTimeout(pending.timeout);
                 pending.resolve({
-                  status: data.status === "accepted" ? "accepted" : "declined",
+                  status: isAccepted ? "accepted" : "declined",
                   auto_approved: !!data.auto_approved,
                 });
                 pendingRequestsRef.current.delete(id);
+              }
+            }
+
+            if (fileName) {
+              if (isAccepted) {
+                setFileTransfers(prev => ({
+                  ...prev,
+                  [fileName]: { status: 'transferring', progress: 5, message: "Connected to owner. Streaming..." }
+                }));
+              } else {
+                setFileTransfers(prev => ({
+                  ...prev,
+                  [fileName]: { status: 'declined', progress: 0, message: "Download request declined by owner" }
+                }));
+                setTransferBanner({
+                  type: 'declined',
+                  message: `Download request for "${fileName}" was declined by owner.`
+                });
               }
             }
           } else if (type === "TRANSFER_ERROR") {
@@ -154,6 +252,92 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
               });
               pendingRequestsRef.current.delete(id);
             }
+            if (data.file_name) {
+              setFileTransfers(prev => ({
+                ...prev,
+                [data.file_name]: { status: 'error', progress: 0, message: data.detail || "Transfer request failed." }
+              }));
+            }
+            setTransferBanner({
+              type: 'error',
+              message: data.detail || "Transfer request failed."
+            });
+          } else if (type === "SEND_FILE_DATA") {
+            // Owner side: stream file chunks to requester
+            const { to_user_id, file_name } = data;
+            if (fileProviderRef.current) {
+              try {
+                const fileOrBlob = await fileProviderRef.current(file_name);
+                if (fileOrBlob) {
+                  await streamFileToPeer(to_user_id, file_name, fileOrBlob);
+                  return;
+                }
+              } catch (err) {
+                console.error("Error reading file to stream:", err);
+              }
+            }
+
+            // File not found in active session
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({
+                type: "FILE_UNAVAILABLE",
+                to_user_id: to_user_id,
+                file_name: file_name,
+                detail: `File "${file_name}" is not loaded in owner's active browser session. Ask owner to index the project folder.`
+              }));
+            }
+          } else if (type === "FILE_CHUNK") {
+            // Collaborator side: receive binary chunk
+            const { file_name, chunk_index, total_chunks, mime_type, data: base64 } = data;
+            if (!incomingChunksRef.current.has(file_name)) {
+              incomingChunksRef.current.set(file_name, { chunks: [], totalChunks: total_chunks, mimeType: mime_type });
+            }
+            const record = incomingChunksRef.current.get(file_name)!;
+            const bytes = base64ToUint8Array(base64);
+            record.chunks[chunk_index] = bytes;
+
+            const progress = Math.min(99, Math.round(((chunk_index + 1) / total_chunks) * 100));
+            setFileTransfers(prev => ({
+              ...prev,
+              [file_name]: { status: 'transferring', progress, message: `Transferring: ${progress}%` }
+            }));
+          } else if (type === "FILE_COMPLETE") {
+            // Collaborator side: assemble blob & download locally
+            const { file_name, mime_type } = data;
+            const record = incomingChunksRef.current.get(file_name);
+            if (record && record.chunks.length > 0) {
+              const blob = new Blob(record.chunks as BlobPart[], { type: mime_type || record.mimeType || "application/octet-stream" });
+              incomingChunksRef.current.delete(file_name);
+
+              // Native browser download directly to PC (zero server upload / zero server route)
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = file_name;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              setTimeout(() => URL.revokeObjectURL(url), 30000);
+
+              setFileTransfers(prev => ({
+                ...prev,
+                [file_name]: { status: 'completed', progress: 100, message: "Transfer Complete" }
+              }));
+              setTransferBanner({
+                type: 'success',
+                message: `Transfer complete! "${file_name}" downloaded directly to your PC.`
+              });
+            }
+          } else if (type === "FILE_UNAVAILABLE") {
+            const fileName = data.file_name || "File";
+            setFileTransfers(prev => ({
+              ...prev,
+              [fileName]: { status: 'error', progress: 0, message: data.detail || "File unavailable on owner device." }
+            }));
+            setTransferBanner({
+              type: 'error',
+              message: data.detail || `"${fileName}" is currently unavailable from owner.`
+            });
           }
         } catch {
           // JSON parse err
@@ -163,7 +347,6 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
       ws.onclose = () => {
         setIsConnected(false);
         wsRef.current = null;
-        // Exponential backoff reconnect
         if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = setTimeout(() => {
           connectWebSocket();
@@ -176,7 +359,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // WS constructor error
     }
-  }, [isAuthenticated, user, refreshOnlineStatus]);
+  }, [isAuthenticated, user, refreshOnlineStatus, streamFileToPeer]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -241,7 +424,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
             pendingRequestsRef.current.delete(tempId);
             resolve({ status: "error", detail: "Transfer request timed out without owner response." });
           }
-        }, 45000); // 45 seconds timeout for modal decision
+        }, 45000);
 
         pendingRequestsRef.current.set(tempId, { resolve, timeout });
 
@@ -275,8 +458,12 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
         isConnected,
         onlineUserIds,
         incomingRequest,
+        fileTransfers,
+        transferBanner,
+        setTransferBanner,
         respondTransfer,
         requestTransfer,
+        registerFileProvider,
         isUserOnline,
         refreshOnlineStatus,
       }}
