@@ -137,9 +137,7 @@ export default function ProjectsPage() {
   }>({ isOpen: false, type: 'update', project: null, fileToDelete: null });
 
   const folderInputRef = useRef<HTMLInputElement | null>(null);
-  const createFileInputRef = useRef<HTMLInputElement | null>(null);
   const panelFolderInputRef = useRef<HTMLInputElement | null>(null);
-  const panelFileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFilesForNewProject, setSelectedFilesForNewProject] = useState<File[]>([]);
   const [isDraggingNewProject, setIsDraggingNewProject] = useState(false);
   const [isDraggingPanel, setIsDraggingPanel] = useState(false);
@@ -176,6 +174,32 @@ export default function ProjectsPage() {
     setDeadline(project.deadline ? new Date(project.deadline).toISOString().split('T')[0] : "");
     setTotalTime(project.total_time?.toString() || "");
     setShowModal(true);
+  };
+
+  const handleBrowseFolder = async () => {
+    // 1. If running in desktop app (PyWebView on port 8000)
+    if (typeof window !== "undefined" && window.location.port === "8000") {
+      try {
+        const res = await apiFetch("/api/browse-folder");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.path) {
+            setFolderPath(data.path);
+            if (!name) {
+              const parts = data.path.split(/[/\\]/);
+              const folderName = parts[parts.length - 1] || data.path;
+              setName(folderName);
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Desktop browse folder notice:", err);
+      }
+    }
+
+    // 2. Open folder explorer
+    folderInputRef.current?.click();
   };
 
   useEffect(() => {
@@ -928,26 +952,15 @@ export default function ProjectsPage() {
               </div>
               <div className="flex items-center space-x-1 rtl:space-x-reverse">
                 {selectedProject.is_owner !== false && (
-                  <>
-                    <button
-                      onClick={() => panelFileInputRef.current?.click()}
-                      disabled={isIndexing}
-                      className="p-1.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
-                      title="Select files directly without browser prompts"
-                    >
-                      <Plus size={15} />
-                      <span className="hidden sm:inline">Add Files</span>
-                    </button>
-                    <button
-                      onClick={() => panelFolderInputRef.current?.click()}
-                      disabled={isIndexing}
-                      className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
-                      title="Index entire folder"
-                    >
-                      <HardDrive size={15} />
-                      <span className="hidden sm:inline">Index Folder</span>
-                    </button>
-                  </>
+                  <button
+                    onClick={() => panelFolderInputRef.current?.click()}
+                    disabled={isIndexing}
+                    className="p-1.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                    title={t("project.form.browse")}
+                  >
+                    <FolderOpen size={15} />
+                    <span className="hidden sm:inline">Index Folder</span>
+                  </button>
                 )}
                 <button 
                   onClick={() => setSelectedProject(null)}
@@ -959,19 +972,7 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            {/* Hidden indexing inputs for this project */}
-            <input
-              type="file"
-              ref={panelFileInputRef}
-              className="hidden"
-              multiple
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0 && selectedProject) {
-                  indexProjectFiles(selectedProject.id, Array.from(e.target.files));
-                  e.target.value = "";
-                }
-              }}
-            />
+            {/* Hidden indexing input for this project */}
             <input
               type="file"
               ref={panelFolderInputRef}
@@ -1048,21 +1049,13 @@ export default function ProjectsPage() {
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs mb-4">
                       Select your project folder or local files to index them and enjoy instant zero-lag playback without cloud uploads.
                     </p>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      <button
-                        onClick={() => panelFileInputRef.current?.click()}
-                        disabled={isIndexing}
-                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                        title="Pick files without Chrome warning"
-                      >
-                        <Plus size={14} /> Add Files
-                      </button>
+                    <div className="flex justify-center">
                       <button
                         onClick={() => panelFolderInputRef.current?.click()}
                         disabled={isIndexing}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-2 transition-all cursor-pointer"
                       >
-                        <FolderOpen size={14} /> Select Folder
+                        <FolderOpen size={15} /> Select Folder
                       </button>
                     </div>
                   </div>
@@ -1358,7 +1351,7 @@ export default function ProjectsPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Local Folder / Files *
+                  {t("project.form.folder")} *
                 </label>
                 
                 <input
@@ -1382,81 +1375,46 @@ export default function ProjectsPage() {
                   }}
                 />
 
-                <input
-                  type="file"
-                  ref={createFileInputRef}
-                  className="hidden"
-                  multiple
-                  onChange={(e) => {
-                    const files = e.target.files;
-                    if (files && files.length > 0) {
-                      const fileArray = Array.from(files);
-                      setSelectedFilesForNewProject(fileArray);
-                      const rootName = fileArray[0].webkitRelativePath?.split("/")[0] || fileArray[0].name.split(".")[0];
-                      setFolderPath(rootName);
-                      if (!name) setName(rootName);
-                    }
-                  }}
-                />
-
-                {/* Drag and Drop Zone + Button Controls */}
                 <div 
                   onDragOver={(e) => { e.preventDefault(); setIsDraggingNewProject(true); }}
                   onDragLeave={() => setIsDraggingNewProject(false)}
                   onDrop={handleDropNewProject}
-                  className={`p-3.5 rounded-xl border-2 border-dashed transition-all ${
+                  className={`flex items-center rounded-xl border transition-all overflow-hidden ${
                     isDraggingNewProject 
-                      ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-950/50 scale-[1.01]' 
-                      : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40'
+                      ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-950/50 ring-2 ring-teal-500/20' 
+                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-600 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="flex items-center space-x-2.5 rtl:space-x-reverse min-w-0 flex-1">
-                      <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 border border-teal-500/20">
-                        <FolderOpen size={20} />
-                      </div>
-                      <div className="min-w-0">
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. C:/Projects/Episode1 or drop folder here"
-                          value={folderPath}
-                          onChange={(e) => setFolderPath(e.target.value)}
-                          className="w-full bg-transparent border-none text-xs font-mono font-semibold text-slate-800 dark:text-slate-200 focus:outline-none placeholder:text-slate-400"
-                        />
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          Drag &amp; drop folder here (0 alerts), or click buttons on right
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => createFileInputRef.current?.click()}
-                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                        title="Pick files directly (Chrome never shows alert)"
-                      >
-                        Select Files (Ctrl+A)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => folderInputRef.current?.click()}
-                        className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                        title="Pick folder via explorer"
-                      >
-                        Select Folder
-                      </button>
-                    </div>
+                  <div className="pl-3 pr-2 text-slate-400 dark:text-slate-500 flex items-center justify-center shrink-0">
+                    <FolderOpen size={18} className="text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. C:/Projects/Episode1 or browse folder..."
+                    value={folderPath}
+                    onChange={(e) => setFolderPath(e.target.value)}
+                    className="flex-1 bg-transparent py-2 px-1 text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
+                  />
+                  <div className="p-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleBrowseFolder}
+                      className="px-3.5 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FolderOpen size={14} />
+                      <span>{t("project.form.browse")}</span>
+                    </button>
                   </div>
                 </div>
 
                 {selectedFilesForNewProject.length > 0 && (
-                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-2 text-xs text-teal-600 dark:text-teal-400 font-medium">
+                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-2 text-xs text-teal-600 dark:text-teal-400 font-medium animate-in fade-in duration-150">
                     <CheckCircle2 size={14} className="shrink-0" />
-                    <span>{selectedFilesForNewProject.length} files detected (indexed locally in browser, zero cloud upload)</span>
+                    <span>{selectedFilesForNewProject.length} files detected in folder</span>
                   </div>
                 )}
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{t("project.form.folder_desc")}</p>
               </div>
 
               <div className="flex gap-4">
