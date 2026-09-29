@@ -98,17 +98,17 @@ export default function ProjectsPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
-  const [activeFile, setActiveFile] = useState<ProjectFile | null>(null);
-
-  // Local File Handles & Instant Media Playback State
-  const [localFileHandles, setLocalFileHandles] = useState<Map<string, File>>(new Map());
-  const [previewMedia, setPreviewMedia] = useState<{
+  const [activeFile, setActiveFile] = useState<{
     name: string;
-    type: 'video' | 'audio' | 'script';
+    path: string;
+    type: 'video' | 'script' | 'audio';
+    size: number;
     url?: string;
     content?: string;
-    size: number;
   } | null>(null);
+
+  // Local File Handles State
+  const [localFileHandles, setLocalFileHandles] = useState<Map<string, File>>(new Map());
   const [isIndexing, setIsIndexing] = useState(false);
 
   // Register real P2P File Provider with SignalingContext
@@ -132,8 +132,9 @@ export default function ProjectsPage() {
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     type: 'update' | 'delete';
-    project: Project | null;
-  }>({ isOpen: false, type: 'update', project: null });
+    project?: Project | null;
+    fileToDelete?: ProjectFile | null;
+  }>({ isOpen: false, type: 'update', project: null, fileToDelete: null });
 
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const panelFolderInputRef = useRef<HTMLInputElement | null>(null);
@@ -314,7 +315,9 @@ export default function ProjectsPage() {
   };
 
   const handleConfirmAction = () => {
-    if (confirmModal.type === 'delete') {
+    if (confirmModal.fileToDelete) {
+      executeDeleteFile(confirmModal.fileToDelete);
+    } else if (confirmModal.type === 'delete') {
       executeDeleteProject();
     } else if (confirmModal.type === 'update') {
       handleSubmitProject();
@@ -469,42 +472,46 @@ export default function ProjectsPage() {
     if (e) e.stopPropagation();
     const localFile = localFileHandles.get(file.name);
 
-    if (file.type === 'video' || file.type === 'audio') {
-      let mediaUrl: string;
-      if (localFile) {
-        mediaUrl = URL.createObjectURL(localFile);
-      } else {
-        mediaUrl = getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path || file.name)}`);
-      }
-      setPreviewMedia({
-        name: file.name,
-        type: file.type,
-        url: mediaUrl,
-        size: file.size
-      });
+    let mediaUrl = "";
+    if (localFile) {
+      mediaUrl = URL.createObjectURL(localFile);
     } else {
-      let textContent = "";
+      mediaUrl = getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path || file.name)}`);
+    }
+
+    let textContent = "";
+    if (file.type === 'script') {
       if (localFile) {
         try {
           textContent = await localFile.text();
         } catch {
-          textContent = "Binary / document file. Cannot preview text directly.";
+          textContent = "Binary or document script. Use native reader.";
         }
       }
-      setPreviewMedia({
-        name: file.name,
-        type: 'script',
-        content: textContent || undefined,
-        url: getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path || file.name)}`),
-        size: file.size
-      });
     }
+
+    setActiveFile({
+      name: file.name,
+      path: file.path || file.name,
+      type: file.type,
+      size: file.size,
+      url: mediaUrl,
+      content: textContent || undefined
+    });
   };
 
-  const handleDeleteFile = async (file: ProjectFile, e: React.MouseEvent) => {
+  const promptDeleteFile = (file: ProjectFile, e: React.MouseEvent) => {
     e.stopPropagation();
+    setConfirmModal({
+      isOpen: true,
+      type: 'delete',
+      project: null,
+      fileToDelete: file
+    });
+  };
+
+  const executeDeleteFile = async (file: ProjectFile) => {
     if (!selectedProject) return;
-    if (!confirm(`Are you sure you want to remove "${file.name}"?`)) return;
     try {
       const res = await apiFetch(`/api/projects/${selectedProject.id}/files?filename=${encodeURIComponent(file.name)}`, {
         method: "DELETE"
@@ -517,6 +524,8 @@ export default function ProjectsPage() {
       }
     } catch (err) {
       console.error("Delete file error:", err);
+    } finally {
+      setConfirmModal(prev => ({ ...prev, isOpen: false, fileToDelete: null }));
     }
   };
 
@@ -692,48 +701,74 @@ export default function ProjectsPage() {
             <div className="flex flex-col h-full animate-in zoom-in-95 duration-300 bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700">
                 <div className="flex items-center overflow-hidden">
-                  <div className={`p-2 rounded-lg mr-3 rtl:mr-0 rtl:ml-3 shrink-0 ${activeFile.type === 'video' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500' : 'bg-purple-50 dark:bg-purple-900/30 text-purple-500'}`}>
-                    {activeFile.type === 'video' ? <Video size={20} /> : <FileText size={20} />}
+                  <div className={`p-2 rounded-lg mr-3 rtl:mr-0 rtl:ml-3 shrink-0 ${
+                    activeFile.type === 'video' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500' : 
+                    activeFile.type === 'audio' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500' :
+                    'bg-purple-50 dark:bg-purple-900/30 text-purple-500'
+                  }`}>
+                    {activeFile.type === 'video' ? <Video size={20} /> : activeFile.type === 'audio' ? <Music size={20} /> : <FileText size={20} />}
                   </div>
                   <div className="min-w-0">
                     <h2 className="font-bold text-lg text-slate-800 dark:text-slate-100 truncate">{activeFile.name}</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate">{activeFile.path}</p>
+                    <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <span className="font-mono text-teal-600 dark:text-teal-400 font-semibold">
+                        {formatFileSize(activeFile.size)}
+                      </span>
+                      <span>• {activeFile.path}</span>
+                    </div>
                   </div>
                 </div>
                 <button 
-                  onClick={() => setActiveFile(null)}
-                  className="flex items-center text-sm font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 py-1.5 px-3 rounded-lg transition-colors shrink-0 ml-4 rtl:ml-0 rtl:mr-4"
+                  onClick={() => {
+                    if (activeFile.url && activeFile.url.startsWith("blob:")) {
+                      try { URL.revokeObjectURL(activeFile.url); } catch {}
+                    }
+                    setActiveFile(null);
+                  }}
+                  className="flex items-center text-sm font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 py-1.5 px-3 rounded-lg transition-colors shrink-0 ml-4 rtl:ml-0 rtl:mr-4 cursor-pointer"
                 >
-                  <X size={16} className="mr-1 rtl:mr-0 rtl:ml-1" /> {t("cancel")}
+                  <X size={16} className="mr-1.5 rtl:mr-0 rtl:ml-1.5" /> Back to Projects
                 </button>
               </div>
               
-              <div className={`flex-1 relative flex items-center justify-center min-h-0 ${activeFile.type === 'video' ? 'bg-black' : 'bg-slate-100 dark:bg-slate-900'}`}>
-                {activeFile.type === 'video' ? (
+              <div className={`flex-1 relative flex items-center justify-center min-h-0 overflow-auto ${activeFile.type === 'video' ? 'bg-black' : 'bg-slate-100 dark:bg-slate-900'}`}>
+                {activeFile.type === 'video' && activeFile.url ? (
                   <video 
-                    src={getApiUrl(`/api/stream-file?path=${encodeURIComponent(activeFile.path)}`)}
+                    src={activeFile.url}
                     controls
                     autoPlay
                     className="w-full h-full object-contain"
                   >
                     Your browser does not support the video tag.
                   </video>
-                ) : activeFile.type === 'audio' ? (
+                ) : activeFile.type === 'audio' && activeFile.url ? (
                   <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <FileText size={48} className="text-teal-600 mb-4" />
+                    <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center mb-4 animate-pulse">
+                      <Music size={32} />
+                    </div>
+                    <p className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-4">{activeFile.name}</p>
                     <audio 
-                      src={getApiUrl(`/api/stream-file?path=${encodeURIComponent(activeFile.path)}`)}
+                      src={activeFile.url}
                       controls
                       autoPlay
                       className="w-72"
                     />
                   </div>
-                ) : (
+                ) : activeFile.content ? (
+                  <pre className="w-full h-full p-4 overflow-auto font-mono text-xs leading-relaxed text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-950 select-text whitespace-pre-wrap">
+                    {activeFile.content}
+                  </pre>
+                ) : activeFile.url ? (
                   <iframe 
-                    src={getApiUrl(`/api/stream-file?path=${encodeURIComponent(activeFile.path)}`)}
+                    src={activeFile.url}
                     className="w-full h-full bg-white dark:bg-slate-800"
                     title={activeFile.name}
                   />
+                ) : (
+                  <div className="text-center p-6 text-slate-400">
+                    <FileText size={40} className="mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">Cannot display preview for this file format.</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1151,7 +1186,7 @@ export default function ProjectsPage() {
                                     <Download size={14} />
                                   </button>
                                   <button
-                                    onClick={(e) => handleDeleteFile(file, e)}
+                                    onClick={(e) => promptDeleteFile(file, e)}
                                     className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                     title="Delete file"
                                   >
@@ -1195,7 +1230,7 @@ export default function ProjectsPage() {
                                     </button>
                                   )}
                                   <button
-                                    onClick={(e) => handleDeleteFile(file, e)}
+                                    onClick={(e) => promptDeleteFile(file, e)}
                                     className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                     title="Delete file"
                                   >
@@ -1475,104 +1510,27 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Media Player / Script Preview Modal */}
-      {previewMedia && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/70">
-              <div className="flex items-center space-x-3 rtl:space-x-reverse min-w-0">
-                <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400 shrink-0">
-                  {previewMedia.type === 'video' ? <Video size={20} /> : previewMedia.type === 'audio' ? <Music size={20} /> : <FileText size={20} />}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-white text-base truncate">{previewMedia.name}</h3>
-                  <div className="flex items-center space-x-2 text-xs text-slate-400 mt-0.5">
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-teal-400 font-mono font-medium">
-                      {formatFileSize(previewMedia.size)}
-                    </span>
-                    <span>• Zero-Lag Local Direct Playback</span>
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  if (previewMedia.url && previewMedia.url.startsWith('blob:')) {
-                    try { URL.revokeObjectURL(previewMedia.url); } catch {}
-                  }
-                  setPreviewMedia(null);
-                }}
-                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="p-6 flex items-center justify-center bg-black/50 min-h-[300px] overflow-auto">
-              {previewMedia.type === 'video' && previewMedia.url && (
-                <div className="w-full flex justify-center">
-                  <video
-                    src={previewMedia.url}
-                    controls
-                    autoPlay
-                    className="w-full max-h-[65vh] rounded-xl shadow-2xl border border-slate-800 outline-none"
-                  />
-                </div>
-              )}
-              {previewMedia.type === 'audio' && previewMedia.url && (
-                <div className="w-full max-w-md p-8 bg-slate-800/80 rounded-2xl border border-slate-700 text-center flex flex-col items-center shadow-xl">
-                  <div className="w-20 h-20 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-6 animate-pulse">
-                    <Music size={40} />
-                  </div>
-                  <p className="font-bold text-lg text-white mb-1 truncate max-w-full">{previewMedia.name}</p>
-                  <p className="text-xs text-slate-400 mb-6 font-mono">{formatFileSize(previewMedia.size)}</p>
-                  <audio
-                    src={previewMedia.url}
-                    controls
-                    autoPlay
-                    className="w-full rounded-lg"
-                  />
-                </div>
-              )}
-              {previewMedia.type === 'script' && (
-                previewMedia.content ? (
-                  <pre className="w-full max-h-[65vh] overflow-y-auto p-4 bg-slate-950 text-slate-200 rounded-xl font-mono text-xs whitespace-pre-wrap select-text border border-slate-800 leading-relaxed">
-                    {previewMedia.content}
-                  </pre>
-                ) : (
-                  <div className="text-center p-8">
-                    <FileText size={48} className="mx-auto text-slate-600 mb-3" />
-                    <p className="text-slate-300 font-medium">Binary / Document script</p>
-                    <p className="text-xs text-slate-500 mt-1 mb-4">To view or edit in your native editor, download the file below.</p>
-                    {previewMedia.url && (
-                      <a
-                        href={previewMedia.url}
-                        download={previewMedia.name}
-                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-2 cursor-pointer shadow-md"
-                      >
-                        <Download size={14} /> Download File
-                      </a>
-                    )}
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Confirmation Modal */}
       <ConfirmModal 
         isOpen={confirmModal.isOpen}
-        title={confirmModal.type === 'delete' ? t("delete") : t("update")}
+        title={
+          confirmModal.fileToDelete 
+            ? "Remove File" 
+            : confirmModal.type === 'delete' 
+            ? t("delete") 
+            : t("update")
+        }
         message={
-          confirmModal.type === 'delete' 
+          confirmModal.fileToDelete
+            ? `Are you sure you want to remove "${confirmModal.fileToDelete.name}" from this project?`
+            : confirmModal.type === 'delete' 
             ? t("project.delete.confirm")
             : `Are you sure you want to update the project "${confirmModal.project?.name}" with these changes?`
         }
         type={confirmModal.type === 'delete' ? 'danger' : 'info'}
         onConfirm={handleConfirmAction}
         onCancel={() => {
-          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          setConfirmModal(prev => ({ ...prev, isOpen: false, fileToDelete: null }));
           if (confirmModal.type === 'update') {
             setShowModal(true);
           }

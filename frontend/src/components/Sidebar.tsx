@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { 
   Calendar, Users, Building,
   Settings, Briefcase, Film, ChevronLeft, ChevronRight, LogOut,
-  Monitor
+  Monitor, User
 } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
@@ -141,6 +141,9 @@ export default function Sidebar() {
             <Link href="/staff" className={getLinkClass("/staff")} title={t("sidebar.staff")}>
               <Users size={isCollapsed ? 20 : 18} className={getIconClass("/staff", "text-indigo-500 dark:text-indigo-400")} /> {!isCollapsed && <span className="truncate">{t("sidebar.staff")}</span>}
             </Link>
+            <Link href="/profile" className={getLinkClass("/profile")} title="Profile & Security">
+              <User size={isCollapsed ? 20 : 18} className={getIconClass("/profile", "text-teal-600 dark:text-teal-400")} /> {!isCollapsed && <span className="truncate">Profile &amp; Security</span>}
+            </Link>
             <Link href="/settings" className={getLinkClass("/settings")} title={t("sidebar.settings")}>
               <Settings size={isCollapsed ? 20 : 18} className={getIconClass("/settings", "text-slate-700 dark:text-slate-300")} /> {!isCollapsed && <span className="truncate">{t("sidebar.settings")}</span>}
             </Link>
@@ -152,7 +155,7 @@ export default function Sidebar() {
       <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 mt-auto">
         {user && (
           <div className={`flex ${isCollapsed ? "flex-col items-center gap-2" : "items-center justify-between"} p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800`}>
-            <div className="flex items-center space-x-2.5 rtl:space-x-reverse min-w-0">
+            <Link href="/profile" className="flex items-center space-x-2.5 rtl:space-x-reverse min-w-0 hover:opacity-80 transition-opacity" title="View Profile">
               <div className="w-8 h-8 rounded-lg bg-teal-600 dark:bg-teal-500 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs uppercase">
                 {user.first_name ? user.first_name[0] : "U"}{user.last_name ? user.last_name[0] : ""}
               </div>
@@ -166,12 +169,12 @@ export default function Sidebar() {
                   </p>
                 </div>
               )}
-            </div>
+            </Link>
 
             <button
               onClick={() => logout()}
               title="Logout"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shrink-0"
             >
               <LogOut size={16} />
             </button>

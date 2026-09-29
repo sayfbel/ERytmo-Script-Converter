@@ -93,6 +93,17 @@ class BrowserSubmitPayload(BaseModel):
 class DesktopClaimPayload(BaseModel):
     session_id: str
 
+class UpdateProfilePayload(BaseModel):
+    first_name: str
+    last_name: str
+    phone_number: Optional[str] = None
+    job_type: str
+
+class ChangePasswordPayload(BaseModel):
+    code: str
+    new_password: str
+    confirm_password: str
+
 
 # ==========================================
 # Helper: Extract Token from Request
@@ -839,6 +850,157 @@ def complete_user_profile(
             "email_verified": current_user.email_verified,
             "requires_profile_completion": False
         }
+    }
+
+
+@router.put("/profile")
+def update_user_profile(
+    payload: UpdateProfilePayload,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    first_name = payload.first_name.strip()
+    last_name = payload.last_name.strip()
+    job_type = payload.job_type.strip()
+    phone_number = payload.phone_number.strip() if payload.phone_number else None
+
+    if not first_name:
+        raise HTTPException(status_code=400, detail="First name cannot be empty.")
+    if not last_name:
+        raise HTTPException(status_code=400, detail="Last name cannot be empty.")
+    if not job_type:
+        raise HTTPException(status_code=400, detail="Job type / profession cannot be empty.")
+
+    current_user.first_name = first_name
+    current_user.last_name = last_name
+    current_user.job_type = job_type
+    current_user.phone_number = phone_number
+    current_user.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "success": True,
+        "message": "Profile updated successfully.",
+        "user": {
+            "id": current_user.id,
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
+            "job_type": current_user.job_type,
+            "email": current_user.email,
+            "phone_number": current_user.phone_number,
+            "email_verified": current_user.email_verified,
+            "requires_profile_completion": False
+        }
+    }
+
+
+@router.post("/change-password/request-code")
+def request_password_change_code(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    now = datetime.datetime.utcnow()
+    last_verification = db.query(models.EmailVerification).filter(
+        models.EmailVerification.user_id == current_user.id
+    ).order_by(models.EmailVerification.id.desc()).first()
+
+    if last_verification and last_verification.resend_available_at and now < last_verification.resend_available_at:
+        wait_seconds = int((last_verification.resend_available_at - now).total_seconds())
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {wait_seconds} seconds before requesting another code."
+        )
+
+    db.query(models.EmailVerification).filter(
+        models.EmailVerification.user_id == current_user.id,
+        models.EmailVerification.is_used == False
+    ).update({"is_used": True})
+    db.commit()
+
+    code = generate_verification_code()
+    code_hash = hash_verification_code(code)
+    expires_at = now + datetime.timedelta(minutes=VERIFICATION_CODE_EXPIRE_MINUTES)
+    resend_at = now + datetime.timedelta(seconds=RESEND_COOLDOWN_SECONDS)
+
+    verification = models.EmailVerification(
+        user_id=current_user.id,
+        code_hash=code_hash,
+        expires_at=expires_at,
+        resend_available_at=resend_at,
+        is_used=False
+    )
+    db.add(verification)
+    db.commit()
+
+    user_name = f"{current_user.first_name} {current_user.last_name}".strip() or "User"
+    send_verification_email(current_user.email, code, user_name)
+
+    return {
+        "success": True,
+        "message": f"A 6-digit verification code has been sent to {current_user.email}.",
+        "cooldown_seconds": RESEND_COOLDOWN_SECONDS
+    }
+
+
+@router.post("/change-password/verify-and-change")
+def verify_and_change_password(
+    payload: ChangePasswordPayload,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    candidate_code = payload.code.strip()
+    new_password = payload.new_password
+    confirm_password = payload.confirm_password
+
+    if not candidate_code or len(candidate_code) != 6 or not candidate_code.isdigit():
+        raise HTTPException(status_code=400, detail="Verification code must be 6 digits.")
+
+    if new_password != confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match.")
+
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+
+    verification = db.query(models.EmailVerification).filter(
+        models.EmailVerification.user_id == current_user.id,
+        models.EmailVerification.is_used == False
+    ).order_by(models.EmailVerification.id.desc()).first()
+
+    if not verification:
+        raise HTTPException(status_code=400, detail="No active verification code found. Please request a new code.")
+
+    now = datetime.datetime.utcnow()
+    if now > verification.expires_at:
+        verification.is_used = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new code.")
+
+    if verification.attempts >= MAX_VERIFICATION_ATTEMPTS:
+        verification.is_used = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Maximum attempts exceeded. Please request a new code.")
+
+    verification.attempts += 1
+
+    if not verify_verification_code(candidate_code, verification.code_hash):
+        remaining = MAX_VERIFICATION_ATTEMPTS - verification.attempts
+        db.commit()
+        if remaining > 0:
+            raise HTTPException(status_code=400, detail=f"Incorrect code. You have {remaining} attempt{'s' if remaining != 1 else ''} remaining.")
+        else:
+            verification.is_used = True
+            db.commit()
+            raise HTTPException(status_code=400, detail="Maximum attempts exceeded. Please request a new code.")
+
+    verification.is_used = True
+    current_user.password_hash = hash_password(new_password)
+    current_user.updated_at = now
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Password updated successfully."
     }
 
 

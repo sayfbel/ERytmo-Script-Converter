@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { 
   Users, Search, Plus, Mail, X, Loader2, Trash2, Edit2, 
-  ShieldCheck, Eye, Zap
+  ShieldCheck, Eye, Zap, Check
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
@@ -44,6 +44,13 @@ export default function StaffPage() {
   const [task, setTask] = useState("pose le text");
   const [accessLevel, setAccessLevel] = useState<"full_access" | "spectator">("spectator");
   const [autoAcceptTransfers, setAutoAcceptTransfers] = useState(false);
+  const [staffUserId, setStaffUserId] = useState<number | null>(null);
+
+  // Registered User Search State
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<Array<{ id: number; name: string; email: string }>>([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{ id: number; name: string; email: string } | null>(null);
 
   // Edit / Delete State
   const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
@@ -53,10 +60,42 @@ export default function StaffPage() {
     member: Staff | null;
   }>({ isOpen: false, type: 'update', member: null });
 
+  // Live search registered users
+  useEffect(() => {
+    if (!showModal || editingStaffId || !userSearchQuery.trim()) {
+      setUserSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearchingUsers(true);
+      try {
+        const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(userSearchQuery.trim())}`);
+        if (res.ok) {
+          const data = await res.json();
+          const existingIds = new Set(staff.map(s => s.staff_user_id).filter(Boolean));
+          const filtered = (data as Array<{ id: number; name: string; email: string }>).filter(
+            u => u.id !== user?.id && !existingIds.has(u.id)
+          );
+          setUserSearchResults(filtered);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [userSearchQuery, showModal, editingStaffId, user?.id, staff]);
+
   const openCreateModal = () => {
     setEditingStaffId(null);
     setName("");
     setEmail("");
+    setStaffUserId(null);
+    setSelectedUser(null);
+    setUserSearchQuery("");
+    setUserSearchResults([]);
     setTask("pose le text");
     setAccessLevel("spectator");
     setAutoAcceptTransfers(false);
@@ -69,6 +108,8 @@ export default function StaffPage() {
     setEditingStaffId(member.id);
     setName(member.name);
     setEmail(member.email || "");
+    setStaffUserId(member.staff_user_id || null);
+    setSelectedUser(member.staff_user_id ? { id: member.staff_user_id, name: member.name, email: member.email || "" } : null);
     setTask(member.task || "pose le text");
     setAccessLevel(member.access_level || "spectator");
     setAutoAcceptTransfers(!!member.auto_accept_transfers);
@@ -115,6 +156,13 @@ export default function StaffPage() {
 
   const handleSubmitStaff = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+
+    const targetUserId = selectedUser?.id || staffUserId;
+    if (!editingStaffId && !targetUserId) {
+      setError("Please search and select a registered user to add as collaborator.");
+      return;
+    }
+
     if (!name.trim()) {
       setError("Collaborator name is required");
       return;
@@ -143,6 +191,9 @@ export default function StaffPage() {
     if (task) params.append("task", task);
     params.append("access_level", accessLevel);
     params.append("auto_accept_transfers", String(autoAcceptTransfers));
+    if (targetUserId) {
+      params.append("staff_user_id", String(targetUserId));
+    }
 
     try {
       const res = await apiFetch(`${url}?${params.toString()}`, {
@@ -453,37 +504,108 @@ export default function StaffPage() {
                 </div>
               )}
 
-              {/* Collaborator Name */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Collaborator Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 transition-colors"
-                  placeholder="e.g. Marie Curie"
-                  required
-                />
-              </div>
+              {/* Registered User Search / Selection */}
+              {!editingStaffId ? (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Select Registered User <span className="text-red-500">*</span>
+                  </label>
 
-              {/* Collaborator Email */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 transition-colors"
-                  placeholder="e.g. marie.curie@example.com"
-                />
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                  If registered in ERytmo, presence and direct P2P transfers are automatically matched.
-                </p>
-              </div>
+                  {selectedUser ? (
+                    <div className="p-3 bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-xl flex items-center justify-between animate-in fade-in duration-200">
+                      <div className="flex items-center space-x-2.5 rtl:space-x-reverse min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-teal-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                          <Check size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
+                            {selectedUser.name}
+                          </p>
+                          <p className="text-[11px] text-teal-700 dark:text-teal-300 truncate">
+                            {selectedUser.email}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUser(null);
+                          setName("");
+                          setEmail("");
+                          setStaffUserId(null);
+                        }}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-2 py-1 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="relative">
+                        <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                        <input
+                          type="text"
+                          value={userSearchQuery}
+                          onChange={(e) => setUserSearchQuery(e.target.value)}
+                          className="w-full pl-9 rtl:pl-3 rtl:pr-9 pr-8 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
+                          placeholder="Search registered user by name or email..."
+                          autoFocus
+                        />
+                        {isSearchingUsers && (
+                          <Loader2 className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-teal-500 animate-spin" size={15} />
+                        )}
+                      </div>
+
+                      {/* Search Results Dropdown */}
+                      {userSearchQuery.trim().length > 0 && (
+                        <div className="mt-1.5 max-h-48 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg divide-y divide-slate-100 dark:divide-slate-700/60 z-10">
+                          {userSearchResults.length === 0 && !isSearchingUsers ? (
+                            <div className="p-3 text-center text-xs text-slate-400 dark:text-slate-500">
+                              No registered user found matching &quot;{userSearchQuery}&quot;
+                            </div>
+                          ) : (
+                            userSearchResults.map((u) => (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setName(u.name);
+                                  setEmail(u.email);
+                                  setStaffUserId(u.id);
+                                  setUserSearchQuery("");
+                                  setUserSearchResults([]);
+                                }}
+                                className="w-full p-2.5 text-left rtl:text-right hover:bg-teal-50/60 dark:hover:bg-teal-950/40 flex items-center justify-between transition-colors group cursor-pointer"
+                              >
+                                <div className="min-w-0 pr-2">
+                                  <p className="font-semibold text-xs text-slate-800 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400 truncate">
+                                    {u.name}
+                                  </p>
+                                  <p className="text-[11px] text-slate-400 truncate">
+                                    {u.email}
+                                  </p>
+                                </div>
+                                <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 shrink-0 px-2 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30">
+                                  Select
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                        Only registered accounts in ERytmo can be added as project collaborators.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
+                  <p className="font-bold text-xs text-slate-800 dark:text-slate-200">{name}</p>
+                  <p className="text-[11px] text-slate-400">{email}</p>
+                </div>
+              )}
 
               {/* Role / Task */}
               <div>

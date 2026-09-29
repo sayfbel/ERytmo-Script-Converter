@@ -249,22 +249,45 @@ async def create_staff(
     if clean_access not in ["full_access", "spectator"]:
         clean_access = "spectator"
 
-    valid_staff_user_id = None
     clean_email = email.strip().lower() if email and email.strip() else None
+    linked_user = None
 
     if staff_user_id and int(staff_user_id) > 0:
         linked_user = db.query(models.User).filter(models.User.id == int(staff_user_id)).first()
-        if linked_user:
-            valid_staff_user_id = linked_user.id
     elif clean_email:
         linked_user = db.query(models.User).filter(models.User.email == clean_email).first()
-        if linked_user:
-            valid_staff_user_id = linked_user.id
+
+    if not linked_user:
+        raise HTTPException(
+            status_code=404,
+            detail="Only registered users can be added as collaborators. Please ask the user to register an account first."
+        )
+
+    if linked_user.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot add your own account as a collaborator."
+        )
+
+    # Check for duplicate
+    existing_staff = db.query(models.Staff).filter(
+        models.Staff.user_id == current_user.id,
+        (models.Staff.staff_user_id == linked_user.id) | (models.Staff.email == linked_user.email)
+    ).first()
+    if existing_staff:
+        raise HTTPException(
+            status_code=400,
+            detail="This user is already in your collaborators list."
+        )
+
+    valid_staff_user_id = linked_user.id
+    clean_email = linked_user.email
+    full_name = f"{linked_user.first_name} {linked_user.last_name}".strip() or str(name).strip()
 
     db_staff = models.Staff(
         user_id=current_user.id,
         staff_user_id=valid_staff_user_id,
-        name=str(name).strip(),
+        name=full_name,
         email=clean_email,
         task=str(task).strip() if task else None,
         access_level=clean_access,
