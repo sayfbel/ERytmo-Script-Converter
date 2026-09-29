@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Briefcase, Search, Plus, FolderOpen, Video, FileText, Calendar, Building, X, 
   Loader2, ChevronRight, Edit2, Trash2, Clock, Download, CheckCircle2, AlertCircle, Eye, ShieldAlert,
-  Play, Music, HardDrive
+  Play, Music
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";

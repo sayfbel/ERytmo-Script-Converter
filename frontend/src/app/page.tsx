@@ -4,9 +4,8 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
-  ArrowRight, Check, ChevronRight, Download, FileText, 
-  HardDrive, Lock, Shield, Sparkles, Video, Users, 
-  Clock, DollarSign, X, Play, Layers, Zap, ExternalLink
+  ArrowRight, Download, FileText, 
+  Shield, X, Play, Zap
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
