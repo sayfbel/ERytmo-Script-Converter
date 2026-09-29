@@ -104,6 +104,15 @@ class ChangePasswordPayload(BaseModel):
     new_password: str
     confirm_password: str
 
+class ForgotPasswordRequestPayload(BaseModel):
+    email: str
+
+class ForgotPasswordResetPayload(BaseModel):
+    email: str
+    code: str
+    new_password: str
+    confirm_password: str
+
 
 # ==========================================
 # Helper: Extract Token from Request
@@ -1001,6 +1010,121 @@ def verify_and_change_password(
     return {
         "success": True,
         "message": "Password updated successfully."
+    }
+
+
+@router.post("/forgot-password/request")
+def request_forgot_password_code(payload: ForgotPasswordRequestPayload, db: Session = Depends(get_db)):
+    email = payload.email.strip().lower()
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        return {
+            "success": True,
+            "message": f"If an account with {email} exists, a reset code has been sent."
+        }
+
+    now = datetime.datetime.utcnow()
+    last_verification = db.query(models.EmailVerification).filter(
+        models.EmailVerification.user_id == user.id
+    ).order_by(models.EmailVerification.id.desc()).first()
+
+    if last_verification and last_verification.resend_available_at and now < last_verification.resend_available_at:
+        wait_seconds = int((last_verification.resend_available_at - now).total_seconds())
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {wait_seconds} seconds before requesting another code."
+        )
+
+    db.query(models.EmailVerification).filter(
+        models.EmailVerification.user_id == user.id,
+        models.EmailVerification.is_used == False
+    ).update({"is_used": True})
+    db.commit()
+
+    code = generate_verification_code()
+    code_hash = hash_verification_code(code)
+    expires_at = now + datetime.timedelta(minutes=VERIFICATION_CODE_EXPIRE_MINUTES)
+    resend_at = now + datetime.timedelta(seconds=RESEND_COOLDOWN_SECONDS)
+
+    verification = models.EmailVerification(
+        user_id=user.id,
+        code_hash=code_hash,
+        expires_at=expires_at,
+        resend_available_at=resend_at,
+        is_used=False
+    )
+    db.add(verification)
+    db.commit()
+
+    user_name = f"{user.first_name} {user.last_name}".strip() or "User"
+    send_verification_email(user.email, code, user_name)
+
+    return {
+        "success": True,
+        "message": f"A 6-digit reset code has been sent to {email}.",
+        "cooldown_seconds": RESEND_COOLDOWN_SECONDS
+    }
+
+
+@router.post("/forgot-password/reset")
+def reset_forgot_password(payload: ForgotPasswordResetPayload, db: Session = Depends(get_db)):
+    email = payload.email.strip().lower()
+    candidate_code = payload.code.strip()
+    new_password = payload.new_password
+    confirm_password = payload.confirm_password
+
+    if not candidate_code or len(candidate_code) != 6 or not candidate_code.isdigit():
+        raise HTTPException(status_code=400, detail="Verification code must be 6 digits.")
+
+    if new_password != confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match.")
+
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid request or user not found.")
+
+    verification = db.query(models.EmailVerification).filter(
+        models.EmailVerification.user_id == user.id,
+        models.EmailVerification.is_used == False
+    ).order_by(models.EmailVerification.id.desc()).first()
+
+    if not verification:
+        raise HTTPException(status_code=400, detail="No active verification code found. Please request a new code.")
+
+    now = datetime.datetime.utcnow()
+    if now > verification.expires_at:
+        verification.is_used = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new code.")
+
+    if verification.attempts >= MAX_VERIFICATION_ATTEMPTS:
+        verification.is_used = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Maximum attempts exceeded. Please request a new code.")
+
+    verification.attempts += 1
+
+    if not verify_verification_code(candidate_code, verification.code_hash):
+        remaining = MAX_VERIFICATION_ATTEMPTS - verification.attempts
+        db.commit()
+        if remaining > 0:
+            raise HTTPException(status_code=400, detail=f"Incorrect code. You have {remaining} attempt{'s' if remaining != 1 else ''} remaining.")
+        else:
+            verification.is_used = True
+            db.commit()
+            raise HTTPException(status_code=400, detail="Maximum attempts exceeded. Please request a new code.")
+
+    verification.is_used = True
+    user.password_hash = hash_password(new_password)
+    user.updated_at = now
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Password reset successfully. You can now log in with your new password."
     }
 
 

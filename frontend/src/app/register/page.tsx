@@ -5,20 +5,34 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import GoogleAuthButton from "@/components/GoogleAuthButton";
-import AuthShowcasePanel from "@/components/AuthShowcasePanel";
-import { Eye, EyeOff, AlertCircle } from "lucide-react";
+import FloatingNav from "@/components/FloatingNav";
+import CustomSelect, { SelectOption } from "@/components/CustomSelect";
+import { Eye, EyeOff } from "lucide-react";
+
+const STUDIO_ROLES = [
+  "Comédien de doublage (Voice Actor)",
+  "Ingénieur du son (Sound Engineer)",
+  "Directeur artistique (Voice Director)",
+  "Adaptateur / Traducteur (Script Adaptor)",
+  "Superviseur Post-prod (Post Supervisor)",
+  "Producteur / Studio Manager",
+  "Autre professionnel",
+];
+
+const STUDIO_ROLE_OPTIONS: SelectOption[] = STUDIO_ROLES.map((role) => ({
+  value: role,
+  label: role,
+}));
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, googleClientId, loginWithGoogle } = useAuth();
 
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    jobType: "",
+    jobType: STUDIO_ROLES[0],
     email: "",
-    phoneNumber: "",
     password: "",
     confirmPassword: "",
   });
@@ -26,48 +40,76 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toastInfo, setToastInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Google OAuth callback from redirect hash
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const idToken = hashParams.get("id_token");
+      if (idToken) {
+        setLoading(true);
+        loginWithGoogle(idToken).then((res) => {
+          setLoading(false);
+          if (res.success) {
+            setToastInfo("Connexion réussie ! Chargement de votre espace studio...");
+            if (res.requiresProfileCompletion) {
+              window.location.href = "/complete-profile";
+            } else {
+              window.location.href = "/projects";
+            }
+          } else if (res.error) {
+            setError(res.error);
+          }
+        });
+      }
+    }
+  }, [loginWithGoogle]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     if (error) setError(null);
   };
 
-  const validate = (): string | null => {
-    if (!formData.firstName.trim()) return "First name is required.";
-    if (!formData.lastName.trim()) return "Last name is required.";
-    if (!formData.jobType.trim()) return "Job title / studio profession is required.";
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
-      return "Please enter a valid email address.";
-    }
-
-    if (formData.phoneNumber.trim()) {
-      const phoneRegex = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/;
-      if (!phoneRegex.test(formData.phoneNumber.trim())) {
-        return "Please enter a valid phone number (or leave it blank).";
+  const handleGoogleLogin = () => {
+    if (typeof window !== "undefined") {
+      const clientId =
+        googleClientId ||
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+        "977526709418-0gtjdpj33uvlgur9ggjetnicjq61g2uv.apps.googleusercontent.com";
+      if (!clientId) {
+        setToastInfo("Google Client ID non configuré.");
+        return;
       }
+      const redirectUri = window.location.origin + "/register";
+      const nonce = Math.random().toString(36).substring(2);
+      const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}&response_type=id_token&scope=openid%20email%20profile&nonce=${nonce}&prompt=select_account`;
+      window.location.href = oauthUrl;
     }
-
-    if (formData.password.length < 8) {
-      return "Password must be at least 8 characters long.";
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      return "Passwords do not match.";
-    }
-
-    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setToastInfo(null);
 
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      setError("Veuillez saisir votre prénom et nom.");
+      return;
+    }
+    if (!formData.email.trim()) {
+      setError("Veuillez saisir une adresse email valide.");
+      return;
+    }
+    if (formData.password.length < 8) {
+      setError("Le mot de passe doit comporter au moins 8 caractères.");
+      return;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError("Les mots de passe ne correspondent pas.");
       return;
     }
 
@@ -80,248 +122,279 @@ export default function RegisterPage() {
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
         confirm_password: formData.confirmPassword,
-        phone_number: formData.phoneNumber.trim() || undefined,
       });
 
       if (res.success) {
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email.trim().toLowerCase())}`);
+        router.push(
+          `/verify-email?email=${encodeURIComponent(formData.email.trim().toLowerCase())}`
+        );
       } else {
-        setError(res.error || "Registration failed. Please try again.");
+        setError(res.error || "Échec de l'inscription. Veuillez réessayer.");
       }
     } catch {
-      setError("An unexpected error occurred. Please try again.");
+      setError("Une erreur inattendue est survenue. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-3 sm:p-6 md:p-8 bg-[#eef2f6] text-slate-800 select-none">
-      {/* Outer Card Container */}
-      <div className="w-full max-w-[1020px] min-h-[620px] bg-white rounded-3xl shadow-xl shadow-slate-200/80 border border-slate-100 overflow-hidden flex flex-col md:flex-row my-4">
-        
-        {/* Left Side: Form Panel */}
-        <div className="w-full md:w-1/2 p-6 sm:p-10 md:p-12 flex flex-col justify-between order-2 md:order-1">
-          <div>
-            {/* Top Logo */}
-            <div className="flex items-center space-x-2.5 mb-7">
-              <div className="w-8 h-8 relative rounded-xl bg-slate-900 flex items-center justify-center p-1 shadow-sm">
-                <Image
-                  src="/app_logo.png"
-                  alt="ERytmo"
-                  width={24}
-                  height={24}
-                  priority
-                  className="object-contain"
-                />
-              </div>
-              <span className="font-extrabold text-slate-900 tracking-tight text-base">ERytmo</span>
-            </div>
+    <div className="min-h-screen bg-[#070707] text-[#f4efe6] selection:bg-amber-400 selection:text-black font-sans-display p-2.5 sm:p-4 md:p-5 flex flex-col items-center justify-center">
+      {/* Reusable Smart Floating Navbar */}
+      <FloatingNav />
 
-            {/* Title & Subtitle */}
-            <div className="mb-5">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-                Create an account
+      {/* Screen Framed Container (Exact same borderless rounded frame as Welcome & Login) */}
+      <div className="relative w-full min-h-[calc(100vh-2rem)] rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.95)] flex flex-col items-center justify-between">
+        {/* 1. Full-Bleed ERytmo Cinematic Background Canvas */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          <Image
+            src="/hero_cinematic.jpg"
+            alt="DubFlow Studio - Sound Design & Dubbing Background Canvas"
+            fill
+            priority
+            className="object-cover object-center filter brightness-[0.32] contrast-[1.15] blur-[2px] scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/60" />
+        </div>
+
+        {/* Film grain texture overlay */}
+        <div
+          className="absolute -top-1/2 -left-1/2 w-[200%] h-[200%] pointer-events-none z-10 opacity-70"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E")`,
+          }}
+        />
+
+        {/* Top spacer for floating navbar clearance */}
+        <div className="h-16 sm:h-20 w-full shrink-0" />
+
+        {/* 2. Main Stage: Studio Registration Card */}
+        <main className="relative z-20 w-full max-w-[980px] my-auto rounded-[32px] sm:rounded-[40px] overflow-hidden bg-[#111113]/90 backdrop-blur-2xl border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.9)] p-3.5 sm:p-5 grid grid-cols-1 lg:grid-cols-[5fr_7fr] gap-4">
+          {/* Mobile Visual Background Wrap */}
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden rounded-[32px] lg:hidden">
+            <Image
+              src="/studio_card.jpg"
+              alt="ERytmo Studio Workstation"
+              fill
+              className="object-cover object-center filter brightness-[0.35] contrast-[1.12]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/[0.97] via-black/[0.7] to-black/[0.85]" />
+          </div>
+
+          {/* Left Column: Form Pane (Matches Login Style Exactly) */}
+          <div className="relative z-10 bg-transparent px-4 sm:px-6 py-6 sm:py-8 flex flex-col items-center justify-center text-center">
+            <div className="w-full max-w-[340px] sm:max-w-[360px] mx-auto flex flex-col items-center text-center">
+              {/* Kicker */}
+              <div className="text-[11px] font-semibold uppercase tracking-[1.2px] text-[#737373] mb-2 select-none">
+                VOYGER / DUBFLOW
+              </div>
+
+              {/* Headline */}
+              <h1 className="text-[30px] sm:text-[34px] font-black text-[#f4efe6] tracking-tight leading-[1.08] mb-4">
+                Join the<br />dubbing studio
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
-                Join ERytmo to collaborate, manage projects, and convert scripts.
-              </p>
-            </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="mb-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-start space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-                <div className="flex-1 font-medium">{error}</div>
-              </div>
-            )}
+              {/* Google Button Pill */}
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                className="inline-flex items-center justify-center gap-3 bg-[#18181a] hover:bg-[#202023] border border-white/10 hover:border-white/20 px-6 py-2.5 rounded-full mb-3.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] group"
+                title="Continue with Google"
+              >
+                <svg className="w-[18px] h-[18px] shrink-0" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </svg>
+                <span className="text-xs font-semibold text-[#f4efe6] group-hover:text-white transition-colors">
+                  Continue with Google
+                </span>
+              </button>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {/* First Name & Last Name */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    First Name
-                  </label>
+              {/* Divider */}
+              <div className="text-xs font-normal text-[#555555] mb-3.5 select-none">or</div>
+
+              {/* Toast / Error Notification Box */}
+              {error && (
+                <div className="w-full p-2.5 rounded-xl mb-3 font-mono text-[11px] text-left bg-rose-950/40 border border-rose-500/30 text-rose-300">
+                  <strong>[ERROR]</strong> {error}
+                </div>
+              )}
+              {toastInfo && (
+                <div className="w-full p-2.5 rounded-xl mb-3 font-mono text-[11px] text-left bg-amber-950/40 border border-amber-500/30 text-amber-300">
+                  <strong>[INFO]</strong> {toastInfo}
+                </div>
+              )}
+
+              {/* Credentials Form */}
+              <form onSubmit={handleSubmit} className="w-full flex flex-col gap-2.5">
+                {/* Name Row: First Name & Last Name */}
+                <div className="grid grid-cols-2 gap-2">
                   <input
                     type="text"
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleChange}
-                    placeholder="John"
                     required
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-slate-900 transition-all placeholder:text-slate-400"
+                    placeholder="First name"
+                    className="w-full h-[46px] bg-[#1a1a1c] border border-white/10 hover:border-white/15 focus:border-white/25 rounded-[16px] px-4 text-[13px] text-[#f4efe6] placeholder:text-[#555555] outline-none transition-all shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)]"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Last Name
-                  </label>
                   <input
                     type="text"
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleChange}
-                    placeholder="Doe"
                     required
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-slate-900 transition-all placeholder:text-slate-400"
+                    placeholder="Last name"
+                    className="w-full h-[46px] bg-[#1a1a1c] border border-white/10 hover:border-white/15 focus:border-white/25 rounded-[16px] px-4 text-[13px] text-[#f4efe6] placeholder:text-[#555555] outline-none transition-all shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)]"
                   />
                 </div>
-              </div>
 
-              {/* Job Type / Profession */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Profession / Studio Role <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="jobType"
-                  value={formData.jobType}
-                  onChange={handleChange}
-                  placeholder="e.g. Dubbing Director, Sound Engineer, Actor..."
-                  required
-                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-slate-900 transition-all placeholder:text-slate-400"
-                />
-              </div>
-
-              {/* Email Address */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="name@example.com"
-                  required
-                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-slate-900 transition-all placeholder:text-slate-400"
-                />
-              </div>
-
-              {/* Phone Number (Optional) */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Phone Number
-                  </label>
-                  <span className="text-[10px] text-slate-400 uppercase font-medium">Optional</span>
+                {/* Studio Role Dropdown */}
+                <div className="relative w-full text-left">
+                  <CustomSelect
+                    options={STUDIO_ROLE_OPTIONS}
+                    value={formData.jobType}
+                    onChange={(val) => {
+                      setFormData((prev) => ({ ...prev, jobType: val }));
+                      if (error) setError(null);
+                    }}
+                    placeholder="Select studio profession"
+                    variant="studio"
+                  />
                 </div>
-                <input
-                  type="tel"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleChange}
-                  placeholder="+1 (555) 000-0000"
-                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-slate-900 transition-all placeholder:text-slate-400"
-                />
-              </div>
 
-              {/* Password */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Password
-                </label>
-                <div className="relative">
+                {/* Email input */}
+                <div className="relative w-full">
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    placeholder="Studio email"
+                    className="w-full h-[46px] bg-[#1a1a1c] border border-white/10 hover:border-white/15 focus:border-white/25 rounded-[16px] px-4 text-[13px] text-[#f4efe6] placeholder:text-[#555555] outline-none transition-all shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)]"
+                  />
+                </div>
+
+                {/* Password input */}
+                <div className="relative w-full">
                   <input
                     type={showPassword ? "text" : "password"}
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
-                    placeholder="At least 8 characters"
                     required
-                    className="w-full px-3.5 pr-10 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-slate-900 transition-all placeholder:text-slate-400"
+                    placeholder="Password (min. 8 chars)"
+                    className="w-full h-[46px] bg-[#1a1a1c] border border-white/10 hover:border-white/15 focus:border-white/25 rounded-[16px] px-4 pr-11 text-[13px] text-[#f4efe6] placeholder:text-[#555555] outline-none transition-all shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)]"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#555555] hover:text-[#888888] transition-colors cursor-pointer"
+                    aria-label="Toggle password visibility"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff size={16} strokeWidth={1.5} /> : <Eye size={16} strokeWidth={1.5} />}
                   </button>
                 </div>
-              </div>
 
-              {/* Confirm Password */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Confirm Password
-                </label>
-                <div className="relative">
+                {/* Confirm Password input */}
+                <div className="relative w-full">
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    placeholder="Re-enter your password"
                     required
-                    className="w-full px-3.5 pr-10 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-slate-900 transition-all placeholder:text-slate-400"
+                    placeholder="Confirm password"
+                    className="w-full h-[46px] bg-[#1a1a1c] border border-white/10 hover:border-white/15 focus:border-white/25 rounded-[16px] px-4 pr-11 text-[13px] text-[#f4efe6] placeholder:text-[#555555] outline-none transition-all shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)]"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#555555] hover:text-[#888888] transition-colors cursor-pointer"
+                    aria-label="Toggle confirm password visibility"
                   >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showConfirmPassword ? <EyeOff size={16} strokeWidth={1.5} /> : <Eye size={16} strokeWidth={1.5} />}
                   </button>
                 </div>
-              </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-2 py-3 px-4 bg-[#3b5bfd] hover:bg-[#324fdb] active:scale-[0.99] text-white text-sm font-semibold rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {loading ? "Creating Account..." : "Create Account"}
-              </button>
+                {/* Big Cream Start Button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-[48px] mt-1 bg-[#ECE8DF] hover:bg-white text-black font-extrabold text-[15px] rounded-[18px] shadow-[0_8px_20px_rgba(0,0,0,0.4)] flex items-center justify-center transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer disabled:opacity-75"
+                >
+                  {loading ? (
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      <span>Creating Account...</span>
+                    </div>
+                  ) : (
+                    <span>Create Account</span>
+                  )}
+                </button>
+              </form>
 
-              {/* Clean inline text link (a href style) */}
-              <p className="text-center text-xs text-slate-500 pt-1">
+              {/* Footer Switch Link */}
+              <div className="text-[13px] text-[#7a7a7a] mt-3.5 font-normal">
                 Already have an account?{" "}
                 <Link
                   href="/login"
-                  className="font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                  className="text-[#f4efe6] font-bold hover:underline cursor-pointer ml-0.5"
                 >
-                  Login
+                  Log in
                 </Link>
-              </p>
-            </form>
-
-            {/* Divider */}
-            <div className="relative my-3.5">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
               </div>
-              <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest">
-                <span className="bg-white px-3 text-slate-400">OR</span>
-              </div>
-            </div>
-
-            {/* Google Signup */}
-            <div className="w-full flex justify-center">
-              <GoogleAuthButton
-                mode="register"
-                onError={(err) => setError(err)}
-                onSuccess={() => {
-                  window.location.href = "/complete-profile";
-                }}
-              />
             </div>
           </div>
 
-          {/* Minimalist Footer */}
-          <div className="pt-5 mt-5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span>© ERytmo Studio</span>
-            <span className="text-slate-400 hover:text-slate-600 cursor-pointer">support@erytmo.com</span>
-          </div>
-        </div>
+          {/* Right Column: Visual Pane with Dubbing Studio Image */}
+          <div className="hidden lg:flex relative min-h-[580px] rounded-[28px] overflow-hidden bg-[#0d0d0f] border border-white/10 items-center justify-center select-none shadow-inner">
+            <Image
+              src="/studio_card.jpg"
+              alt="DubFlow Studio Dubbing Workstation"
+              fill
+              priority
+              className="object-cover object-center filter brightness-[0.8] contrast-[1.08] saturate-[1.05]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/30 pointer-events-none" />
 
-        {/* Right Side: Animated Dubbing Showcase Panel */}
-        <AuthShowcasePanel />
+            <div className="absolute bottom-5 inset-x-6 flex items-center justify-between text-[10px] font-mono tracking-widest uppercase text-white/70 pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+              <span>TPN Level 3 Compliant</span>
+              <span className="text-amber-400 font-bold">• 0 Cloud Media</span>
+            </div>
+          </div>
+        </main>
+
+        {/* 3. Site Footer */}
+        <footer className="w-full max-w-[980px] z-20 py-4 px-6 flex flex-col sm:flex-row items-center justify-between gap-2 font-mono text-[11px] text-zinc-500">
+          <div>© 2026 DubFlow Studio Inc. All rights reserved.</div>
+          <div className="flex items-center gap-4">
+            <Link href="/#vision" className="hover:text-zinc-300 transition-colors">
+              Confidentialité
+            </Link>
+            <Link href="/#vision" className="hover:text-zinc-300 transition-colors">
+              Protocole Sécurité
+            </Link>
+            <Link href="/#workflows" className="hover:text-zinc-300 transition-colors">
+              Statut Réseau P2P
+            </Link>
+          </div>
+        </footer>
       </div>
     </div>
   );

@@ -10,8 +10,9 @@ import AppShell from "@/components/AppShell";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ERytmo Script Converter v2",
-  description: "Next-gen script conversion tool",
+  title: "DubFlow Studio* — Écosystème de Post-Synchronisation & Scripts",
+  description:
+    "L'écosystème nouvelle génération pour la post-synchronisation et l'adaptation de scripts. Convertissez instantanément vos bandes rythmo multi-formats, gérez vos productions et collaborez en toute sécurité grâce à une architecture locale à zéro stockage cloud.",
   icons: {
     icon: "/favicon.ico",
   },

@@ -1,163 +1,88 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { 
-  ArrowRight, Download, FileText, 
-  Shield, X, Play, Zap
-} from "lucide-react";
+import { ArrowRight, FileText, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiUrl } from "@/lib/api";
+import FloatingNav from "@/components/FloatingNav";
 
 export default function WelcomePage() {
   const { isAuthenticated } = useAuth();
-  const [downloading, setDownloading] = useState(false);
   const [demoModalOpen, setDemoModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"convert" | "p2p" | "rates">("convert");
 
-  const desktopDownloadUrl = getApiUrl("/api/download/desktop");
-
-  const handleDownloadClick = () => {
-    setDownloading(true);
-    setTimeout(() => setDownloading(false), 4000);
-  };
+  // Ensure scroll is strictly at y=0 on page mount or navigation from login/register
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (!window.location.hash || window.location.hash === "#about" || window.location.hash === "#home") {
+        if (window.location.hash) {
+          history.replaceState(null, "", window.location.pathname);
+        }
+        window.scrollTo(0, 0);
+        const scrollParent = document.querySelector(".overflow-y-auto") as HTMLElement | null;
+        if (scrollParent) scrollParent.scrollTop = 0;
+      }
+    }
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#070708] text-[#f4efe6] selection:bg-amber-400 selection:text-black font-sans-display relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#070707] text-[#f4efe6] selection:bg-amber-400 selection:text-black font-sans-display p-2.5 sm:p-4 md:p-5">
       
-      {/* 1. FLOATING PILL NAVBAR */}
-      <header className="fixed top-5 inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
-        <nav className="pointer-events-auto flex items-center justify-between gap-6 px-6 py-2.5 rounded-full bg-[#121214]/85 backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.8)] text-xs font-medium tracking-wide text-[#b5af9f] transition-all hover:border-white/20">
-          
-          {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-2 text-white font-bold tracking-tight group pr-2">
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 p-0.5 flex items-center justify-center shadow-[0_0_12px_rgba(245,158,11,0.4)]">
-              <Image src="/app_logo.png" alt="ERytmo Logo" width={20} height={20} className="object-contain" />
-            </div>
-            <span className="text-sm font-black tracking-tighter text-[#f4efe6] group-hover:text-amber-300 transition-colors">
-              ERytmo<span className="text-amber-400 font-editorial text-lg leading-none">*</span>
-            </span>
-          </Link>
+      {/* REUSABLE SMART FLOATING NAVBAR COMPONENT */}
+      <FloatingNav />
 
-          {/* Nav Links */}
-          <div className="hidden md:flex items-center gap-6">
-            <a href="#solutions" className="hover:text-white transition-colors">Solutions</a>
-            <a href="#workflows" className="hover:text-white transition-colors">Workflows</a>
-            <a href="#vision" className="hover:text-white transition-colors">Vision</a>
-            <a href="#impact" className="hover:text-white transition-colors">Impact & ROI</a>
-            <a href="#formules" className="hover:text-white transition-colors">Formules</a>
-          </div>
-
-          {/* Action CTAs */}
-          <div className="flex items-center gap-3 pl-2 border-l border-white/10">
-            <a 
-              href={desktopDownloadUrl}
-              onClick={handleDownloadClick}
-              className="hidden sm:flex items-center gap-1.5 text-[11px] text-white/80 hover:text-white px-2.5 py-1 rounded-full border border-white/10 hover:border-white/30 transition-all"
-              title="Télécharger version PC native"
-            >
-              <Download size={12} className={downloading ? "animate-bounce text-amber-400" : ""} />
-              <span>Desktop</span>
-            </a>
-
-            {isAuthenticated ? (
-              <Link
-                href="/projects"
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#f4efe6] hover:bg-white text-black text-xs font-bold transition-all shadow-[0_0_20px_rgba(244,239,230,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                <span>Studio</span>
-                <ArrowRight size={13} />
-              </Link>
-            ) : (
-              <Link
-                href="/login"
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#f4efe6] hover:bg-white text-black text-xs font-bold transition-all shadow-[0_0_20px_rgba(244,239,230,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                <span>Accès Studio</span>
-                <ArrowRight size={13} />
-              </Link>
-            )}
-          </div>
-        </nav>
-      </header>
-
-      {/* 2. HERO SECTION (INSPIRED BY SCREENSHOT 1) */}
-      <section className="relative min-h-[92vh] pt-24 pb-16 px-4 sm:px-8 flex flex-col justify-between max-w-7xl mx-auto">
+      {/* 1. CINEMATIC FRAMED HERO WITH FULL IMAGE BACKGROUND */}
+      <section id="hero" className="relative w-full h-[calc(100vh-2rem)] min-h-[660px] rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.95)] flex flex-col justify-between transition-all duration-500">
         
-        {/* Subtle Background Glows */}
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-amber-500/10 blur-[140px] pointer-events-none rounded-full" />
-        <div className="absolute top-1/3 -left-20 w-[400px] h-[400px] bg-rose-500/5 blur-[120px] pointer-events-none rounded-full" />
-
-        {/* Cinematic Visual Showcase Frame */}
-        <div className="relative w-full h-[52vh] sm:h-[62vh] rounded-[32px] overflow-hidden border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,0.9)] group">
+        {/* Full-Frame Background Image */}
+        <div className="absolute inset-0 w-full h-full z-0">
           <Image
             src="/hero_cinematic.jpg"
-            alt="ERytmo Studio - Sound Designer & Synchronizer on Floating Peak"
+            alt="ERytmo Studio - Cinematic Post-Production & Sound Design Canvas"
             fill
             priority
-            className="object-cover object-center filter brightness-[0.88] contrast-[1.05] group-hover:scale-[1.02] transition-transform duration-1000 ease-out"
+            className="object-cover object-center"
           />
-
-          {/* Film Grain & Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#070708] via-transparent to-black/30 pointer-events-none" />
-
-          {/* Floating Live Badge inside visual */}
-          <div className="absolute top-6 left-6 px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] text-[#eae5dc] flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="font-semibold tracking-wide uppercase text-[10px]">Zero Cloud Media Storage</span>
-          </div>
-
-          <div className="absolute top-6 right-6 hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[11px] text-white/70">
-            <Shield size={13} className="text-amber-400" />
-            <span>100% NDA & TPN Compliant</span>
-          </div>
-
-          {/* Bottom Visual Highlights */}
-          <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between pointer-events-none">
-            <div className="hidden md:flex items-center gap-3 px-4 py-2 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/10 text-xs">
-              <Zap size={14} className="text-amber-400" />
-              <span>Conversion universelle : Mosaic • ERytmo • Cappella • SRT</span>
-            </div>
-            <button 
-              onClick={() => setDemoModalOpen(true)}
-              className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 text-xs font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer ml-auto"
-            >
-              <Play size={13} fill="currentColor" />
-              <span>Découvrir la démo</span>
-            </button>
-          </div>
+          {/* Cinematic dark vignette overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/45 pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent pointer-events-none" />
         </div>
 
-        {/* Hero Bottom Bar: Huge Title + Pitch Narrative + Pill CTA */}
-        <div className="mt-8 flex flex-col lg:flex-row lg:items-end justify-between gap-8 pt-4">
+        {/* Bottom Hero Overlay: Sitting directly on the bottom border like the reference screenshot */}
+        <div className="absolute bottom-0 inset-x-0 z-20 px-6 sm:px-10 md:px-14 pb-4 sm:pb-6 flex flex-col lg:flex-row lg:items-end justify-between gap-6 md:gap-10">
           
-          {/* Big Brand Typography with Asterisk */}
-          <div className="flex items-baseline">
-            <h1 className="text-7xl sm:text-9xl lg:text-[132px] font-black tracking-[-0.05em] leading-[0.88] text-[#f4efe6] select-none">
-              ERytmo
+          {/* Big Brand Display Typography (Helious style -> DubFlow* resting on the bottom) */}
+          <div className="flex items-baseline -mb-2 sm:-mb-3">
+            <h1 className="text-7xl sm:text-9xl md:text-[135px] lg:text-[160px] font-black tracking-[-0.05em] leading-[0.76] text-[#f4efe6] select-none drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+              DubFlow
             </h1>
-            <span className="text-amber-400 font-editorial text-7xl sm:text-9xl lg:text-[130px] font-normal leading-none ml-1 transform translate-y-[-10%] select-none">
+            <span className="text-amber-400 font-editorial text-7xl sm:text-9xl md:text-[135px] lg:text-[160px] font-normal leading-[0.76] ml-1 select-none drop-shadow-[0_10px_20px_rgba(245,158,11,0.4)]">
               *
             </span>
           </div>
 
-          {/* Narrative Paragraph & CTA Button */}
-          <div className="max-w-md flex flex-col items-start lg:items-end text-left lg:text-right space-y-4">
-            <p className="text-xs sm:text-sm text-[#a8a192] leading-relaxed font-normal">
-              La plateforme tout-en-un conçue pour les studios de doublage, de post-synchronisation et de sous-titrage. Automatisez vos bandes rythmo avec 0 upload vidéo sur le cloud.
-            </p>
+          {/* Bottom Right: Description Paragraph stacked directly over single Get started button */}
+          <div className="max-w-xs sm:max-w-md lg:max-w-lg flex flex-col items-start space-y-4 pb-1">
+            <div className="space-y-1.5 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+              <p className="text-xs sm:text-[13px] text-[#f4efe6] font-semibold leading-snug">
+                L&apos;écosystème nouvelle génération pour la post-synchronisation et l&apos;adaptation de scripts.
+              </p>
+              <p className="text-[11px] sm:text-xs text-[#c2bcaf] leading-relaxed font-normal">
+                Convertissez instantanément vos bandes rythmo multi-formats, gérez vos productions et collaborez en toute sécurité grâce à une architecture locale à zéro stockage cloud.
+              </p>
+            </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setDemoModalOpen(true)}
-                className="group flex items-center gap-2.5 px-6 py-3 rounded-full bg-[#f4efe6] hover:bg-white text-black text-xs font-extrabold tracking-wide transition-all shadow-[0_10px_30px_rgba(244,239,230,0.18)] hover:scale-105 active:scale-95 cursor-pointer"
+            <div>
+              <Link
+                href={isAuthenticated ? "/projects" : "/login"}
+                className="group inline-flex items-center gap-3 px-6 py-2.5 sm:py-3 rounded-full bg-[#f4efe6] hover:bg-white text-black text-xs font-black tracking-wide transition-all shadow-[0_10px_35px_rgba(244,239,230,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
               >
-                <span>Démarrer le pilote</span>
-                <span className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
+                <span>Get started</span>
+                <span className="w-5 h-5 rounded-full bg-black/15 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
                   <ArrowRight size={12} className="text-black" />
                 </span>
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -606,11 +531,11 @@ export default function WelcomePage() {
           
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-white font-bold tracking-tight">
-              <span className="text-base font-black text-[#f4efe6]">ERytmo Studio</span>
+              <span className="text-base font-black text-[#f4efe6]">DubFlow Studio</span>
               <span className="text-amber-400 font-editorial text-base leading-none">*</span>
             </div>
             <p className="text-[11px] text-[#8e887d]">
-              Plateforme professionnelle de post-synchronisation, détection &amp; conversion universelle de scripts.
+              L&apos;écosystème nouvelle génération pour la post-synchronisation et l&apos;adaptation de scripts.
             </p>
           </div>
 
@@ -629,7 +554,7 @@ export default function WelcomePage() {
         </div>
 
         <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[#635f56]">
-          <p>© 2026 ERytmo Studio. Tous droits réservés.</p>
+          <p>© 2026 DubFlow Studio. Tous droits réservés.</p>
           <p className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             <span>Serveurs P2P opérationnels • Zéro stockage cloud</span>
@@ -649,7 +574,7 @@ export default function WelcomePage() {
                   <Image src="/app_logo.png" alt="ERytmo" width={24} height={24} className="object-contain" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-white">Présentation Interactive ERytmo</h3>
+                  <h3 className="text-base font-black text-white">Présentation Interactive DubFlow</h3>
                   <p className="text-[11px] text-[#938d81]">Découverte instantanée pour votre studio</p>
                 </div>
               </div>
@@ -717,13 +642,13 @@ export default function WelcomePage() {
                       <p className="text-[11px] text-rose-400/80">Upload 4 Go vers AWS (20 min) + risque de fuite de master vidéo.</p>
                     </div>
                     <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-800/30 text-emerald-300">
-                      <p className="font-bold mb-1">Solution ERytmo</p>
+                      <p className="font-bold mb-1">Solution DubFlow</p>
                       <p className="text-[11px] text-emerald-400/80">0 seconde d&apos;upload. Streaming direct chiffré PC à PC.</p>
                     </div>
                   </div>
 
                   <p className="leading-relaxed">
-                    L&apos;architecture ERytmo indexe les vidéos directement depuis le disque dur de la machine. Lors d&apos;un travail en équipe, le flux vidéo est acheminé de navigateur à navigateur via WebRTC chiffré sans passer par un serveur cloud.
+                    L&apos;architecture DubFlow indexe les vidéos directement depuis le disque dur de la machine. Lors d&apos;un travail en équipe, le flux vidéo est acheminé de navigateur à navigateur via WebRTC chiffré sans passer par un serveur cloud.
                   </p>
                 </div>
               )}

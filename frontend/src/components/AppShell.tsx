@@ -51,7 +51,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 p-1 border border-teal-500/30 shadow-[0_0_30px_rgba(20,184,166,0.3)] flex items-center justify-center">
               <Image
                 src="/app_logo.png"
-                alt="ERytmo"
+                alt="DubFlow"
                 width={48}
                 height={48}
                 priority
@@ -62,7 +62,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center space-x-2 text-teal-400 text-sm font-semibold">
             <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-            <span>Loading ERytmo...</span>
+            <span>Loading DubFlow...</span>
           </div>
         </div>
       </div>
@@ -72,7 +72,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // If on standalone page (landing / welcome / login / register), render full screen
   if (isStandalone) {
     return (
-      <div className="h-full w-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
+      <div className="h-full w-full overflow-y-auto scroll-smooth bg-slate-50 dark:bg-slate-950">
         {children}
       </div>
     );

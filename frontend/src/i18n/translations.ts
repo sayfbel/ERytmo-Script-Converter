@@ -3,7 +3,7 @@ type TranslationDict = Record<string, string>;
 export const translations: Record<'en' | 'fr' | 'ar', TranslationDict> = {
   en: {
     // General
-    "app.name": "ERytmo Script Converter v2",
+    "app.name": "DubFlow Studio*",
     "search": "Search",
     "search.placeholder": "Search...",
     "add": "Add",
@@ -212,7 +212,7 @@ export const translations: Record<'en' | 'fr' | 'ar', TranslationDict> = {
   },
   fr: {
     // General
-    "app.name": "ERytmo Script Converter v2",
+    "app.name": "DubFlow Studio*",
     "search": "Recherche",
     "search.placeholder": "Rechercher...",
     "add": "Ajouter",
@@ -403,7 +403,7 @@ export const translations: Record<'en' | 'fr' | 'ar', TranslationDict> = {
   },
   ar: {
     // General
-    "app.name": "ERytmo Script Converter v2",
+    "app.name": "DubFlow Studio*",
     "search": "بحث",
     "search.placeholder": "بحث...",
     "add": "إضافة",

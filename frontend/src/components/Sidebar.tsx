@@ -69,7 +69,7 @@ export default function Sidebar() {
             <div className="w-8 h-8 relative rounded-xl bg-slate-900 flex items-center justify-center p-1 shadow-sm shrink-0 overflow-hidden">
               <Image
                 src="/app_logo.png"
-                alt="ERytmo Logo"
+                alt="DubFlow Logo"
                 width={24}
                 height={24}
                 priority
@@ -83,7 +83,7 @@ export default function Sidebar() {
               <div className="w-8 h-8 relative rounded-xl bg-slate-900 flex items-center justify-center p-1 shadow-sm shrink-0 overflow-hidden">
                 <Image
                   src="/app_logo.png"
-                  alt="ERytmo Logo"
+                  alt="DubFlow Logo"
                   width={24}
                   height={24}
                   priority

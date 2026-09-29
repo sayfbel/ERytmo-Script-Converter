@@ -145,14 +145,14 @@ function VerifyEmailContent() {
               <div className="w-8 h-8 relative rounded-xl bg-slate-900 flex items-center justify-center p-1 shadow-sm">
                 <Image
                   src="/app_logo.png"
-                  alt="ERytmo"
+                  alt="DubFlow"
                   width={24}
                   height={24}
                   priority
                   className="object-contain"
                 />
               </div>
-              <span className="font-extrabold text-slate-900 tracking-tight text-base">ERytmo</span>
+              <span className="font-extrabold text-slate-900 tracking-tight text-base">DubFlow</span>
             </div>
 
             {/* Title & Subtitle (Matches Reference Image) */}
@@ -288,8 +288,8 @@ function VerifyEmailContent() {
 
           {/* Minimalist Footer */}
           <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span>© ERytmo Studio</span>
-            <span className="text-slate-400 hover:text-slate-600 cursor-pointer">support@erytmo.com</span>
+            <span>© DubFlow Studio</span>
+            <span className="text-slate-400 hover:text-slate-600 cursor-pointer">support@dubflow.com</span>
           </div>
         </div>
 
