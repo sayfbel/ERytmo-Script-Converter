@@ -34,8 +34,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 3. If profile is complete and on login/register/complete-profile, send to workspace
-      if (user?.job_type && (isAuthPage || pathname === "/complete-profile") && !pathname.startsWith("/verify-email")) {
+      // 3. If profile is complete and on register or complete-profile, send to workspace
+      // NOTE: /login is deliberately excluded — the login page shows its own session gate
+      // so users can choose to continue or switch accounts (prevents cross-device auto-login)
+      if (user?.job_type && (pathname.startsWith("/register") || pathname === "/complete-profile") && !pathname.startsWith("/verify-email")) {
         router.replace("/projects");
         return;
       }

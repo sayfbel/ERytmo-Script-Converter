@@ -55,6 +55,7 @@ async def add_no_cache_headers(request: Request, call_next):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+        response.headers["Vary"] = "Cookie, Authorization"
     return response
 
 # Authentication router (public registration/login/verification + self endpoints)

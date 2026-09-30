@@ -18,7 +18,7 @@ import BlurFade from "@/components/ui/BlurFade";
 import { motion } from "framer-motion";
 
 export default function WelcomePage() {
-  const { isAuthenticated } = useAuth();
+  useAuth();
   const [demoModalOpen, setDemoModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"convert" | "p2p" | "rates">("convert");
 
@@ -85,7 +85,7 @@ export default function WelcomePage() {
 
             <div>
               <Link
-                href={isAuthenticated ? "/projects" : "/login"}
+                href="/login"
                 className="group inline-flex items-center gap-3 px-6 py-2.5 sm:py-3 rounded-full bg-[#f4efe6] hover:bg-white text-black text-xs font-black tracking-wide transition-all shadow-[0_10px_35px_rgba(244,239,230,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
               >
                 <span>Get started</span>
