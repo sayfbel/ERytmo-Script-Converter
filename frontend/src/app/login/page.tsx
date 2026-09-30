@@ -30,7 +30,7 @@ export default function LoginPage() {
         loginWithGoogle(idToken).then((res) => {
           setLoading(false);
           if (res.success) {
-            setToastInfo("Connexion réussie ! Chargement de l'espace studio...");
+            setToastInfo("Signed in successfully! Loading your studio space...");
             if (res.requiresProfileCompletion) {
               window.location.href = "/complete-profile";
             } else {
@@ -50,11 +50,11 @@ export default function LoginPage() {
     setToastInfo(null);
 
     if (!email.trim()) {
-      setError("Veuillez saisir votre adresse email.");
+      setError("Please enter your email address.");
       return;
     }
     if (!password) {
-      setError("Veuillez saisir votre mot de passe.");
+      setError("Please enter your password.");
       return;
     }
 
@@ -67,7 +67,7 @@ export default function LoginPage() {
       });
 
       if (res.success) {
-        setToastInfo("Connexion réussie ! Chargement de l'espace studio...");
+        setToastInfo("Signed in successfully! Loading your studio space...");
         if (res.requiresProfileCompletion) {
           window.location.href = "/complete-profile";
         } else {
@@ -76,10 +76,10 @@ export default function LoginPage() {
       } else if (res.requiresVerification) {
         router.push(`/verify-email?email=${encodeURIComponent(res.email || email.trim().toLowerCase())}`);
       } else {
-        setError(res.error || "Email ou mot de passe incorrect.");
+        setError(res.error || "Incorrect email or password. Please try again.");
       }
     } catch {
-      setError("Une erreur inattendue est survenue. Veuillez réessayer.");
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -89,7 +89,7 @@ export default function LoginPage() {
     if (typeof window !== "undefined") {
       const clientId = googleClientId || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "977526709418-0gtjdpj33uvlgur9ggjetnicjq61g2uv.apps.googleusercontent.com";
       if (!clientId) {
-        setToastInfo("Google Client ID non configuré.");
+        setToastInfo("Google Client ID is not configured.");
         return;
       }
       const redirectUri = window.location.origin + "/login";
@@ -179,18 +179,18 @@ export default function LoginPage() {
               </button>
 
               {/* Divider */}
-              <div className="text-xs font-normal text-[#555555] mb-4 select-none">or</div>
+              <div className="text-xs font-normal text-[#555555] mb-3 select-none">or</div>
 
-              {/* Toast / Error Notification Box */}
+              {/* Error & Info Message: Clean text, no bulky boxes */}
               {error && (
-                <div className="w-full p-2.5 rounded-xl mb-3 font-mono text-[11px] text-left bg-rose-950/40 border border-rose-500/30 text-rose-300">
-                  <strong>[ERROR]</strong> {error}
-                </div>
+                <p className="w-full text-center text-xs sm:text-[13px] font-medium text-rose-400 mb-3 px-1 leading-snug animate-in fade-in duration-200">
+                  {error}
+                </p>
               )}
               {toastInfo && (
-                <div className="w-full p-2.5 rounded-xl mb-3 font-mono text-[11px] text-left bg-amber-950/40 border border-amber-500/30 text-amber-300">
-                  <strong>[INFO]</strong> {toastInfo}
-                </div>
+                <p className="w-full text-center text-xs sm:text-[13px] font-medium text-amber-300 mb-3 px-1 leading-snug animate-in fade-in duration-200">
+                  {toastInfo}
+                </p>
               )}
 
               {/* Credentials Form */}
@@ -256,12 +256,18 @@ export default function LoginPage() {
                     </span>
                   </label>
 
-                  <Link
-                    href="/forgot-password"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (email.trim()) {
+                        sessionStorage.setItem("forgot_password_email", email.trim());
+                      }
+                      router.push("/forgot-password");
+                    }}
                     className="text-[12px] text-[#71717a] hover:text-[#a1a1aa] hover:underline cursor-pointer transition-colors"
                   >
                     Forgot password?
-                  </Link>
+                  </button>
                 </div>
 
                 {/* Big Cream Start Button */}

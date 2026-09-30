@@ -107,9 +107,14 @@ class ChangePasswordPayload(BaseModel):
 class ForgotPasswordRequestPayload(BaseModel):
     email: str
 
-class ForgotPasswordResetPayload(BaseModel):
+class ForgotPasswordVerifyCodePayload(BaseModel):
     email: str
     code: str
+
+class ForgotPasswordResetPayload(BaseModel):
+    email: Optional[str] = None
+    code: Optional[str] = None
+    reset_token: Optional[str] = None
     new_password: str
     confirm_password: str
 
@@ -165,6 +170,9 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.
     payload = decode_access_token(token)
     if not payload or not payload.get("sub"):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    if payload.get("scope") == "password_reset":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token scope for session")
         
     try:
         user_id = int(payload["sub"])
@@ -392,6 +400,7 @@ def verify_email(payload: VerifyEmailPayload, response: Response, db: Session = 
             "id": user.id,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "job_type": user.job_type,
             "email": user.email,
             "phone_number": user.phone_number,
             "email_verified": True
@@ -1016,11 +1025,19 @@ def verify_and_change_password(
 @router.post("/forgot-password/request")
 def request_forgot_password_code(payload: ForgotPasswordRequestPayload, db: Session = Depends(get_db)):
     email = payload.email.strip().lower()
+    
+    # 1. Validate email format
+    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    if not re.match(email_regex, email):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please enter a valid email address.")
+
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
+        # Anti-enumeration: return generic success so attackers cannot probe for registered emails
         return {
             "success": True,
-            "message": f"If an account with {email} exists, a reset code has been sent."
+            "message": f"If an account with {email} exists, a 6-digit reset code has been sent.",
+            "cooldown_seconds": RESEND_COOLDOWN_SECONDS
         }
 
     now = datetime.datetime.utcnow()
@@ -1028,6 +1045,7 @@ def request_forgot_password_code(payload: ForgotPasswordRequestPayload, db: Sess
         models.EmailVerification.user_id == user.id
     ).order_by(models.EmailVerification.id.desc()).first()
 
+    # Rate limiting & Anti-Spam
     if last_verification and last_verification.resend_available_at and now < last_verification.resend_available_at:
         wait_seconds = int((last_verification.resend_available_at - now).total_seconds())
         raise HTTPException(
@@ -1035,12 +1053,14 @@ def request_forgot_password_code(payload: ForgotPasswordRequestPayload, db: Sess
             detail=f"Please wait {wait_seconds} seconds before requesting another code."
         )
 
+    # Invalidate previous unused codes
     db.query(models.EmailVerification).filter(
         models.EmailVerification.user_id == user.id,
         models.EmailVerification.is_used == False
     ).update({"is_used": True})
     db.commit()
 
+    # Generate cryptographically secure 6-digit verification code & store hashed
     code = generate_verification_code()
     code_hash = hash_verification_code(code)
     expires_at = now + datetime.timedelta(minutes=VERIFICATION_CODE_EXPIRE_MINUTES)
@@ -1057,7 +1077,7 @@ def request_forgot_password_code(payload: ForgotPasswordRequestPayload, db: Sess
     db.commit()
 
     user_name = f"{user.first_name} {user.last_name}".strip() or "User"
-    send_verification_email(user.email, code, user_name)
+    send_verification_email(user.email, code, user_name, purpose="reset")
 
     return {
         "success": True,
@@ -1066,25 +1086,17 @@ def request_forgot_password_code(payload: ForgotPasswordRequestPayload, db: Sess
     }
 
 
-@router.post("/forgot-password/reset")
-def reset_forgot_password(payload: ForgotPasswordResetPayload, db: Session = Depends(get_db)):
+@router.post("/forgot-password/verify-code")
+def verify_forgot_password_code(payload: ForgotPasswordVerifyCodePayload, db: Session = Depends(get_db)):
     email = payload.email.strip().lower()
     candidate_code = payload.code.strip()
-    new_password = payload.new_password
-    confirm_password = payload.confirm_password
 
     if not candidate_code or len(candidate_code) != 6 or not candidate_code.isdigit():
-        raise HTTPException(status_code=400, detail="Verification code must be 6 digits.")
-
-    if new_password != confirm_password:
-        raise HTTPException(status_code=400, detail="New passwords do not match.")
-
-    if len(new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification code must be exactly 6 digits.")
 
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
-        raise HTTPException(status_code=400, detail="Invalid request or user not found.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request or expired verification code.")
 
     verification = db.query(models.EmailVerification).filter(
         models.EmailVerification.user_id == user.id,
@@ -1092,18 +1104,18 @@ def reset_forgot_password(payload: ForgotPasswordResetPayload, db: Session = Dep
     ).order_by(models.EmailVerification.id.desc()).first()
 
     if not verification:
-        raise HTTPException(status_code=400, detail="No active verification code found. Please request a new code.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No active verification code found. Please request a new code.")
 
     now = datetime.datetime.utcnow()
     if now > verification.expires_at:
         verification.is_used = True
         db.commit()
-        raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new code.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification code has expired. Please request a new code.")
 
     if verification.attempts >= MAX_VERIFICATION_ATTEMPTS:
         verification.is_used = True
         db.commit()
-        raise HTTPException(status_code=400, detail="Maximum attempts exceeded. Please request a new code.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Maximum attempts exceeded. Please request a new code.")
 
     verification.attempts += 1
 
@@ -1111,14 +1123,126 @@ def reset_forgot_password(payload: ForgotPasswordResetPayload, db: Session = Dep
         remaining = MAX_VERIFICATION_ATTEMPTS - verification.attempts
         db.commit()
         if remaining > 0:
-            raise HTTPException(status_code=400, detail=f"Incorrect code. You have {remaining} attempt{'s' if remaining != 1 else ''} remaining.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Incorrect code. You have {remaining} attempt{'s' if remaining != 1 else ''} remaining."
+            )
         else:
             verification.is_used = True
             db.commit()
-            raise HTTPException(status_code=400, detail="Maximum attempts exceeded. Please request a new code.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Maximum attempts exceeded. Please request a new code.")
 
+    # Code is valid! Mark code used so it cannot be reused
     verification.is_used = True
+    db.commit()
+
+    # Generate a cryptographically signed reset token valid for 15 minutes with scope: "password_reset"
+    reset_token = create_access_token(
+        {"sub": user.id, "email": user.email, "scope": "password_reset"},
+        expires_delta=datetime.timedelta(minutes=15)
+    )
+
+    return {
+        "success": True,
+        "message": "Verification code confirmed successfully.",
+        "reset_token": reset_token
+    }
+
+
+@router.post("/forgot-password/reset")
+def reset_forgot_password(payload: ForgotPasswordResetPayload, db: Session = Depends(get_db)):
+    new_password = payload.new_password
+    confirm_password = payload.confirm_password
+
+    # Validate password format & matching
+    if not new_password or not confirm_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Both password fields are required.")
+
+    if new_password != confirm_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New passwords do not match.")
+
+    if len(new_password) < 8:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must be at least 8 characters long.")
+
+    if not any(c.isalpha() for c in new_password) or not any(c.isdigit() for c in new_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must contain at least one letter and one number.")
+
+    user: Optional[models.User] = None
+
+    # Priority 1: Secure reset_token (from Step 2 verification)
+    if payload.reset_token:
+        token_data = decode_access_token(payload.reset_token.strip())
+        if not token_data or token_data.get("scope") != "password_reset":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset session has expired or is invalid. Please request a new code."
+            )
+        try:
+            user_id = int(token_data["sub"])
+            user = db.query(models.User).filter(models.User.id == user_id).first()
+        except (ValueError, TypeError):
+            user = None
+
+    # Priority 2: Fallback direct email + code
+    elif payload.email and payload.code:
+        email = payload.email.strip().lower()
+        candidate_code = payload.code.strip()
+
+        if not candidate_code or len(candidate_code) != 6 or not candidate_code.isdigit():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification code must be 6 digits.")
+
+        user = db.query(models.User).filter(models.User.email == email).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request or user not found.")
+
+        verification = db.query(models.EmailVerification).filter(
+            models.EmailVerification.user_id == user.id,
+            models.EmailVerification.is_used == False
+        ).order_by(models.EmailVerification.id.desc()).first()
+
+        if not verification:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No active verification code found. Please request a new code.")
+
+        now = datetime.datetime.utcnow()
+        if now > verification.expires_at:
+            verification.is_used = True
+            db.commit()
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification code has expired. Please request a new code.")
+
+        if verification.attempts >= MAX_VERIFICATION_ATTEMPTS:
+            verification.is_used = True
+            db.commit()
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Maximum attempts exceeded. Please request a new code.")
+
+        verification.attempts += 1
+
+        if not verify_verification_code(candidate_code, verification.code_hash):
+            remaining = MAX_VERIFICATION_ATTEMPTS - verification.attempts
+            db.commit()
+            if remaining > 0:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Incorrect code. You have {remaining} attempt{'s' if remaining != 1 else ''} remaining.")
+            else:
+                verification.is_used = True
+                db.commit()
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Maximum attempts exceeded. Please request a new code.")
+
+        verification.is_used = True
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing reset authorization token or verification code.")
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User account not found.")
+
+    # Invalidate all remaining verification records for this user
+    db.query(models.EmailVerification).filter(
+        models.EmailVerification.user_id == user.id,
+        models.EmailVerification.is_used == False
+    ).update({"is_used": True})
+
+    # Update password and timestamps
+    now = datetime.datetime.utcnow()
     user.password_hash = hash_password(new_password)
+    user.email_verified = True  # Password reset via verified email also marks email verified
     user.updated_at = now
     db.commit()
 

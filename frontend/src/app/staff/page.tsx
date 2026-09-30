@@ -262,21 +262,21 @@ export default function StaffPage() {
   });
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden p-6 md:p-8 bg-slate-50 dark:bg-slate-900 transition-colors">
+    <div className="flex-1 flex flex-col h-full overflow-hidden p-6 md:p-8 bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] transition-colors">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
-            <Users className="text-teal-600 dark:text-teal-400" size={28} />
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-[#f4efe6] tracking-tight flex items-center gap-3">
+            <Users className="text-amber-500 dark:text-amber-400" size={28} />
             <span>Staff &amp; Collaborators</span>
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm text-slate-500 dark:text-[#9f988b] mt-1">
             Manage your project collaborators, granular access levels, and P2P transfer permissions.
           </p>
         </div>
         <button 
           onClick={openCreateModal}
-          className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-semibold py-2.5 px-5 rounded-xl transition-all shadow-xs hover:shadow-md flex items-center justify-center text-sm shrink-0 self-start sm:self-auto transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+          className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-extrabold py-2.5 px-5 rounded-xl transition-all shadow-[0_4px_20px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_25px_rgba(245,158,11,0.4)] flex items-center justify-center text-sm shrink-0 self-start sm:self-auto transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
         >
           <Plus size={18} className="mr-2 rtl:mr-0 rtl:ml-2" />
           Add Collaborator
@@ -286,18 +286,18 @@ export default function StaffPage() {
       {/* Filters Bar */}
       <div className="flex gap-3 sm:gap-4 mb-5 flex-wrap shrink-0">
         <div className="flex-1 relative group min-w-[200px] sm:min-w-[240px]">
-          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-teal-500 dark:group-focus-within:text-teal-400 transition-colors" size={17} />
+          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#71717a] group-focus-within:text-amber-500 dark:group-focus-within:text-amber-400 transition-colors" size={17} />
           <input 
             type="text" 
             placeholder="Search collaborator by name or email..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl shadow-xs focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all text-sm font-medium text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"
+            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 bg-white dark:bg-[#131316] border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 rounded-xl shadow-xs focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-sm font-medium text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
           />
         </div>
 
         {/* Access Level Filter */}
-        <div className="shrink-0 w-36 sm:w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xs">
+        <div className="shrink-0 w-36 sm:w-44">
           <CustomSelect
             options={[
               { label: "All Access", value: "All" },
@@ -310,7 +310,7 @@ export default function StaffPage() {
         </div>
         
         {/* Task Filter */}
-        <div className="shrink-0 w-36 sm:w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xs">
+        <div className="shrink-0 w-36 sm:w-44">
           <CustomSelect
             options={[
               { label: "All Roles", value: "All" },
@@ -325,7 +325,7 @@ export default function StaffPage() {
         </div>
         
         {/* Sort Filter */}
-        <div className="shrink-0 w-36 sm:w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xs">
+        <div className="shrink-0 w-36 sm:w-44">
           <CustomSelect
             options={[
               { label: t("newest"), value: "Newest" },
@@ -341,15 +341,15 @@ export default function StaffPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-5 pb-6">
         {filteredStaff.length === 0 ? (
-          <div className="col-span-full flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 border-dashed">
-            <Users className="text-slate-300 dark:text-slate-600 mb-4" size={48} />
-            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">No Collaborators Found</h3>
-            <p className="text-slate-500 dark:text-slate-400 mb-4 text-center text-xs">
+          <div className="col-span-full flex flex-col items-center justify-center p-12 bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs dark:shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+            <Users className="text-slate-400 dark:text-[#71717a] mb-4" size={48} />
+            <h3 className="text-lg font-bold text-slate-900 dark:text-[#f4efe6]">No Collaborators Found</h3>
+            <p className="text-slate-500 dark:text-[#9f988b] mb-4 text-center text-xs">
               Add collaborators to share projects, control access permissions, and enable P2P file transfers.
             </p>
             <button 
               onClick={openCreateModal}
-              className="text-teal-600 dark:text-teal-400 font-semibold text-xs hover:text-teal-700 dark:hover:text-teal-300 hover:underline cursor-pointer"
+              className="text-amber-600 dark:text-amber-400 font-bold text-xs hover:underline cursor-pointer"
             >
               + Add first collaborator
             </button>
@@ -362,7 +362,7 @@ export default function StaffPage() {
             return (
               <div 
                 key={member.id} 
-                className="bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 overflow-hidden hover:shadow-md hover:border-teal-300 dark:hover:border-teal-700/60 transition-all group cursor-pointer flex flex-col relative"
+                className="bg-white dark:bg-[#121215] hover:bg-slate-50 dark:hover:bg-[#16161a] rounded-2xl shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden hover:shadow-md dark:hover:shadow-[0_10px_30px_rgba(0,0,0,0.7)] hover:border-amber-400/40 transition-all group cursor-pointer flex flex-col relative"
                 onClick={() => openEditModal(member)}
               >
                 <div className="p-5 flex-grow flex flex-col justify-between">
@@ -370,7 +370,7 @@ export default function StaffPage() {
                     {/* Header Row: Name & Action buttons */}
                     <div className="flex justify-between items-start mb-2">
                       <div className="min-w-0 pr-2 rtl:pr-0 rtl:pl-2">
-                        <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-[#f4efe6] truncate group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
                           {member.name}
                         </h3>
                       </div>
@@ -382,7 +382,7 @@ export default function StaffPage() {
                             e.stopPropagation();
                             openEditModal(member);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 dark:text-[#71717a] hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors cursor-pointer"
                           title="Edit collaborator"
                         >
                           <Edit2 size={14} />
@@ -393,7 +393,7 @@ export default function StaffPage() {
                             e.stopPropagation();
                             setConfirmModal({ isOpen: true, type: 'delete', member });
                           }}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
                           title="Remove collaborator"
                         >
                           <Trash2 size={14} />
@@ -411,40 +411,40 @@ export default function StaffPage() {
                     <div className="flex items-center gap-2 flex-wrap mb-3.5">
                       {/* Live Peer Status */}
                       {online ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                           Online
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-white/[0.04] text-slate-500 dark:text-[#71717a] border border-slate-200 dark:border-white/[0.06]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-600" />
                           Offline
                         </span>
                       )}
 
                       {/* Access Level Badge */}
                       {isFullAccess ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/80">
-                          <ShieldCheck size={13} className="text-blue-600 dark:text-blue-400" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-400/10 border border-amber-400/25">
+                          <ShieldCheck size={13} className="text-amber-500 dark:text-amber-400" />
                           Full Access
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/80">
-                          <Eye size={13} className="text-amber-600 dark:text-amber-400" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10">
+                          <Eye size={13} className="text-slate-500 dark:text-zinc-400" />
                           Spectator
                         </span>
                       )}
 
                       {/* Role/Task Badge */}
-                      <span className="inline-flex items-center text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                      <span className="inline-flex items-center text-[11px] font-medium text-slate-600 dark:text-[#c2bcaf] bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.06] px-2 py-0.5 rounded-md">
                         {member.task || "Unassigned"}
                       </span>
                     </div>
                   </div>
 
                   {/* Auto-Approval Footer Toggle Button */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60 mt-2 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                  <div className="pt-3 border-t border-slate-100 dark:border-white/[0.08] mt-2 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400 dark:text-[#71717a] font-medium">
                       P2P Transfers:
                     </span>
 
@@ -452,17 +452,17 @@ export default function StaffPage() {
                       <button
                         type="button"
                         onClick={(e) => handleToggleAutoAccept(member, e)}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/50 dark:hover:bg-teal-900/50 border border-teal-200 dark:border-teal-800/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                         title="Click to revoke auto-approval"
                       >
-                        <Zap size={12} className="text-teal-600 dark:text-teal-400 fill-teal-500" />
+                        <Zap size={12} className="text-amber-500 dark:text-amber-400 fill-amber-400" />
                         <span>Auto-Approved</span>
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={(e) => handleToggleAutoAccept(member, e)}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-[#71717a] hover:text-slate-900 dark:hover:text-[#f4efe6] bg-slate-100 dark:bg-white/[0.03] hover:bg-slate-200 dark:hover:bg-white/[0.07] border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
                         title="Click to allow auto-approval without prompting"
                       >
                         <span>Prompt on request</span>
@@ -479,19 +479,19 @@ export default function StaffPage() {
 
       {/* Create / Edit Collaborator Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#141417] rounded-3xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-md animate-in zoom-in-95 duration-200 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6] overflow-hidden">
             
             {/* Modal Header */}
-            <div className="p-6 pb-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-                <Users size={20} className="text-teal-600 dark:text-teal-400" />
+            <div className="p-6 pb-4 border-b border-slate-200/80 dark:border-white/[0.08] flex justify-between items-center bg-slate-50/50 dark:bg-white/[0.02]">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-[#f4efe6] flex items-center gap-2.5">
+                <Users size={20} className="text-amber-500 dark:text-amber-400" />
                 <span>{editingStaffId ? "Edit Collaborator" : "Add Direct Collaborator"}</span>
               </h2>
               <button 
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 p-1.5 rounded-xl transition-colors cursor-pointer"
+                className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 rounded-xl transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -499,7 +499,7 @@ export default function StaffPage() {
             
             <form onSubmit={handleSubmitStaff} className="p-6 space-y-4">
               {error && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs rounded-xl font-medium">
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 text-xs rounded-xl font-medium">
                   {error}
                 </div>
               )}
@@ -507,21 +507,21 @@ export default function StaffPage() {
               {/* Registered User Search / Selection */}
               {!editingStaffId ? (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Select Registered User <span className="text-red-500">*</span>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
+                    Select Registered User <span className="text-amber-500 dark:text-amber-400">*</span>
                   </label>
 
                   {selectedUser ? (
-                    <div className="p-3 bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-xl flex items-center justify-between animate-in fade-in duration-200">
+                    <div className="p-3 bg-amber-400/10 border border-amber-400/25 rounded-xl flex items-center justify-between animate-in fade-in duration-200">
                       <div className="flex items-center space-x-2.5 rtl:space-x-reverse min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-teal-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                        <div className="w-8 h-8 rounded-lg bg-amber-400 text-black font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
                           <Check size={16} />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
+                          <p className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] truncate">
                             {selectedUser.name}
                           </p>
-                          <p className="text-[11px] text-teal-700 dark:text-teal-300 truncate">
+                          <p className="text-[11px] text-amber-700 dark:text-amber-300 truncate">
                             {selectedUser.email}
                           </p>
                         </div>
@@ -534,7 +534,7 @@ export default function StaffPage() {
                           setEmail("");
                           setStaffUserId(null);
                         }}
-                        className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-2 py-1 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        className="text-xs font-semibold text-slate-500 dark:text-[#9f988b] hover:text-slate-900 dark:hover:text-[#f4efe6] px-2.5 py-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                       >
                         Change
                       </button>
@@ -542,25 +542,25 @@ export default function StaffPage() {
                   ) : (
                     <div className="relative">
                       <div className="relative">
-                        <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                        <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#71717a]" size={15} />
                         <input
                           type="text"
                           value={userSearchQuery}
                           onChange={(e) => setUserSearchQuery(e.target.value)}
-                          className="w-full pl-9 rtl:pl-3 rtl:pr-9 pr-8 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
+                          className="w-full pl-9 rtl:pl-3 rtl:pr-9 pr-8 py-2.5 bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-colors"
                           placeholder="Search registered user by name or email..."
                           autoFocus
                         />
                         {isSearchingUsers && (
-                          <Loader2 className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-teal-500 animate-spin" size={15} />
+                          <Loader2 className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-amber-500 dark:text-amber-400 animate-spin" size={15} />
                         )}
                       </div>
 
                       {/* Search Results Dropdown */}
                       {userSearchQuery.trim().length > 0 && (
-                        <div className="mt-1.5 max-h-48 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg divide-y divide-slate-100 dark:divide-slate-700/60 z-10">
+                        <div className="mt-1.5 max-h-48 overflow-y-auto bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.8)] divide-y divide-slate-100 dark:divide-white/5 z-10">
                           {userSearchResults.length === 0 && !isSearchingUsers ? (
-                            <div className="p-3 text-center text-xs text-slate-400 dark:text-slate-500">
+                            <div className="p-3 text-center text-xs text-slate-400 dark:text-[#71717a]">
                               No registered user found matching &quot;{userSearchQuery}&quot;
                             </div>
                           ) : (
@@ -576,17 +576,17 @@ export default function StaffPage() {
                                   setUserSearchQuery("");
                                   setUserSearchResults([]);
                                 }}
-                                className="w-full p-2.5 text-left rtl:text-right hover:bg-teal-50/60 dark:hover:bg-teal-950/40 flex items-center justify-between transition-colors group cursor-pointer"
+                                className="w-full p-2.5 text-left rtl:text-right hover:bg-amber-50 dark:hover:bg-amber-400/10 flex items-center justify-between transition-colors group cursor-pointer"
                               >
                                 <div className="min-w-0 pr-2">
-                                  <p className="font-semibold text-xs text-slate-800 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400 truncate">
+                                  <p className="font-semibold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400 truncate">
                                     {u.name}
                                   </p>
-                                  <p className="text-[11px] text-slate-400 truncate">
+                                  <p className="text-[11px] text-slate-500 dark:text-[#71717a] truncate">
                                     {u.email}
                                   </p>
                                 </div>
-                                <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 shrink-0 px-2 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30">
+                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 shrink-0 px-2 py-0.5 rounded bg-amber-400/20 border border-amber-400/30">
                                   Select
                                 </span>
                               </button>
@@ -594,22 +594,22 @@ export default function StaffPage() {
                           )}
                         </div>
                       )}
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                      <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-1">
                         Only registered accounts in ERytmo can be added as project collaborators.
                       </p>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
-                  <p className="font-bold text-xs text-slate-800 dark:text-slate-200">{name}</p>
-                  <p className="text-[11px] text-slate-400">{email}</p>
+                <div className="p-3 bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl">
+                  <p className="font-bold text-xs text-slate-900 dark:text-[#f4efe6]">{name}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-[#71717a]">{email}</p>
                 </div>
               )}
 
               {/* Role / Task */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
                   Assigned Role / Task
                 </label>
                 <CustomSelect
@@ -626,8 +626,8 @@ export default function StaffPage() {
 
               {/* Granular Access Level Control */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  Project Access Level <span className="text-red-500">*</span>
+                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-2">
+                  Project Access Level <span className="text-amber-500 dark:text-amber-400">*</span>
                 </label>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -636,12 +636,12 @@ export default function StaffPage() {
                     onClick={() => setAccessLevel("full_access")}
                     className={`p-3 rounded-2xl border cursor-pointer transition-all select-none ${
                       accessLevel === "full_access"
-                        ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 shadow-2xs"
-                        : "border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                        ? "border-amber-400 bg-amber-400/10 text-amber-700 dark:text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+                        : "border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#161619] text-slate-600 dark:text-[#71717a] hover:border-slate-300 dark:hover:border-white/20 hover:text-slate-900 dark:hover:text-[#f4efe6]"
                     }`}
                   >
                     <div className="flex items-center space-x-2 rtl:space-x-reverse mb-1">
-                      <ShieldCheck size={16} className={accessLevel === "full_access" ? "text-blue-600" : "text-slate-400"} />
+                      <ShieldCheck size={16} className={accessLevel === "full_access" ? "text-amber-500 dark:text-amber-400" : "text-slate-400 dark:text-[#71717a]"} />
                       <span className="text-xs font-bold">Full Access</span>
                     </div>
                     <p className="text-[11px] leading-relaxed opacity-80">
@@ -654,12 +654,12 @@ export default function StaffPage() {
                     onClick={() => setAccessLevel("spectator")}
                     className={`p-3 rounded-2xl border cursor-pointer transition-all select-none ${
                       accessLevel === "spectator"
-                        ? "border-amber-500 bg-amber-50/70 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 shadow-2xs"
-                        : "border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                        ? "border-amber-400 bg-amber-400/10 text-amber-700 dark:text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+                        : "border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#161619] text-slate-600 dark:text-[#71717a] hover:border-slate-300 dark:hover:border-white/20 hover:text-slate-900 dark:hover:text-[#f4efe6]"
                     }`}
                   >
                     <div className="flex items-center space-x-2 rtl:space-x-reverse mb-1">
-                      <Eye size={16} className={accessLevel === "spectator" ? "text-amber-600" : "text-slate-400"} />
+                      <Eye size={16} className={accessLevel === "spectator" ? "text-amber-500 dark:text-amber-400" : "text-slate-400 dark:text-[#71717a]"} />
                       <span className="text-xs font-bold">Spectator</span>
                     </div>
                     <p className="text-[11px] leading-relaxed opacity-80">
@@ -676,14 +676,14 @@ export default function StaffPage() {
                     type="checkbox"
                     checked={autoAcceptTransfers}
                     onChange={(e) => setAutoAcceptTransfers(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-700 dark:bg-slate-800 cursor-pointer"
+                    className="mt-0.5 w-4 h-4 rounded text-amber-500 accent-amber-500 focus:ring-amber-400 border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-[#18181c] cursor-pointer"
                   />
-                  <div className="text-xs text-slate-700 dark:text-slate-300">
+                  <div className="text-xs text-slate-700 dark:text-[#c2bcaf]">
                     <span className="font-semibold flex items-center gap-1">
-                      <Zap size={12} className="text-teal-600 fill-teal-600" />
+                      <Zap size={12} className="text-amber-500 dark:text-amber-400 fill-amber-400" />
                       Auto-approve P2P transfer requests
                     </span>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                    <p className="text-[11px] text-slate-400 dark:text-[#71717a]">
                       Files will stream immediately when this collaborator requests downloads without waiting for prompt.
                     </p>
                   </div>
@@ -691,18 +691,18 @@ export default function StaffPage() {
               </div>
 
               {/* Modal Action Buttons */}
-              <div className="pt-4 flex justify-end gap-2.5 border-t border-slate-100 dark:border-slate-700">
+              <div className="pt-4 flex justify-end gap-2.5 border-t border-slate-200/80 dark:border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2.5 text-xs text-slate-600 dark:text-slate-400 font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2.5 text-xs text-slate-700 dark:text-[#f4efe6] font-semibold hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors cursor-pointer"
                 >
                   {t("cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !name.trim()}
-                  className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-all shadow-xs flex items-center cursor-pointer"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 text-black font-black rounded-xl text-xs transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer"
                 >
                   {isSubmitting && <Loader2 size={14} className="animate-spin mr-1.5 rtl:mr-0 rtl:ml-1.5" />}
                   {editingStaffId ? "Update Collaborator" : "Add Collaborator"}

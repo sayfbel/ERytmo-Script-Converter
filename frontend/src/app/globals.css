@@ -103,6 +103,11 @@ html {
   --foreground: #0f172a;
 }
 
+.dark {
+  --background: #08080a;
+  --foreground: #f4efe6;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);

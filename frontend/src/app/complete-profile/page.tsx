@@ -8,12 +8,15 @@ import { useAuth } from "@/context/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
 import { DubFlowIcon } from "@/components/DubFlowLogo";
 import CustomSelect, { SelectOption } from "@/components/CustomSelect";
-import { Briefcase, User as UserIcon, AlertCircle, ArrowRight, ArrowLeft, X } from "lucide-react";
+import { Briefcase, User as UserIcon, ArrowRight, ArrowLeft, X } from "lucide-react";
 
 const ROLE_OPTIONS: SelectOption[] = [
-  { value: "Dubbing Director", label: "Dubbing Director", icon: <Briefcase size={14} className="text-amber-400/90" /> },
-  { value: "Rhythmist / Adaptateur", label: "Rhythmist / Adaptateur", icon: <Briefcase size={14} className="text-amber-400/90" /> },
-  { value: "Voice Actor", label: "Voice Actor", icon: <Briefcase size={14} className="text-amber-400/90" /> },
+  { value: "Comédien de doublage (Voice Actor)", label: "Comédien de doublage (Voice Actor)", icon: <Briefcase size={14} className="text-amber-400/90" /> },
+  { value: "Directeur artistique (Voice Director)", label: "Directeur artistique (Voice Director)", icon: <Briefcase size={14} className="text-amber-400/90" /> },
+  { value: "Adaptateur / Traducteur (Script Adaptor)", label: "Adaptateur / Traducteur (Script Adaptor)", icon: <Briefcase size={14} className="text-amber-400/90" /> },
+  { value: "Ingénieur du son (Sound Engineer)", label: "Ingénieur du son (Sound Engineer)", icon: <Briefcase size={14} className="text-amber-400/90" /> },
+  { value: "Superviseur Post-prod (Post Supervisor)", label: "Superviseur Post-prod (Post Supervisor)", icon: <Briefcase size={14} className="text-amber-400/90" /> },
+  { value: "Producteur / Studio Manager", label: "Producteur / Studio Manager", icon: <Briefcase size={14} className="text-amber-400/90" /> },
   { value: "Autre", label: "Autre (Saisir manuellement...)", icon: <Briefcase size={14} className="text-amber-400/90" /> },
 ];
 
@@ -177,12 +180,11 @@ export default function CompleteProfilePage() {
               </p>
             </div>
 
-            {/* Error Notification */}
+            {/* Error Notification: Clean text */}
             {error && (
-              <div className="mb-4 p-3 rounded-xl font-mono text-[11px] text-left bg-rose-950/40 border border-rose-500/30 text-rose-300 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
-                <span>{error}</span>
-              </div>
+              <p className="w-full text-center text-xs sm:text-[13px] font-medium text-rose-400 mb-4 px-1 leading-snug animate-in fade-in duration-200">
+                {error}
+              </p>
             )}
 
             {/* Form */}

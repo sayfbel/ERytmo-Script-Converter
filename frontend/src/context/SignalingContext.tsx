@@ -87,6 +87,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(false);
   const pendingRequestsRef = useRef<Map<string, { resolve: (res: TransferResult) => void; timeout: NodeJS.Timeout }>>(new Map());
   const fileProviderRef = useRef<((fileName: string) => Promise<Blob | File | null> | Blob | File | null) | null>(null);
   const incomingChunksRef = useRef<Map<string, { chunks: Uint8Array[]; totalChunks: number; mimeType?: string }>>(new Map());
@@ -149,7 +150,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const connectWebSocket = useCallback(() => {
-    if (typeof window === "undefined" || !isAuthenticated || !user) return;
+    if (typeof window === "undefined" || !isAuthenticated || !user?.id || !isMountedRef.current) return;
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
       return;
     }
@@ -372,26 +373,45 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
         setIsConnected(false);
         wsRef.current = null;
         if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connectWebSocket();
-        }, 3000);
+        if (isMountedRef.current) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (isMountedRef.current) {
+              connectWebSocket();
+            }
+          }, 3000);
+        }
       };
 
       ws.onerror = () => {
-        ws.close();
+        if (ws.readyState === WebSocket.OPEN) {
+          try { ws.close(); } catch {}
+        }
       };
     } catch {
       // WS constructor error
     }
-  }, [isAuthenticated, user, refreshOnlineStatus, streamFileToPeer]);
+  }, [isAuthenticated, user?.id, refreshOnlineStatus, streamFileToPeer]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    isMountedRef.current = true;
+
+    if (isAuthenticated && user?.id) {
       connectWebSocket();
     } else {
       if (wsRef.current) {
-        wsRef.current.close();
+        const ws = wsRef.current;
         wsRef.current = null;
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        if (ws.readyState === WebSocket.OPEN) {
+          try { ws.close(); } catch {}
+        } else if (ws.readyState === WebSocket.CONNECTING) {
+          ws.onopen = () => {
+            try { ws.close(); } catch {}
+          };
+        }
       }
       setIsConnected(false);
       setOnlineUserIds([]);
@@ -400,13 +420,28 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
     }
 
     return () => {
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      isMountedRef.current = false;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
       if (wsRef.current) {
-        wsRef.current.close();
+        const ws = wsRef.current;
         wsRef.current = null;
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        if (ws.readyState === WebSocket.OPEN) {
+          try { ws.close(); } catch {}
+        } else if (ws.readyState === WebSocket.CONNECTING) {
+          ws.onopen = () => {
+            try { ws.close(); } catch {}
+          };
+        }
       }
     };
-  }, [isAuthenticated, user, connectWebSocket]);
+  }, [isAuthenticated, user?.id, connectWebSocket]);
 
   // Keep-alive ping every 25 seconds
   useEffect(() => {

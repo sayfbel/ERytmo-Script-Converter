@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends, Request, status
+from fastapi import FastAPI, Depends, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 import os
 from sqlalchemy.orm import Session
 from backend.database.database import engine, Base, init_db, get_db
@@ -16,7 +17,12 @@ from backend.routes.auth import (
 # Initialize database schema and migrations
 init_db()
 
-app = FastAPI(title="ERytmo Management Dashboard API", version="2.0")
+app = FastAPI(
+    title="DubFlow Studio API",
+    version="2.0",
+    docs_url=None,
+    redoc_url=None
+)
 
 # Setup CORS to allow Next.js frontend (local, preview, and production Vercel)
 cors_origins = [
