@@ -198,9 +198,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await refreshSession();
       }
 
+      const hasJobType = Boolean(json.user?.job_type);
+
       return {
         success: true,
         message: json.message,
+        requiresProfileCompletion: !hasJobType,
       };
     } catch {
       return {

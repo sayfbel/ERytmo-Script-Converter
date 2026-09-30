@@ -27,7 +27,7 @@ class ConnectionManager:
         self.pending_requests: Dict[str, dict] = {}
         self.lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket, user_id: int, client_id: Optional[str] = None, email: Optional[str] = None):
+    async def connect(self, websocket: WebSocket, user_id: int, client_id: Optional[str] = None):
         cid = client_id or str(uuid.uuid4())
         async with self.lock:
             if user_id not in self.active_connections:
@@ -40,8 +40,8 @@ class ConnectionManager:
 
         print(f"[P2P Signaling] User {user_id} (Client {cid}) connected (Total devices for user: {len(self.active_connections[user_id])})")
         
-        # Broadcast presence to all connected peers
-        await self.broadcast_presence(user_id, "online", email)
+        # Broadcast presence to connected peers (without leaking email addresses)
+        await self.broadcast_presence(user_id, "online")
 
     async def disconnect(self, websocket: WebSocket):
         user_id = None
@@ -71,14 +71,13 @@ class ConnectionManager:
     def get_online_user_ids(self) -> Set[int]:
         return set(self.active_connections.keys())
 
-    async def broadcast_presence(self, user_id: int, status: str, email: Optional[str] = None):
+    async def broadcast_presence(self, user_id: int, status: str):
         count = self.get_user_device_count(user_id)
         message = {
             "type": "PRESENCE_UPDATE",
             "user_id": user_id,
             "status": status,
             "devices_count": count,
-            "email": email,
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
         await self.broadcast(message)
@@ -184,7 +183,7 @@ async def p2p_signaling_websocket(websocket: WebSocket, db: Session = Depends(ge
         return
 
     cid = websocket.query_params.get("client_id") or str(uuid.uuid4())
-    await manager.connect(websocket, user.id, client_id=cid, email=user.email)
+    await manager.connect(websocket, user.id, client_id=cid)
 
     # Send initial welcome and online users list + devices count
     try:

@@ -53,7 +53,7 @@ export default function RegisterPage() {
         loginWithGoogle(idToken).then((res) => {
           setLoading(false);
           if (res.success) {
-            setToastInfo("Connexion réussie ! Chargement de votre espace studio...");
+            setToastInfo("Signed in successfully! Loading your studio workspace...");
             if (res.requiresProfileCompletion) {
               window.location.href = "/complete-profile";
             } else {
@@ -79,7 +79,7 @@ export default function RegisterPage() {
         process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
         "977526709418-0gtjdpj33uvlgur9ggjetnicjq61g2uv.apps.googleusercontent.com";
       if (!clientId) {
-        setToastInfo("Google Client ID non configuré.");
+        setToastInfo("Google Client ID is not configured.");
         return;
       }
       const redirectUri = window.location.origin + "/register";
@@ -97,19 +97,19 @@ export default function RegisterPage() {
     setToastInfo(null);
 
     if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setError("Veuillez saisir votre prénom et nom.");
+      setError("Please enter both your first and last name.");
       return;
     }
     if (!formData.email.trim()) {
-      setError("Veuillez saisir une adresse email valide.");
+      setError("Please enter a valid email address.");
       return;
     }
     if (formData.password.length < 8) {
-      setError("Le mot de passe doit comporter au moins 8 caractères.");
+      setError("Password must be at least 8 characters long.");
       return;
     }
     if (formData.password !== formData.confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError("Passwords do not match. Please retype and check.");
       return;
     }
 
@@ -129,10 +129,10 @@ export default function RegisterPage() {
           `/verify-email?email=${encodeURIComponent(formData.email.trim().toLowerCase())}`
         );
       } else {
-        setError(res.error || "Échec de l'inscription. Veuillez réessayer.");
+        setError(res.error || "Registration failed. Please check your details and try again.");
       }
     } catch {
-      setError("Une erreur inattendue est survenue. Veuillez réessayer.");
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -225,18 +225,18 @@ export default function RegisterPage() {
               </button>
 
               {/* Divider */}
-              <div className="text-xs font-normal text-[#555555] mb-3.5 select-none">or</div>
+              <div className="text-xs font-normal text-[#555555] mb-3 select-none">or</div>
 
-              {/* Toast / Error Notification Box */}
+              {/* Error & Info Message: Clean text, no bulky boxes */}
               {error && (
-                <div className="w-full p-2.5 rounded-xl mb-3 font-mono text-[11px] text-left bg-rose-950/40 border border-rose-500/30 text-rose-300">
-                  <strong>[ERROR]</strong> {error}
-                </div>
+                <p className="w-full text-center text-xs sm:text-[13px] font-medium text-rose-400 mb-3 px-1 leading-snug animate-in fade-in duration-200">
+                  {error}
+                </p>
               )}
               {toastInfo && (
-                <div className="w-full p-2.5 rounded-xl mb-3 font-mono text-[11px] text-left bg-amber-950/40 border border-amber-500/30 text-amber-300">
-                  <strong>[INFO]</strong> {toastInfo}
-                </div>
+                <p className="w-full text-center text-xs sm:text-[13px] font-medium text-amber-300 mb-3 px-1 leading-snug animate-in fade-in duration-200">
+                  {toastInfo}
+                </p>
               )}
 
               {/* Credentials Form */}

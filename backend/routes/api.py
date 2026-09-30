@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -9,11 +9,13 @@ from datetime import datetime
 import os
 import shutil
 import json
+import tempfile
 
 from backend.database.database import get_db
 from backend.models import models
 from backend.routes.auth import get_current_user
 from backend.routes.p2p_signaling import manager
+from backend.services.encryption_service import encrypt_secret, decrypt_secret
 
 router = APIRouter()
 
@@ -980,33 +982,52 @@ def delete_appointment(
 import os
 import json
 import tempfile
-from fastapi import UploadFile, File, Form
-from fastapi.responses import FileResponse
 from backend.services.script_parser import safe_validate_and_convert, align_timecodes_with_gemini
 from backend.services.script_validator import ValidationStatus
+
+ALLOWED_SCRIPT_EXTENSIONS = {".docx", ".pdf", ".txt"}
+MAX_SCRIPT_SIZE = 50 * 1024 * 1024  # 50 MB
+
+ALLOWED_MEDIA_EXTENSIONS = {".mp3", ".wav", ".mp4", ".mkv", ".mov", ".m4a", ".aac", ".avi", ".webm"}
+MAX_MEDIA_SIZE = 500 * 1024 * 1024  # 500 MB
 
 @router.post("/convert")
 async def convert_script(
     file: UploadFile = File(...),
     current_user: models.User = Depends(get_current_user)
 ):
-    # Save uploaded file to a temporary location
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
+    
+    suffix = os.path.splitext(file.filename)[1].lower()
+    if suffix not in ALLOWED_SCRIPT_EXTENSIONS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unsupported file format '{suffix}'. Allowed formats: {', '.join(ALLOWED_SCRIPT_EXTENSIONS)}"
+        )
+
+    temp_path = None
     try:
-        suffix = os.path.splitext(file.filename)[1]
+        total_size = 0
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
             temp_path = temp_file.name
             while chunk := await file.read(1024 * 1024):
+                total_size += len(chunk)
+                if total_size > MAX_SCRIPT_SIZE:
+                    raise HTTPException(
+                        status_code=413,
+                        detail="Script file exceeds the maximum allowed size (50 MB)."
+                    )
                 temp_file.write(chunk)
         
         # Process the file using user's keys
         report, raw_rows, format_a_cues = safe_validate_and_convert(temp_path, user_id=current_user.id)
         
-        # Clean up
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        
         if report.status == ValidationStatus.INVALID:
-            raise HTTPException(status_code=400, detail={"title": report.user_title, "message": report.user_message, "suggestion": getattr(report, 'suggestion', '')})
+            raise HTTPException(
+                status_code=400, 
+                detail={"title": report.user_title, "message": report.user_message, "suggestion": getattr(report, 'suggestion', '')}
+            )
             
         return {
             "success": True,
@@ -1018,6 +1039,12 @@ async def convert_script(
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
 
 @router.post("/align")
 async def align_script(
@@ -1026,25 +1053,45 @@ async def align_script(
     media: UploadFile = File(...),
     current_user: models.User = Depends(get_current_user)
 ):
+    if not media.filename:
+        raise HTTPException(status_code=400, detail="Missing media filename")
+        
+    suffix = os.path.splitext(media.filename)[1].lower()
+    if suffix not in ALLOWED_MEDIA_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported media format '{suffix}'. Allowed formats: {', '.join(ALLOWED_MEDIA_EXTENSIONS)}"
+        )
+
+    temp_media_path = None
     try:
-        # Save media file in chunks
-        suffix = os.path.splitext(media.filename)[1]
+        total_size = 0
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_media:
             temp_media_path = temp_media.name
             while chunk := await media.read(1024 * 1024):
+                total_size += len(chunk)
+                if total_size > MAX_MEDIA_SIZE:
+                    raise HTTPException(
+                        status_code=413,
+                        detail="Media file exceeds the maximum allowed size (500 MB)."
+                    )
                 temp_media.write(chunk)
             
         parsed_cues = json.loads(cues)
         generator = align_timecodes_with_gemini(parsed_cues, temp_media_path, start_tc, user_id=current_user.id)
-        
         aligned_cues = list(generator)
-        
-        if os.path.exists(temp_media_path):
-            os.remove(temp_media_path)
             
         return {"success": True, "aligned_cues": aligned_cues}
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_media_path and os.path.exists(temp_media_path):
+            try:
+                os.remove(temp_media_path)
+            except Exception:
+                pass
 
 def create_mosaic_excel(parsed_cues, filename: str = None):
     import openpyxl
@@ -1338,8 +1385,45 @@ async def download_script(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+DANGEROUS_EXTENSIONS = {
+    ".exe", ".bat", ".cmd", ".com", ".ps1", ".vbs", ".js", ".msi", 
+    ".dll", ".scr", ".pif", ".reg", ".wsf", ".hta", ".cpl", ".jar", ".py", ".sh"
+}
+
+ALLOWED_DESKTOP_EXTENSIONS = {
+    ".docx", ".xlsx", ".pdf", ".txt", ".mp4", ".mp3", ".wav", ".mkv", ".mov", ".avi", ".csv"
+}
+
+def _assert_local_desktop_only(request: Request, file_path: str):
+    is_prod = (
+        os.getenv("ENVIRONMENT") == "production" or
+        os.getenv("RENDER") is not None
+    )
+    if is_prod:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Local file host interaction is disabled in cloud deployments."
+        )
+    client_host = request.client.host if request.client else ""
+    if client_host not in ("127.0.0.1", "::1", "localhost", "testclient"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Host file execution is strictly limited to localhost desktop requests."
+        )
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext in DANGEROUS_EXTENSIONS or (ext and ext not in ALLOWED_DESKTOP_EXTENSIONS):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Opening executable or unapproved file formats is strictly prohibited."
+        )
+
 @router.post("/open-file")
-async def open_file_endpoint(path: str = Form(...)):
+async def open_file_endpoint(
+    request: Request,
+    path: str = Form(...),
+    current_user: models.User = Depends(get_current_user)
+):
+    _assert_local_desktop_only(request, path)
     if os.path.exists(path):
         try:
             if os.name == 'nt':
@@ -1350,7 +1434,12 @@ async def open_file_endpoint(path: str = Form(...)):
     raise HTTPException(status_code=404, detail="File not found")
 
 @router.post("/open-folder")
-async def open_folder_endpoint(path: str = Form(...)):
+async def open_folder_endpoint(
+    request: Request,
+    path: str = Form(...),
+    current_user: models.User = Depends(get_current_user)
+):
+    _assert_local_desktop_only(request, path)
     folder = path if os.path.isdir(path) else os.path.dirname(path)
     if os.path.exists(folder):
         try:
@@ -1443,12 +1532,13 @@ def get_all_keys(
     
     res = []
     for k in keys:
+        decrypted_val = decrypt_secret(k.key)
         res.append({
             "id": k.id,
             "provider": k.provider,
             "label": k.label or f"{k.provider.capitalize()} Key #{k.id}",
-            "key": k.key,
-            "masked_key": mask_api_key(k.key),
+            "key": decrypted_val,
+            "masked_key": mask_api_key(decrypted_val),
             "is_active": k.is_active,
             "created_at": k.created_at.isoformat() if k.created_at else None
         })
@@ -1474,7 +1564,7 @@ def add_api_key(
     new_key = models.ApiKey(
         user_id=current_user.id,
         provider=provider,
-        key=raw_key,
+        key=encrypt_secret(raw_key),
         label=label,
         is_active=payload.is_active
     )
@@ -1486,7 +1576,7 @@ def add_api_key(
         "id": new_key.id,
         "provider": new_key.provider,
         "label": new_key.label,
-        "masked_key": mask_api_key(new_key.key),
+        "masked_key": mask_api_key(raw_key),
         "is_active": new_key.is_active,
         "created_at": new_key.created_at.isoformat() if new_key.created_at else None
     }
@@ -1505,10 +1595,12 @@ def update_api_key_by_id(
     if not db_key:
         raise HTTPException(status_code=404, detail="API Key not found")
         
+    masked_display = mask_api_key(decrypt_secret(db_key.key))
     if payload.key is not None and payload.key.strip():
         new_key_str = payload.key.strip()
         validate_key_with_provider(db_key.provider, new_key_str)
-        db_key.key = new_key_str
+        db_key.key = encrypt_secret(new_key_str)
+        masked_display = mask_api_key(new_key_str)
         
     if payload.label is not None:
         db_key.label = payload.label.strip()
@@ -1522,7 +1614,7 @@ def update_api_key_by_id(
         "id": db_key.id,
         "provider": db_key.provider,
         "label": db_key.label,
-        "masked_key": mask_api_key(db_key.key),
+        "masked_key": masked_display,
         "is_active": db_key.is_active,
         "created_at": db_key.created_at.isoformat() if db_key.created_at else None
     }
@@ -1579,7 +1671,7 @@ def get_api_key(
         models.ApiKey.is_active == True
     ).first()
     if first_key:
-        return {"has_key": True, "masked_key": mask_api_key(first_key.key)}
+        return {"has_key": True, "masked_key": mask_api_key(decrypt_secret(first_key.key))}
     return {"has_key": False, "masked_key": ""}
 
 class ApiKeyUpdate(BaseModel):
@@ -1598,13 +1690,13 @@ def set_api_key(
         models.ApiKey.provider == "gemini"
     ).first()
     if first_key:
-        first_key.key = api_key
+        first_key.key = encrypt_secret(api_key)
         first_key.is_active = True
     else:
         first_key = models.ApiKey(
             user_id=current_user.id,
             provider="gemini", 
-            key=api_key, 
+            key=encrypt_secret(api_key), 
             label="Gemini Key 1", 
             is_active=True
         )
@@ -1635,7 +1727,7 @@ def get_openai_key(
         models.ApiKey.is_active == True
     ).first()
     if first_key:
-        return {"has_key": True, "masked_key": mask_api_key(first_key.key)}
+        return {"has_key": True, "masked_key": mask_api_key(decrypt_secret(first_key.key))}
     return {"has_key": False, "masked_key": ""}
 
 @router.post("/settings/openai-key")
@@ -1651,13 +1743,13 @@ def set_openai_key(
         models.ApiKey.provider == "openai"
     ).first()
     if first_key:
-        first_key.key = api_key
+        first_key.key = encrypt_secret(api_key)
         first_key.is_active = True
     else:
         first_key = models.ApiKey(
             user_id=current_user.id,
             provider="openai", 
-            key=api_key, 
+            key=encrypt_secret(api_key), 
             label="OpenAI Key 1", 
             is_active=True
         )
@@ -1688,7 +1780,7 @@ def get_groq_key(
         models.ApiKey.is_active == True
     ).first()
     if first_key:
-        return {"has_key": True, "masked_key": mask_api_key(first_key.key)}
+        return {"has_key": True, "masked_key": mask_api_key(decrypt_secret(first_key.key))}
     return {"has_key": False, "masked_key": ""}
 
 @router.post("/settings/groq-key")
@@ -1704,13 +1796,13 @@ def set_groq_key(
         models.ApiKey.provider == "groq"
     ).first()
     if first_key:
-        first_key.key = api_key
+        first_key.key = encrypt_secret(api_key)
         first_key.is_active = True
     else:
         first_key = models.ApiKey(
             user_id=current_user.id,
             provider="groq", 
-            key=api_key, 
+            key=encrypt_secret(api_key), 
             label="Groq Key 1", 
             is_active=True
         )

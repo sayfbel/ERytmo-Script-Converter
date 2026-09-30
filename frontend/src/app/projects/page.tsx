@@ -644,19 +644,19 @@ export default function ProjectsPage() {
   });
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-slate-50 dark:bg-slate-900 relative p-4 sm:p-6 lg:p-8 overflow-hidden">
+    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] relative p-4 sm:p-6 lg:p-8 overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-5 shrink-0">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 flex items-center tracking-tight">
-            <Briefcase className="mr-3 rtl:mr-0 rtl:ml-3 text-teal-600 dark:text-teal-400 shrink-0" size={28} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-[#f4efe6] flex items-center tracking-tight">
+            <Briefcase className="mr-3 rtl:mr-0 rtl:ml-3 text-amber-500 dark:text-amber-400 shrink-0" size={28} />
             {t("project.title")}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">{t("project.subtitle")}</p>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9f988b] mt-1">{t("project.subtitle")}</p>
         </div>
         <button 
           onClick={openCreateModal}
-          className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-semibold py-2.5 px-5 rounded-xl transition-all shadow-xs hover:shadow-md flex items-center justify-center text-sm shrink-0 self-start sm:self-auto transform hover:-translate-y-0.5 active:translate-y-0"
+          className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-extrabold py-2.5 px-5 rounded-xl transition-all shadow-[0_4px_20px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_25px_rgba(245,158,11,0.4)] flex items-center justify-center text-sm shrink-0 self-start sm:self-auto transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
         >
           <Plus size={18} className="mr-2 rtl:mr-0 rtl:ml-2" />
           {t("project.add")}
@@ -666,18 +666,18 @@ export default function ProjectsPage() {
       {/* Toolbar: Search and Filter */}
       <div className="flex gap-3 sm:gap-4 mb-5 flex-wrap shrink-0">
         <div className="flex-1 relative group min-w-[200px] sm:min-w-[260px]">
-          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-teal-500 dark:group-focus-within:text-teal-400 transition-colors" size={17} />
+          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-[#71717a] group-focus-within:text-amber-500 dark:group-focus-within:text-amber-400 transition-colors" size={17} />
           <input 
             type="text" 
             placeholder={t("project.search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl shadow-xs focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all text-sm font-medium text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"
+            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 bg-white dark:bg-[#131316] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 rounded-xl shadow-xs dark:shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all text-sm font-medium text-slate-900 dark:text-[#f4efe6] placeholder-slate-400 dark:placeholder-[#71717a]"
           />
         </div>
         
         {/* Sort Filter */}
-        <div className="shrink-0 w-40 sm:w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xs">
+        <div className="shrink-0 w-40 sm:w-48">
           <CustomSelect
             value={sortBy}
             onChange={(val) => setSortBy(val)}
@@ -691,7 +691,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Company Filter */}
-        <div className="shrink-0 w-40 sm:w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xs">
+        <div className="shrink-0 w-40 sm:w-48">
           <CustomSelect
             value={filterCompany}
             onChange={(val) => setFilterCompany(val)}
@@ -703,7 +703,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Software Filter */}
-        <div className="shrink-0 w-36 sm:w-40 bg-white dark:bg-slate-800 rounded-xl shadow-xs">
+        <div className="shrink-0 w-36 sm:w-40">
           <CustomSelect
             value={filterSoftware}
             onChange={(val) => setFilterSoftware(val)}
@@ -797,12 +797,12 @@ export default function ProjectsPage() {
               </div>
             </div>
           ) : filteredProjects.length === 0 ? (
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center flex flex-col items-center justify-center h-full">
-              <div className="bg-teal-50 dark:bg-teal-900/30 w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                <Briefcase className="text-teal-600 dark:text-teal-400" size={28} />
+            <div className="bg-white dark:bg-[#121215] rounded-2xl shadow-xs dark:shadow-[0_10px_30px_rgba(0,0,0,0.6)] border border-slate-200/80 dark:border-white/[0.08] p-8 text-center flex flex-col items-center justify-center h-full">
+              <div className="bg-amber-400/10 border border-amber-400/20 w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+                <Briefcase className="text-amber-500 dark:text-amber-400" size={28} />
               </div>
-              <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-2">{t("project.no_found")}</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-[#f4efe6] mb-2">{t("project.no_found")}</h3>
+              <p className="text-slate-500 dark:text-[#9f988b] text-sm max-w-sm">
                 {t("project.no_found_desc")}
               </p>
             </div>
@@ -815,21 +815,21 @@ export default function ProjectsPage() {
                 <div 
                   key={p.id}
                   onClick={() => handleProjectClick(p)}
-                  className={`group bg-white dark:bg-slate-800 rounded-xl border p-4 cursor-pointer transition-all duration-200 ${
+                  className={`group bg-white dark:bg-[#121215] hover:bg-slate-50 dark:hover:bg-[#16161a] rounded-2xl border p-4 sm:p-5 cursor-pointer transition-all duration-200 ${
                     selectedProject?.id === p.id 
-                      ? "border-teal-500 dark:border-teal-500 ring-1 ring-teal-500 shadow-md" 
-                      : "border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md"
+                      ? "border-amber-500/80 dark:border-amber-400/80 ring-1 ring-amber-500/50 dark:ring-amber-400/50 shadow-md dark:shadow-[0_0_25px_rgba(245,158,11,0.15)]" 
+                      : "border-slate-200/80 dark:border-white/[0.08] hover:border-amber-400/40 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
                   }`}
                 >
                   <div className="flex justify-between items-start mb-2 group-hover:bg-transparent">
                     <div className="min-w-0 pr-2 rtl:pr-0 rtl:pl-2">
                       <div className="flex items-center space-x-2 rtl:space-x-reverse mb-1">
-                        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg truncate">{p.name}</h3>
+                        <h3 className="font-bold text-slate-900 dark:text-[#f4efe6] text-lg truncate">{p.name}</h3>
                         {!isOwner && (
                           <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${
                             p.access_level === 'full_access'
-                              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                              : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                              : 'bg-amber-400/10 text-amber-600 dark:text-amber-300 border-amber-400/20'
                           }`}>
                             {p.access_level === 'full_access' ? 'Full Access' : 'Spectator'}
                           </span>
@@ -837,11 +837,11 @@ export default function ProjectsPage() {
                       </div>
                       
                       {!isOwner && (
-                        <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mb-1">
+                        <div className="flex items-center text-xs text-slate-500 dark:text-[#9f988b] mb-1">
                           <span className={`inline-block w-2 h-2 rounded-full mr-1.5 shrink-0 ${
                             ownerOnline 
                               ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)] animate-pulse' 
-                              : 'bg-slate-300 dark:bg-slate-600'
+                              : 'bg-slate-400 dark:bg-zinc-600'
                           }`} />
                           <span className="font-medium">{ownerOnline ? "Owner Online" : "Owner Offline"}</span>
                           <span className="mx-1.5 opacity-50">•</span>
@@ -852,12 +852,12 @@ export default function ProjectsPage() {
 
                     <div className="flex items-center space-x-2 rtl:space-x-reverse shrink-0">
                       {p.project_type && (
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-[#c2bcaf] border border-slate-200 dark:border-white/10">
                           {p.project_type}
                         </span>
                       )}
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                        p.target_software === 'Mosaic' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' : 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400'
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${
+                        p.target_software === 'Mosaic' ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/40' : 'bg-amber-400/10 text-amber-700 dark:text-amber-300 border-amber-400/20'
                       }`}>
                         {p.target_software || "Unknown"}
                       </span>
@@ -867,7 +867,7 @@ export default function ProjectsPage() {
                         <div className="flex space-x-1 rtl:space-x-reverse opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={(e) => openEditModal(p, e)}
-                            className="p-1 text-slate-400 dark:text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded transition-colors"
+                            className="p-1 text-slate-400 dark:text-[#71717a] hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-400/10 rounded transition-colors"
                             title={t("project.edit")}
                           >
                             <Edit2 size={16} />
@@ -877,7 +877,7 @@ export default function ProjectsPage() {
                               e.stopPropagation();
                               setConfirmModal({ isOpen: true, type: 'delete', project: p });
                             }}
-                            className="p-1 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                            className="p-1 text-slate-400 dark:text-[#71717a] hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
                             title={t("delete")}
                           >
                             <Trash2 size={16} />
@@ -886,21 +886,21 @@ export default function ProjectsPage() {
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm text-slate-500 dark:text-slate-400 mt-3">
+                  <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 dark:text-[#9f988b] mt-3">
                     <div className="flex items-center">
-                      <Building size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-slate-500" />
+                      <Building size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-[#71717a]" />
                       <span className="truncate">{p.company_name || "No Company"}</span>
                     </div>
                     <div className="flex items-center">
-                      <Calendar size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-slate-500" />
+                      <Calendar size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-[#71717a]" />
                       <span>{p.deadline ? new Date(p.deadline).toLocaleDateString() : "No Deadline"}</span>
                     </div>
                     <div className="flex items-center col-span-2 mt-1">
-                      <FolderOpen size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-slate-500" />
+                      <FolderOpen size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-slate-400 dark:text-[#71717a]" />
                       <span className="truncate font-mono text-xs">{p.folder_path || "No folder assigned"}</span>
                     </div>
                     {p.total_time != null && (
-                      <div className="flex items-center col-span-2 mt-1 text-teal-600 dark:text-teal-400 font-medium">
+                      <div className="flex items-center col-span-2 mt-1 text-amber-600 dark:text-amber-400 font-semibold">
                         <Clock size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5" />
                         <span>{p.total_time} {t("project.minutes")}</span>
                       </div>
@@ -914,13 +914,13 @@ export default function ProjectsPage() {
 
         {/* Project Details Panel */}
         {selectedProject && (
-          <div className="w-full lg:w-[400px] xl:w-[440px] shrink-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex flex-col h-full animate-in slide-in-from-right-4 duration-300 overflow-hidden">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-start bg-slate-50/50 dark:bg-slate-800/50 rounded-t-xl">
+          <div className="w-full lg:w-[400px] xl:w-[440px] shrink-0 bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xl dark:shadow-[0_15px_40px_rgba(0,0,0,0.7)] flex flex-col h-full animate-in slide-in-from-right-4 duration-300 overflow-hidden text-slate-800 dark:text-[#f4efe6]">
+            <div className="p-4 border-b border-slate-200/80 dark:border-white/[0.08] flex justify-between items-start bg-slate-50/70 dark:bg-white/[0.02] rounded-t-2xl">
               <div>
                 <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                  <h2 className="font-bold text-slate-800 dark:text-slate-100 text-xl truncate">{selectedProject.name}</h2>
+                  <h2 className="font-bold text-slate-900 dark:text-[#f4efe6] text-xl truncate">{selectedProject.name}</h2>
                 </div>
-                <div className="flex items-center mt-1 text-xs text-slate-500 dark:text-slate-400 space-x-2 rtl:space-x-reverse">
+                <div className="flex items-center mt-1 text-xs text-slate-500 dark:text-[#9f988b] space-x-2 rtl:space-x-reverse">
                   <span className="flex items-center">
                     <FolderOpen size={13} className="mr-1 rtl:mr-0 rtl:ml-1" /> {t("project.local_files")}
                   </span>
@@ -928,7 +928,7 @@ export default function ProjectsPage() {
                     <span className={`px-2 py-0.5 rounded font-bold text-[9px] flex items-center gap-1 ${
                       otherDevicesCount > 0 
                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
-                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                     }`}>
                       {otherDevicesCount > 0 ? (
                         <>
@@ -955,7 +955,7 @@ export default function ProjectsPage() {
                   <button
                     onClick={() => panelFolderInputRef.current?.click()}
                     disabled={isIndexing}
-                    className="p-1.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                    className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
                     title={t("project.form.browse")}
                   >
                     <FolderOpen size={15} />
@@ -964,7 +964,7 @@ export default function ProjectsPage() {
                 )}
                 <button 
                   onClick={() => setSelectedProject(null)}
-                  className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md text-slate-400 dark:text-slate-500 transition-colors ml-1 rtl:ml-0 rtl:mr-1"
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md text-slate-400 dark:text-slate-500 transition-colors ml-1 rtl:ml-0 rtl:mr-1 cursor-pointer"
                   title={t("cancel")}
                 >
                   <ChevronRight size={18} className="rtl:rotate-180" />
@@ -1030,8 +1030,8 @@ export default function ProjectsPage() {
               onDrop={handleDropPanel}
               className={`flex-1 overflow-y-auto p-4 transition-colors ${
                 isDraggingPanel 
-                  ? 'bg-teal-50/50 dark:bg-teal-950/30 border-2 border-dashed border-teal-500' 
-                  : 'bg-slate-50/30 dark:bg-slate-900/30'
+                  ? 'bg-amber-500/10 border-2 border-dashed border-amber-500' 
+                  : 'bg-slate-50/50 dark:bg-black/20'
               }`}
             >
               {loadingFiles ? (
@@ -1041,19 +1041,19 @@ export default function ProjectsPage() {
                 </div>
               ) : projectFiles.length === 0 ? (
                 selectedProject.is_owner !== false ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-white/40 dark:bg-slate-800/40">
-                    <div className="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 dark:text-teal-400 mb-3">
+                  <div className="flex flex-col items-center justify-center h-full text-center p-6 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl bg-white dark:bg-white/[0.02]">
+                    <div className="w-12 h-12 rounded-full bg-amber-400/10 flex items-center justify-center text-amber-500 dark:text-amber-400 mb-3">
                       <FolderOpen size={22} />
                     </div>
-                    <p className="text-slate-700 dark:text-slate-200 font-bold text-sm">No files indexed yet</p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs mb-4">
+                    <p className="text-slate-900 dark:text-slate-100 font-bold text-sm">No files indexed yet</p>
+                    <p className="text-xs text-slate-500 dark:text-[#9f988b] mt-1 max-w-xs mb-4">
                       Select your project folder or local files to index them and enjoy instant zero-lag playback without cloud uploads.
                     </p>
                     <div className="flex justify-center">
                       <button
                         onClick={() => panelFolderInputRef.current?.click()}
                         disabled={isIndexing}
-                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                        className="px-4 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black rounded-xl text-xs font-bold shadow-xs flex items-center gap-2 transition-all cursor-pointer"
                       >
                         <FolderOpen size={15} /> Select Folder
                       </button>
@@ -1061,8 +1061,8 @@ export default function ProjectsPage() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <FolderOpen size={48} className="text-slate-200 dark:text-slate-700 mb-3" />
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">{t("project.no_files")}</p>
+                    <FolderOpen size={48} className="text-slate-300 dark:text-slate-600 mb-3" />
+                    <p className="text-slate-600 dark:text-slate-400 font-medium">{t("project.no_files")}</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs">
                       {t("project.no_files_desc")}
                     </p>
@@ -1095,7 +1095,7 @@ export default function ProjectsPage() {
                             }
                           }
                         }}
-                        className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 flex flex-col shadow-xs hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md transition-all ${
+                        className={`bg-white dark:bg-[#161619] border border-slate-200/80 dark:border-white/[0.08] rounded-xl p-3.5 flex flex-col shadow-xs hover:border-amber-400/50 dark:hover:border-amber-400/50 hover:shadow-md transition-all ${
                           isOwner ? 'cursor-pointer' : 'cursor-default'
                         }`}
                       >
@@ -1111,11 +1111,11 @@ export default function ProjectsPage() {
                               {file.type === 'video' ? <Video size={18} /> : file.type === 'audio' ? <Music size={18} /> : <FileText size={18} />}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate" title={file.name}>
+                              <div className="font-semibold text-sm text-slate-900 dark:text-[#f4efe6] truncate" title={file.name}>
                                 {file.name}
                               </div>
                               <div className="flex items-center space-x-2 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                <span className="font-medium text-slate-600 dark:text-slate-300 font-mono">
+                                <span className="font-medium text-slate-600 dark:text-[#c2bcaf] font-mono">
                                   {formatFileSize(file.size)}
                                 </span>
                                 {hasLocal ? (
@@ -1303,11 +1303,11 @@ export default function ProjectsPage() {
               )}
             </div>
             
-            <div className="p-4 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400 dark:text-slate-500 text-center bg-white dark:bg-slate-800 rounded-b-xl">
+            <div className="p-4 border-t border-slate-200/80 dark:border-white/[0.08] text-xs text-slate-500 dark:text-[#71717a] text-center bg-slate-50/70 dark:bg-black/20 rounded-b-xl">
               {selectedProject.is_owner !== false ? (
                 <>
                   {t("project.files_not_copied")}<br/>
-                  <span className="font-mono">{selectedProject.folder_path}</span>
+                  <span className="font-mono text-slate-600 dark:text-[#9f988b]">{selectedProject.folder_path}</span>
                 </>
               ) : (
                 <span>
@@ -1321,11 +1321,11 @@ export default function ProjectsPage() {
 
       {/* Create Project Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg animate-in zoom-in-95 duration-200 relative z-10 border border-transparent dark:border-slate-700">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-t-2xl">
-              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{editingProjectId ? t("project.edit") : t("project.add_new")}</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 p-2 rounded-full transition-colors">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-lg animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6]">
+            <div className="flex justify-between items-center p-6 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] rounded-t-2xl">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingProjectId ? t("project.edit") : t("project.add_new")}</h2>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-2 rounded-full transition-colors cursor-pointer">
                 <X size={20} />
               </button>
             </div>
@@ -1338,19 +1338,19 @@ export default function ProjectsPage() {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("project.form.name")} *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.name")} *</label>
                 <input 
                   type="text"
                   required
                   placeholder="e.g. Episode 10 Translation"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
+                  className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
                   {t("project.form.folder")} *
                 </label>
                 
@@ -1381,12 +1381,12 @@ export default function ProjectsPage() {
                   onDrop={handleDropNewProject}
                   className={`flex items-center rounded-xl border transition-all overflow-hidden ${
                     isDraggingNewProject 
-                      ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-950/50 ring-2 ring-teal-500/20' 
-                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-600 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500'
+                      ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/20' 
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#161619] hover:border-slate-300 dark:hover:border-white/20 focus-within:border-amber-500 dark:focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-500/20 dark:focus-within:ring-amber-400/20'
                   }`}
                 >
-                  <div className="pl-3 pr-2 text-slate-400 dark:text-slate-500 flex items-center justify-center shrink-0">
-                    <FolderOpen size={18} className="text-teal-600 dark:text-teal-400" />
+                  <div className="pl-3.5 pr-2 text-slate-400 dark:text-[#71717a] flex items-center justify-center shrink-0">
+                    <FolderOpen size={18} className="text-amber-500 dark:text-amber-400" />
                   </div>
                   <input
                     type="text"
@@ -1394,13 +1394,13 @@ export default function ProjectsPage() {
                     placeholder="e.g. C:/Projects/Episode1 or browse folder..."
                     value={folderPath}
                     onChange={(e) => setFolderPath(e.target.value)}
-                    className="flex-1 bg-transparent py-2 px-1 text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
+                    className="flex-1 bg-transparent py-2.5 px-1 text-xs font-mono text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none"
                   />
                   <div className="p-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={handleBrowseFolder}
-                      className="px-3.5 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                      className="px-3.5 py-1.5 bg-slate-200/70 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-[#f4efe6] rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                       <FolderOpen size={14} />
                       <span>{t("project.form.browse")}</span>
@@ -1409,17 +1409,17 @@ export default function ProjectsPage() {
                 </div>
 
                 {selectedFilesForNewProject.length > 0 && (
-                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-2 text-xs text-teal-600 dark:text-teal-400 font-medium animate-in fade-in duration-150">
+                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-2 text-xs text-amber-600 dark:text-amber-400 font-medium animate-in fade-in duration-150">
                     <CheckCircle2 size={14} className="shrink-0" />
                     <span>{selectedFilesForNewProject.length} files detected in folder</span>
                   </div>
                 )}
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{t("project.form.folder_desc")}</p>
+                <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-1">{t("project.form.folder_desc")}</p>
               </div>
 
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("project.form.company")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.company")}</label>
                   {!isCustomCompany ? (
                     <CustomSelect
                       value={companyName}
@@ -1445,12 +1445,12 @@ export default function ProjectsPage() {
                         placeholder="e.g. Netflix"
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
+                        className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
                       />
                       <button 
                         type="button" 
                         onClick={() => { setIsCustomCompany(false); setCompanyName(""); }}
-                        className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg px-2 flex items-center justify-center transition-colors"
+                        className="bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-600 dark:text-[#f4efe6] rounded-xl px-3 flex items-center justify-center transition-colors cursor-pointer"
                         title={t("cancel")}
                       >
                         <X size={16} />
@@ -1459,7 +1459,7 @@ export default function ProjectsPage() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("project.form.type")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.type")}</label>
                   <CustomSelect
                     value={projectType}
                     onChange={(val) => setProjectType(val)}
@@ -1475,7 +1475,7 @@ export default function ProjectsPage() {
 
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("project.form.software")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.software")}</label>
                   <CustomSelect
                     value={targetSoftware}
                     onChange={(val) => setTargetSoftware(val)}
@@ -1486,32 +1486,32 @@ export default function ProjectsPage() {
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("project.form.deadline")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.deadline")}</label>
                   <input 
                     type="date"
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-slate-900 dark:text-slate-100"
+                    className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6]"
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("project.form.time")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.time")}</label>
                   <input 
                     type="number"
                     min="0"
                     placeholder="e.g. 120"
                     value={totalTime}
                     onChange={(e) => setTotalTime(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
+                    className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 rtl:space-x-reverse pt-6 border-t border-slate-100 dark:border-slate-700 mt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors disabled:opacity-50">
+              <div className="flex justify-end space-x-3 rtl:space-x-reverse pt-6 border-t border-slate-200/80 dark:border-white/[0.08] mt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
                   {t("cancel")}
                 </button>
-                <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors flex items-center shadow-sm disabled:opacity-50">
+                <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center disabled:opacity-50 cursor-pointer">
                   {isSubmitting && <Loader2 size={16} className="animate-spin mr-2 rtl:mr-0 rtl:ml-2" />}
                   {editingProjectId ? t("update") : t("create")}
                 </button>

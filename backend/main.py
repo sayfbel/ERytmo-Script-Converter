@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends, Request, status
+from fastapi import FastAPI, Depends, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 import os
 from sqlalchemy.orm import Session
 from backend.database.database import engine, Base, init_db, get_db
@@ -16,7 +17,12 @@ from backend.routes.auth import (
 # Initialize database schema and migrations
 init_db()
 
-app = FastAPI(title="ERytmo Management Dashboard API", version="2.0")
+app = FastAPI(
+    title="DubFlow Studio API",
+    version="2.0",
+    docs_url=None,
+    redoc_url=None
+)
 
 # Setup CORS to allow Next.js frontend (local, preview, and production Vercel)
 cors_origins = [
@@ -36,7 +42,7 @@ if frontend_url_env:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
+    allow_origin_regex=r"^https:\/\/(e-rytmo-script-converter|dubflow-studio)(-[a-z0-9-]+)?\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,16 +52,23 @@ app.add_middleware(
 @app.middleware("http")
 async def add_no_cache_headers(request: Request, call_next):
     response = await call_next(request)
-    if (
-        request.url.path.startswith("/api/auth") or
-        request.url.path.startswith("/auth") or
-        request.url.path.startswith("/api/projects") or
-        request.url.path.startswith("/api/me")
-    ):
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private, max-age=0"
+    path = request.url.path
+    is_api_or_auth = (
+        path.startswith("/api") or
+        path.startswith("/auth") or
+        path in ("/", "/login")
+    )
+    has_set_cookie = "set-cookie" in response.headers
+
+    # Strictly forbid caching for all API endpoints, auth endpoints, any response setting cookies, or HTML pages
+    if is_api_or_auth or has_set_cookie:
+        response.headers["Cache-Control"] = "private, no-cache, no-store, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["Vary"] = "Cookie, Authorization"
+        response.headers["Vary"] = "Cookie, Authorization, Accept-Encoding"
+        response.headers["CDN-Cache-Control"] = "no-store"
+        response.headers["Cloudflare-CDN-Cache-Control"] = "no-store"
+        response.headers["Surrogate-Control"] = "no-store"
     return response
 
 # Authentication router (public registration/login/verification + self endpoints)

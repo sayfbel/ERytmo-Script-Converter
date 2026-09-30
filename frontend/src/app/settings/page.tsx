@@ -9,34 +9,34 @@ export default function SettingsPage() {
   const { theme, language, setTheme, setLanguage, t } = useSettings();
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-slate-50 dark:bg-slate-900 relative p-4 sm:p-6 lg:p-8 overflow-y-auto">
+    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] relative p-4 sm:p-6 lg:p-8 overflow-y-auto">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6 shrink-0">
+      <div className="flex justify-between items-center mb-6 shrink-0 pb-5 border-b border-slate-200/80 dark:border-white/[0.08]">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 flex items-center tracking-tight">
-            <Settings className="mr-3 rtl:mr-0 rtl:ml-3 text-teal-600 dark:text-teal-400 shrink-0" size={28} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-[#f4efe6] flex items-center tracking-tight">
+            <Settings className="mr-3 rtl:mr-0 rtl:ml-3 text-amber-500 dark:text-amber-400 shrink-0" size={28} />
             {t("settings.title")}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">{t("settings.subtitle")}</p>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9f988b] mt-1">{t("settings.subtitle")}</p>
         </div>
       </div>
 
       <div className="w-full space-y-6 pb-6">
         {/* Preferences Section */}
-        <div className="w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">{t("settings.preferences")}</h2>
+        <div className="w-full bg-white dark:bg-[#121215] rounded-2xl shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02]">
+            <h2 className="text-base font-bold text-slate-900 dark:text-[#f4efe6]">{t("settings.preferences")}</h2>
           </div>
           
           <div className="p-6 space-y-6">
             {/* Language */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3 rtl:space-x-reverse">
-                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                <div className="p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-400/20 rounded-xl">
                   <Globe size={20} />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-700 dark:text-slate-200">{t("settings.language")}</h3>
+                  <h3 className="font-semibold text-xs sm:text-sm text-slate-800 dark:text-[#f4efe6]">{t("settings.language")}</h3>
                 </div>
               </div>
               <div className="w-48">
@@ -52,35 +52,35 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="h-px bg-slate-100 dark:bg-slate-700" />
+            <div className="h-px bg-slate-100 dark:bg-white/[0.06]" />
 
             {/* Theme */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3 rtl:space-x-reverse">
-                <div className="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg">
+                <div className="p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-400/20 rounded-xl">
                   {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-700 dark:text-slate-200">{t("settings.theme")}</h3>
+                  <h3 className="font-semibold text-xs sm:text-sm text-slate-800 dark:text-[#f4efe6]">{t("settings.theme")}</h3>
                 </div>
               </div>
-              <div className="flex bg-slate-100 dark:bg-slate-900 rounded-lg p-1">
+              <div className="flex bg-slate-100 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl p-1">
                 <button
                   onClick={() => setTheme("light")}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                     theme === "light" 
-                      ? "bg-white dark:bg-slate-700 shadow-sm text-teal-600 dark:text-teal-400" 
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                      ? "bg-amber-400 text-black shadow-xs font-extrabold" 
+                      : "text-slate-500 dark:text-[#71717a] hover:text-slate-900 dark:hover:text-[#f4efe6]"
                   }`}
                 >
                   {t("settings.theme.light")}
                 </button>
                 <button
                   onClick={() => setTheme("dark")}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                     theme === "dark" 
-                      ? "bg-white dark:bg-slate-700 shadow-sm text-teal-600 dark:text-teal-400" 
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                      ? "bg-amber-400 text-black shadow-xs font-extrabold" 
+                      : "text-slate-500 dark:text-[#71717a] hover:text-slate-900 dark:hover:text-[#f4efe6]"
                   }`}
                 >
                   {t("settings.theme.dark")}
@@ -91,69 +91,69 @@ export default function SettingsPage() {
         </div>
 
         {/* Integrations Section */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">{t("settings.integrations")}</h2>
+        <div className="bg-white dark:bg-[#121215] rounded-2xl shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02]">
+            <h2 className="text-base font-bold text-slate-900 dark:text-[#f4efe6]">{t("settings.integrations")}</h2>
           </div>
           
-          <div className="p-6">
-            <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-teal-300 dark:hover:border-teal-600 transition-colors group">
+          <div className="p-6 space-y-4">
+            <div className="flex items-center justify-between p-4 border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-[#161619] rounded-xl hover:border-amber-400/50 hover:bg-amber-500/5 dark:hover:bg-[#18181d] transition-all group">
               <div className="flex items-center space-x-4 rtl:space-x-reverse">
-                <div className="p-3 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl">
-                  <Cpu size={24} />
+                <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-400/20 rounded-xl">
+                  <Cpu size={22} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">{t("settings.gemini")}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t("settings.gemini.desc")}</p>
+                  <h3 className="font-bold text-slate-900 dark:text-[#f4efe6] text-base group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{t("settings.gemini")}</h3>
+                  <p className="text-xs text-slate-500 dark:text-[#9f988b] mt-0.5">{t("settings.gemini.desc")}</p>
                 </div>
               </div>
               <Link 
                 href="/settings/gemini"
-                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center group-hover:bg-teal-50 dark:group-hover:bg-teal-900/30 group-hover:text-teal-600 dark:group-hover:text-teal-400"
+                className="px-4 py-2 bg-white dark:bg-white/[0.05] hover:bg-amber-400 hover:text-black border border-slate-200 dark:border-white/10 hover:border-amber-400 text-slate-800 dark:text-[#f4efe6] font-extrabold text-xs rounded-xl transition-all flex items-center group-hover:shadow-[0_2px_10px_rgba(245,158,11,0.2)] shadow-xs"
               >
                 {t("settings.gemini.add")}
-                <ArrowRight size={16} className="ml-2 rtl:hidden" />
-                <ArrowRight size={16} className="mr-2 hidden rtl:block rotate-180" />
+                <ArrowRight size={14} className="ml-1.5 rtl:hidden" />
+                <ArrowRight size={14} className="mr-1.5 hidden rtl:block rotate-180" />
               </Link>
             </div>
 
-            <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-teal-300 dark:hover:border-teal-600 transition-colors group mt-4">
+            <div className="flex items-center justify-between p-4 border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-[#161619] rounded-xl hover:border-amber-400/50 hover:bg-amber-500/5 dark:hover:bg-[#18181d] transition-all group">
               <div className="flex items-center space-x-4 rtl:space-x-reverse">
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
-                  <Cpu size={24} />
+                <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-400/20 rounded-xl">
+                  <Cpu size={22} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">{t("settings.openai")}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t("settings.openai.desc")}</p>
+                  <h3 className="font-bold text-slate-900 dark:text-[#f4efe6] text-base group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{t("settings.openai")}</h3>
+                  <p className="text-xs text-slate-500 dark:text-[#9f988b] mt-0.5">{t("settings.openai.desc")}</p>
                 </div>
               </div>
               <Link 
                 href="/settings/openai"
-                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center group-hover:bg-teal-50 dark:group-hover:bg-teal-900/30 group-hover:text-teal-600 dark:group-hover:text-teal-400"
+                className="px-4 py-2 bg-white dark:bg-white/[0.05] hover:bg-amber-400 hover:text-black border border-slate-200 dark:border-white/10 hover:border-amber-400 text-slate-800 dark:text-[#f4efe6] font-extrabold text-xs rounded-xl transition-all flex items-center group-hover:shadow-[0_2px_10px_rgba(245,158,11,0.2)] shadow-xs"
               >
                 {t("settings.openai.add")}
-                <ArrowRight size={16} className="ml-2 rtl:hidden" />
-                <ArrowRight size={16} className="mr-2 hidden rtl:block rotate-180" />
+                <ArrowRight size={14} className="ml-1.5 rtl:hidden" />
+                <ArrowRight size={14} className="mr-2 hidden rtl:block rotate-180" />
               </Link>
             </div>
 
-            <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-teal-300 dark:hover:border-teal-600 transition-colors group mt-4">
+            <div className="flex items-center justify-between p-4 border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-[#161619] rounded-xl hover:border-amber-400/50 hover:bg-amber-500/5 dark:hover:bg-[#18181d] transition-all group">
               <div className="flex items-center space-x-4 rtl:space-x-reverse">
-                <div className="p-3 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl">
-                  <Cpu size={24} />
+                <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-400/20 rounded-xl">
+                  <Cpu size={22} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">{t("settings.groq")}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t("settings.groq.desc")}</p>
+                  <h3 className="font-bold text-slate-900 dark:text-[#f4efe6] text-base group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{t("settings.groq")}</h3>
+                  <p className="text-xs text-slate-500 dark:text-[#9f988b] mt-0.5">{t("settings.groq.desc")}</p>
                 </div>
               </div>
               <Link 
                 href="/settings/groq"
-                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center group-hover:bg-teal-50 dark:group-hover:bg-teal-900/30 group-hover:text-teal-600 dark:group-hover:text-teal-400"
+                className="px-4 py-2 bg-white dark:bg-white/[0.05] hover:bg-amber-400 hover:text-black border border-slate-200 dark:border-white/10 hover:border-amber-400 text-slate-800 dark:text-[#f4efe6] font-extrabold text-xs rounded-xl transition-all flex items-center group-hover:shadow-[0_2px_10px_rgba(245,158,11,0.2)] shadow-xs"
               >
                 {t("settings.groq.add")}
-                <ArrowRight size={16} className="ml-2 rtl:hidden" />
-                <ArrowRight size={16} className="mr-2 hidden rtl:block rotate-180" />
+                <ArrowRight size={14} className="ml-1.5 rtl:hidden" />
+                <ArrowRight size={14} className="mr-1.5 hidden rtl:block rotate-180" />
               </Link>
             </div>
           </div>

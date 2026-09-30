@@ -213,19 +213,19 @@ export default function CompanyPage() {
   });
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-slate-50 dark:bg-slate-900 relative p-4 sm:p-6 lg:p-8 overflow-hidden">
+    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] relative p-4 sm:p-6 lg:p-8 overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-5 shrink-0">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 flex items-center tracking-tight">
-            <Building className="mr-3 rtl:mr-0 rtl:ml-3 text-teal-600 dark:text-teal-400 shrink-0" size={28} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-[#f4efe6] flex items-center tracking-tight">
+            <Building className="mr-3 rtl:mr-0 rtl:ml-3 text-amber-500 dark:text-amber-400 shrink-0" size={28} />
             {t("company.title")}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">{t("company.subtitle")}</p>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9f988b] mt-1">{t("company.subtitle")}</p>
         </div>
         <button 
           onClick={openCreateModal}
-          className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-semibold py-2.5 px-5 rounded-xl transition-all shadow-xs hover:shadow-md flex items-center justify-center text-sm shrink-0 self-start sm:self-auto transform hover:-translate-y-0.5 active:translate-y-0"
+          className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-extrabold py-2.5 px-5 rounded-xl transition-all shadow-[0_4px_20px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_25px_rgba(245,158,11,0.4)] flex items-center justify-center text-sm shrink-0 self-start sm:self-auto transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
         >
           <Plus size={18} className="mr-2 rtl:mr-0 rtl:ml-2" />
           {t("company.add")}
@@ -235,18 +235,18 @@ export default function CompanyPage() {
       {/* Toolbar: Search and Filter */}
       <div className="flex gap-3 sm:gap-4 mb-5 flex-wrap shrink-0">
         <div className="flex-1 relative group min-w-[200px] sm:min-w-[260px]">
-          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-teal-500 dark:group-focus-within:text-teal-400 transition-colors" size={17} />
+          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-[#71717a] group-focus-within:text-amber-500 dark:group-focus-within:text-amber-400 transition-colors" size={17} />
           <input 
             type="text" 
             placeholder={t("company.search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl shadow-xs focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all text-sm font-medium text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"
+            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 bg-white dark:bg-[#131316] border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 rounded-xl shadow-xs focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-sm font-medium text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
           />
         </div>
         
         {/* Sort Filter */}
-        <div className="shrink-0 w-40 sm:w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xs">
+        <div className="shrink-0 w-40 sm:w-48">
           <CustomSelect
             value={sortBy}
             onChange={(val) => setSortBy(val)}
@@ -260,7 +260,7 @@ export default function CompanyPage() {
         </div>
 
         {/* Software Filter */}
-        <div className="shrink-0 w-36 sm:w-40 bg-white dark:bg-slate-800 rounded-xl shadow-xs">
+        <div className="shrink-0 w-36 sm:w-40">
           <CustomSelect
             value={filterSoftware}
             onChange={(val) => setFilterSoftware(val)}
@@ -276,17 +276,17 @@ export default function CompanyPage() {
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto">
         {filteredCompanies.length === 0 ? (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 p-8 text-center flex flex-col items-center justify-center h-64 mt-6">
-            <div className="bg-teal-50 dark:bg-teal-900/30 w-16 h-16 rounded-2xl flex items-center justify-center mb-3">
-              <Building className="text-teal-600 dark:text-teal-400" size={28} />
+          <div className="bg-white dark:bg-[#121215] rounded-2xl shadow-xs dark:shadow-[0_10px_30px_rgba(0,0,0,0.6)] border border-slate-200/80 dark:border-white/[0.08] p-8 text-center flex flex-col items-center justify-center h-64 mt-6">
+            <div className="bg-amber-400/10 border border-amber-400/20 w-16 h-16 rounded-2xl flex items-center justify-center mb-3 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+              <Building className="text-amber-500 dark:text-amber-400" size={28} />
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-700 dark:text-slate-200 mb-1">{t("company.no_found")}</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm max-w-sm mb-4">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-[#f4efe6] mb-1">{t("company.no_found")}</h3>
+            <p className="text-slate-500 dark:text-[#9f988b] text-xs sm:text-sm max-w-sm mb-4">
               {t("company.no_found_desc")}
             </p>
             <button 
               onClick={openCreateModal}
-              className="text-teal-600 dark:text-teal-400 text-sm font-semibold hover:underline"
+              className="text-amber-600 dark:text-amber-400 font-bold hover:underline cursor-pointer"
             >
               + {t("company.add")}
             </button>
@@ -296,14 +296,14 @@ export default function CompanyPage() {
             {filteredCompanies.map((c) => (
               <div 
                 key={c.id}
-                className="group bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-5 hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md transition-all duration-200 flex flex-col"
+                className="group bg-white dark:bg-[#121215] hover:bg-slate-50 dark:hover:bg-[#16161a] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] hover:border-amber-400/40 p-5 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:shadow-md dark:hover:shadow-[0_10px_30px_rgba(0,0,0,0.7)] transition-all duration-200 flex flex-col"
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1 min-w-0 pr-3 rtl:pr-0 rtl:pl-3">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xl truncate" title={c.name}>{c.name}</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-[#f4efe6] text-xl truncate" title={c.name}>{c.name}</h3>
                     {c.target_software && (
-                      <span className={`inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        c.target_software === 'Mosaic' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' : 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400'
+                      <span className={`inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                        c.target_software === 'Mosaic' ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/40' : 'bg-amber-400/10 text-amber-700 dark:text-amber-300 border-amber-400/20'
                       }`}>
                         {c.target_software}
                       </span>
@@ -312,7 +312,7 @@ export default function CompanyPage() {
                   <div className="flex space-x-1 rtl:space-x-reverse opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <button 
                       onClick={(e) => openEditModal(c, e)}
-                      className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 dark:text-[#71717a] hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors cursor-pointer"
                       title={t("company.edit")}
                     >
                       <Edit2 size={16} />
@@ -322,7 +322,7 @@ export default function CompanyPage() {
                         e.stopPropagation();
                         setConfirmModal({ isOpen: true, type: 'delete', company: c });
                       }}
-                      className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 dark:text-[#71717a] hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
                       title={t("delete")}
                     >
                       <Trash2 size={16} />
@@ -331,48 +331,48 @@ export default function CompanyPage() {
                 </div>
                 
                 {c.description && (
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 line-clamp-2">{c.description}</p>
+                  <p className="text-sm text-slate-600 dark:text-[#9f988b] mb-4 line-clamp-2">{c.description}</p>
                 )}
                 
-                <div className="mt-auto space-y-3 pt-4 border-t border-slate-100 dark:border-slate-700">
-                  <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 dark:text-slate-400">
+                <div className="mt-auto space-y-3 pt-4 border-t border-slate-100 dark:border-white/[0.08]">
+                  <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 dark:text-[#c2bcaf]">
                     <div className="flex items-center">
-                      <DollarSign size={14} className="text-emerald-500 mr-1" />
+                      <DollarSign size={14} className="text-amber-500 dark:text-amber-400 mr-1" />
                       <div>
-                        <p className="text-[9px] uppercase font-bold text-slate-400">Détection</p>
-                        <p className="font-semibold text-slate-700 dark:text-slate-200 text-xs">{c.rate_detection ? `${c.rate_detection} MAD` : "-"}</p>
+                        <p className="text-[9px] uppercase font-bold text-slate-400 dark:text-[#71717a]">Détection</p>
+                        <p className="font-semibold text-slate-900 dark:text-[#f4efe6] text-xs">{c.rate_detection ? `${c.rate_detection} MAD` : "-"}</p>
                       </div>
                     </div>
                     <div className="flex items-center">
-                      <DollarSign size={14} className="text-emerald-500 mr-1" />
+                      <DollarSign size={14} className="text-amber-500 dark:text-amber-400 mr-1" />
                       <div>
-                        <p className="text-[9px] uppercase font-bold text-slate-400">Conformation</p>
-                        <p className="font-semibold text-slate-700 dark:text-slate-200 text-xs">{c.rate_conformation ? `${c.rate_conformation} MAD` : "-"}</p>
+                        <p className="text-[9px] uppercase font-bold text-slate-400 dark:text-[#71717a]">Conformation</p>
+                        <p className="font-semibold text-slate-900 dark:text-[#f4efe6] text-xs">{c.rate_conformation ? `${c.rate_conformation} MAD` : "-"}</p>
                       </div>
                     </div>
                     <div className="flex items-center">
-                      <DollarSign size={14} className="text-emerald-500 mr-1" />
+                      <DollarSign size={14} className="text-amber-500 dark:text-amber-400 mr-1" />
                       <div>
-                        <p className="text-[9px] uppercase font-bold text-slate-400">Pose de texte</p>
-                        <p className="font-semibold text-slate-700 dark:text-slate-200 text-xs">{c.rate_pose_texte ? `${c.rate_pose_texte} MAD` : "-"}</p>
+                        <p className="text-[9px] uppercase font-bold text-slate-400 dark:text-[#71717a]">Pose de texte</p>
+                        <p className="font-semibold text-slate-900 dark:text-[#f4efe6] text-xs">{c.rate_pose_texte ? `${c.rate_pose_texte} MAD` : "-"}</p>
                       </div>
                     </div>
                     <div className="flex items-center">
-                      <DollarSign size={14} className="text-emerald-500 mr-1" />
+                      <DollarSign size={14} className="text-amber-500 dark:text-amber-400 mr-1" />
                       <div>
-                        <p className="text-[9px] uppercase font-bold text-slate-400">Chantant</p>
-                        <p className="font-semibold text-slate-700 dark:text-slate-200 text-xs">{c.rate_chantant ? `${c.rate_chantant} MAD` : "-"}</p>
+                        <p className="text-[9px] uppercase font-bold text-slate-400 dark:text-[#71717a]">Chantant</p>
+                        <p className="font-semibold text-slate-900 dark:text-[#f4efe6] text-xs">{c.rate_chantant ? `${c.rate_chantant} MAD` : "-"}</p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center text-sm text-slate-600 dark:text-slate-400">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mr-3 rtl:mr-0 rtl:ml-3 shrink-0 text-blue-600 dark:text-blue-400">
+                  <div className="flex items-center text-sm text-slate-600 dark:text-[#c2bcaf]">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 flex items-center justify-center mr-3 rtl:mr-0 rtl:ml-3 shrink-0 text-amber-500 dark:text-amber-400">
                       <Mail size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">Supplier Email</p>
-                      <p className="font-medium text-slate-700 dark:text-slate-200 truncate" title={c.supplier_email || ""}>{c.supplier_email || "No email"}</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#71717a] tracking-wider">Supplier Email</p>
+                      <p className="font-medium text-slate-900 dark:text-[#f4efe6] truncate text-xs" title={c.supplier_email || ""}>{c.supplier_email || "No email"}</p>
                     </div>
                   </div>
                 </div>
@@ -384,86 +384,86 @@ export default function CompanyPage() {
 
       {/* Create/Edit Company Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg animate-in zoom-in-95 duration-200 relative z-10 border border-transparent dark:border-slate-700">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-t-2xl">
-              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{editingCompanyId ? t("company.edit") : t("company.add_new")}</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 p-2 rounded-full transition-colors">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-lg animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6]">
+            <div className="flex justify-between items-center p-6 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] rounded-t-2xl">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingCompanyId ? t("company.edit") : t("company.add_new")}</h2>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-2 rounded-full transition-colors cursor-pointer">
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleSubmitCompany} className="p-6 space-y-4">
               {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg border border-red-200 dark:border-red-800/50">
+                <div className="bg-rose-500/10 text-rose-500 dark:text-rose-400 text-sm p-3 rounded-xl border border-rose-500/20">
                   {error}
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("company.form.name")} *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.name")} *</label>
                 <input 
                   type="text"
                   required
                   placeholder="e.g. Netflix, Amazon"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
+                  className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("company.form.desc")}</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.desc")}</label>
                 <textarea 
                   placeholder="Notes about this company..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all resize-none h-20 text-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
+                  className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all resize-none h-20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("company.form.rate.detection")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.detection")}</label>
                   <div className="relative">
-                    <DollarSign size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                    <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
                     <input 
                       type="number" step="0.01" placeholder="e.g. 50"
                       value={rateDetection} onChange={(e) => setRateDetection(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-3 text-sm focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-900 dark:text-slate-100"
+                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("company.form.rate.conformation")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.conformation")}</label>
                   <div className="relative">
-                    <DollarSign size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                    <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
                     <input 
                       type="number" step="0.01" placeholder="e.g. 50"
                       value={rateConformation} onChange={(e) => setRateConformation(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-3 text-sm focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-900 dark:text-slate-100"
+                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("company.form.rate.pose_texte")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.pose_texte")}</label>
                   <div className="relative">
-                    <DollarSign size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                    <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
                     <input 
                       type="number" step="0.01" placeholder="e.g. 50"
                       value={ratePoseTexte} onChange={(e) => setRatePoseTexte(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-3 text-sm focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-900 dark:text-slate-100"
+                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("company.form.rate.chantant")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.chantant")}</label>
                   <div className="relative">
-                    <DollarSign size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                    <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
                     <input 
                       type="number" step="0.01" placeholder="e.g. 50"
                       value={rateChantant} onChange={(e) => setRateChantant(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-3 text-sm focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-900 dark:text-slate-100"
+                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
                     />
                   </div>
                 </div>
@@ -471,7 +471,7 @@ export default function CompanyPage() {
 
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("company.form.software")}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.software")}</label>
                   <CustomSelect
                     value={targetSoftware}
                     onChange={(val) => setTargetSoftware(val)}
@@ -484,24 +484,24 @@ export default function CompanyPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t("company.form.email")}</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.email")}</label>
                 <div className="relative">
-                  <Mail size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <Mail size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-[#71717a]" />
                   <input 
                     type="email"
                     placeholder="e.g. supplier@company.com"
                     value={supplierEmail}
                     onChange={(e) => setSupplierEmail(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-3 text-sm focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
+                    className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 rtl:space-x-reverse pt-6 border-t border-slate-100 dark:border-slate-700 mt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors disabled:opacity-50">
+              <div className="flex justify-end space-x-3 rtl:space-x-reverse pt-6 border-t border-slate-200/80 dark:border-white/[0.08] mt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
                   {t("cancel")}
                 </button>
-                <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors flex items-center shadow-sm disabled:opacity-50">
+                <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer disabled:opacity-50">
                   {isSubmitting && <Loader2 size={16} className="animate-spin mr-2 rtl:mr-0 rtl:ml-2" />}
                   {editingCompanyId ? t("update") : t("create")}
                 </button>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { ConverterProvider } from "@/context/ConverterContext";
@@ -7,7 +7,10 @@ import { AuthProvider } from "@/context/AuthContext";
 import { SignalingProvider } from "@/context/SignalingContext";
 import AppShell from "@/components/AppShell";
 
-const inter = Inter({ subsets: ["latin"] });
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+});
 
 export const metadata: Metadata = {
   title: "DubFlow Studio* — Écosystème de Post-Synchronisation & Scripts",
@@ -16,7 +19,11 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-icon.png" },
     ],
   },
 };
@@ -27,8 +34,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning className={`${inter.className} bg-slate-50 text-slate-900 overflow-hidden flex h-screen dark:bg-slate-900 dark:text-slate-100`}>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('theme');
+                if (theme === 'light') {
+                  document.documentElement.classList.remove('dark');
+                } else if (theme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
+      <body suppressHydrationWarning className={`${plusJakartaSans.className} font-sans-display bg-[#f8fafc] dark:bg-[#08080a] text-slate-800 dark:text-[#f4efe6] overflow-hidden flex h-screen selection:bg-amber-400 selection:text-black`}>
         <SettingsProvider>
           <AuthProvider>
             <SignalingProvider>

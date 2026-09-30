@@ -6,7 +6,14 @@ import { useAuth } from "@/context/AuthContext";
 import Sidebar from "@/components/Sidebar";
 import IncomingTransferModal from "@/components/IncomingTransferModal";
 
-const PUBLIC_AUTH_PATHS = ["/login", "/register", "/verify-email", "/complete-profile"];
+const PUBLIC_AUTH_PATHS = [
+  "/login",
+  "/register",
+  "/verify-email",
+  "/complete-profile",
+  "/forgot-password",
+  "/reset-password",
+];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -52,7 +59,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // If on standalone page (landing / welcome / login / register), render full screen
   if (isStandalone) {
     return (
-      <div className="h-full w-full overflow-y-auto scroll-smooth bg-slate-50 dark:bg-slate-950">
+      <div className="h-full w-full overflow-y-auto scroll-smooth bg-[#070707] text-[#f4efe6]">
         {children}
       </div>
     );
@@ -70,7 +77,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar />
       </div>
 
-      <main className="flex-1 h-full min-w-0 overflow-hidden relative border-l border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.05)]">
+      <main className="flex-1 h-full min-w-0 overflow-hidden relative border-l border-slate-200/80 dark:border-white/[0.08] bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.1)] dark:shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.7)]">
         <div className="h-full w-full overflow-hidden flex flex-col">
           {children}
         </div>
