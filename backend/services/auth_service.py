@@ -19,6 +19,13 @@ load_dotenv()
 
 # JWT Configuration
 JWT_SECRET = os.environ.get("JWT_SECRET", "erytmo_super_secret_jwt_key_change_in_production_2026")
+if os.environ.get("ENVIRONMENT") == "production" and JWT_SECRET == "erytmo_super_secret_jwt_key_change_in_production_2026":
+    import warnings
+    warnings.warn(
+        "CRITICAL SECURITY WARNING: Running in production with default JWT_SECRET! "
+        "Please configure a strong, random JWT_SECRET in your production environment variables immediately.",
+        RuntimeWarning
+    )
 JWT_ALGORITHM = "HS256"
 DEFAULT_SESSION_EXPIRE_HOURS = 24       # 1 day for standard session
 REMEMBER_ME_EXPIRE_DAYS = 30           # 30 days for Remember Me session

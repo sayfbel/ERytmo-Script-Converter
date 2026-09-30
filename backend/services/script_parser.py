@@ -68,6 +68,7 @@ class ScriptCues(BaseModel):
 
 from backend.database.database import SessionLocal
 from backend.models import models
+from backend.services.encryption_service import decrypt_secret
 
 def get_db_active_keys(provider=None, user_id=None):
     db = SessionLocal()
@@ -77,7 +78,11 @@ def get_db_active_keys(provider=None, user_id=None):
             query = query.filter(models.ApiKey.user_id == user_id)
         if provider:
             query = query.filter(models.ApiKey.provider == provider.lower())
-        return query.order_by(models.ApiKey.id.asc()).all()
+        keys = query.order_by(models.ApiKey.id.asc()).all()
+        for k in keys:
+            if k.key:
+                k.key = decrypt_secret(k.key)
+        return keys
     finally:
         db.close()
 
