@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import heroCinematicImg from "@/assets/hero_cinematic.jpg";
+import studioCardImg from "@/assets/studio_card.jpg";
 import FloatingNav from "@/components/FloatingNav";
 import { apiFetch } from "@/lib/api";
 import { Eye, EyeOff, CheckCircle2, ArrowLeft, ShieldCheck, Clock, RefreshCw } from "lucide-react";
@@ -282,7 +284,7 @@ export default function ForgotPasswordPage() {
         {/* 1. Full-Bleed ERytmo Cinematic Background Visual Canvas */}
         <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
           <Image
-            src="/hero_cinematic.jpg"
+            src={heroCinematicImg}
             alt="DubFlow Studio Background Canvas"
             fill
             priority
@@ -308,7 +310,7 @@ export default function ForgotPasswordPage() {
           {/* Mobile Background Wrap */}
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden rounded-[32px] lg:hidden">
             <Image
-              src="/studio_card.jpg"
+              src={studioCardImg}
               alt="ERytmo Studio Workstation"
               fill
               className="object-cover object-center filter brightness-[0.35] contrast-[1.12]"
@@ -597,7 +599,7 @@ export default function ForgotPasswordPage() {
           {/* Right Column: Visual Pane */}
           <div className="hidden lg:flex relative min-h-[540px] rounded-[28px] overflow-hidden bg-[#0d0d0f] border border-white/10 items-center justify-center select-none shadow-inner">
             <Image
-              src="/studio_card.jpg"
+              src={studioCardImg}
               alt="DubFlow Studio Workstation"
               fill
               priority

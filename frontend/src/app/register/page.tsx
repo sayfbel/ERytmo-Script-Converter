@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import heroCinematicImg from "@/assets/hero_cinematic.jpg";
+import studioCardImg from "@/assets/studio_card.jpg";
 import { useAuth } from "@/context/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
 import CustomSelect, { SelectOption } from "@/components/CustomSelect";
@@ -148,7 +150,7 @@ export default function RegisterPage() {
         {/* 1. Full-Bleed ERytmo Cinematic Background Canvas */}
         <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
           <Image
-            src="/hero_cinematic.jpg"
+            src={heroCinematicImg}
             alt="DubFlow Studio - Sound Design & Dubbing Background Canvas"
             fill
             priority
@@ -173,7 +175,7 @@ export default function RegisterPage() {
           {/* Mobile Visual Background Wrap */}
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden rounded-[32px] lg:hidden">
             <Image
-              src="/studio_card.jpg"
+              src={studioCardImg}
               alt="ERytmo Studio Workstation"
               fill
               className="object-cover object-center filter brightness-[0.35] contrast-[1.12]"
@@ -365,7 +367,7 @@ export default function RegisterPage() {
           {/* Right Column: Visual Pane with Dubbing Studio Image */}
           <div className="hidden lg:flex relative min-h-[580px] rounded-[28px] overflow-hidden bg-[#0d0d0f] border border-white/10 items-center justify-center select-none shadow-inner">
             <Image
-              src="/studio_card.jpg"
+              src={studioCardImg}
               alt="DubFlow Studio Dubbing Workstation"
               fill
               priority

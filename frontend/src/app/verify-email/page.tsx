@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import heroCinematicImg from "@/assets/hero_cinematic.jpg";
 import { useAuth } from "@/context/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
 import { DubFlowIcon } from "@/components/DubFlowLogo";
@@ -171,7 +172,7 @@ function VerifyEmailContent() {
         {/* Full-Bleed DubFlow Cinematic Background Canvas */}
         <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
           <Image
-            src="/hero_cinematic.jpg"
+            src={heroCinematicImg}
             alt="DubFlow Studio - Background Canvas"
             fill
             priority

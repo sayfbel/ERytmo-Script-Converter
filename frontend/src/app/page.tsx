@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import heroCinematicImg from "@/assets/hero_cinematic.jpg";
+import card1Img from "@/assets/card_1.webp";
+import card2Img from "@/assets/card_2.webp";
+import card3Img from "@/assets/card_3.webp";
+import card4Img from "@/assets/card_4.webp";
+import card5Img from "@/assets/card_5.webp";
 import { 
   ArrowRight, X, Globe, Download, 
   FolderSync, Share2, Layers, Lock, 
@@ -48,7 +54,7 @@ export default function WelcomePage() {
         {/* Full-Frame Background Image */}
         <div className="absolute inset-0 w-full h-full z-0">
           <Image
-            src="/hero_cinematic.jpg"
+            src={heroCinematicImg}
             alt="ERytmo Studio - Cinematic Post-Production & Sound Design Canvas"
             fill
             priority
@@ -152,7 +158,7 @@ export default function WelcomePage() {
               className="hidden lg:block relative shrink-0 w-[205px] xl:w-[225px] rounded-[26px] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.9)] select-none"
             >
               <Image
-                src="/card_4.webp"
+                src={card4Img}
                 alt="DubFlow Studio Pass - Alexandre Dubois"
                 width={640}
                 height={960}
@@ -176,7 +182,7 @@ export default function WelcomePage() {
               className="relative shrink-0 w-[230px] sm:w-[250px] md:w-[265px] lg:w-[280px] rounded-[26px] sm:rounded-[28px] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.9)] select-none"
             >
               <Image
-                src="/card_1.webp"
+                src={card1Img}
                 alt="DubFlow Studio Pass - Margaret O. Guidry"
                 width={640}
                 height={960}
@@ -201,7 +207,7 @@ export default function WelcomePage() {
               className="relative shrink-0 w-[245px] sm:w-[270px] md:w-[285px] lg:w-[305px] rounded-[28px] sm:rounded-[30px] overflow-hidden z-20 shadow-[0_30px_70px_rgba(0,0,0,0.95)] select-none"
             >
               <Image
-                src="/card_2.webp"
+                src={card2Img}
                 alt="DubFlow Studio Pass - Robert M. McCray"
                 width={640}
                 height={960}
@@ -225,7 +231,7 @@ export default function WelcomePage() {
               className="relative shrink-0 w-[230px] sm:w-[250px] md:w-[265px] lg:w-[280px] rounded-[26px] sm:rounded-[28px] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.9)] select-none"
             >
               <Image
-                src="/card_5.webp"
+                src={card5Img}
                 alt="DubFlow Studio Pass - Clara Vanderbilt"
                 width={640}
                 height={960}
@@ -250,7 +256,7 @@ export default function WelcomePage() {
               className="hidden lg:block relative shrink-0 w-[205px] xl:w-[225px] rounded-[26px] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.9)] select-none"
             >
               <Image
-                src="/card_3.webp"
+                src={card3Img}
                 alt="DubFlow Studio Pass - Janice W. Seymour"
                 width={640}
                 height={960}

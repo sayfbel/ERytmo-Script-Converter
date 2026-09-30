@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
 
-from backend.src.exceptions import (
+from backend.exceptions import (
     ScriptImportError, UnsupportedFormatError, EmptyFileError,
     FileAccessError, FileCorruptedError, NoTimecodesFoundError
 )

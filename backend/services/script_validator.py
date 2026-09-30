@@ -4,7 +4,7 @@ import traceback
 import platform
 import docx
 from pypdf import PdfReader
-from backend.src.exceptions import (
+from backend.exceptions import (
     ScriptImportError, UnsupportedFormatError, EmptyFileError,
     FileAccessError, FileCorruptedError, NoTimecodesFoundError, MissingRequiredFieldsError
 )

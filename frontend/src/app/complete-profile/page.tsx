@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import heroCinematicImg from "@/assets/hero_cinematic.jpg";
+import studioCardImg from "@/assets/studio_card.jpg";
 import { useAuth } from "@/context/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
 import { DubFlowIcon } from "@/components/DubFlowLogo";
@@ -117,7 +119,7 @@ export default function CompleteProfilePage() {
         {/* Full-Bleed DubFlow Cinematic Background */}
         <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
           <Image
-            src="/hero_cinematic.jpg"
+            src={heroCinematicImg}
             alt="DubFlow Studio Background"
             fill
             priority
@@ -337,7 +339,7 @@ export default function CompleteProfilePage() {
           {/* Right Column: Visual Pane with Dubbing Studio Image */}
           <div className="hidden lg:flex relative min-h-[520px] rounded-[28px] overflow-hidden bg-[#0d0d0f] border border-white/10 items-center justify-center select-none shadow-inner">
             <Image
-              src="/studio_card.jpg"
+              src={studioCardImg}
               alt="DubFlow Studio Dubbing Workstation"
               fill
               priority
