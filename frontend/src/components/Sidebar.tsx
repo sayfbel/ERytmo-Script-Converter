@@ -73,7 +73,7 @@ export default function Sidebar() {
             <div className="flex items-center space-x-2.5 rtl:space-x-reverse font-bold text-slate-900 dark:text-[#f4efe6] min-w-0">
               <DubFlowIcon className="w-6 h-6 text-amber-500 dark:text-amber-400 shrink-0" />
               <span className="text-base tracking-tight font-extrabold truncate text-slate-900 dark:text-[#f4efe6] flex items-baseline">
-                DubFlow<span className="text-amber-500 dark:text-amber-400 font-editorial italic ml-0.5 text-lg font-normal">*</span>
+                DubFlow
               </span>
             </div>
             

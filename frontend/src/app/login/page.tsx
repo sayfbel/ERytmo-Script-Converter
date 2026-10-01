@@ -105,101 +105,23 @@ export default function LoginPage() {
     await logout();
   };
 
-  // ─── SESSION GATE: Show "Continue as [Name]" if already authenticated ───
+  // ─── SESSION GATE: Automatically redirect if already authenticated ───
+  React.useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      if (user.requires_profile_completion || !user.job_type) {
+        router.replace("/complete-profile");
+      } else {
+        router.replace("/projects");
+      }
+    }
+  }, [isLoading, isAuthenticated, user, router]);
+
   if (!isLoading && isAuthenticated && user) {
     return (
-      <div className="min-h-screen bg-[#070707] text-[#f4efe6] selection:bg-amber-400 selection:text-black font-sans-display p-2.5 sm:p-4 md:p-5 flex flex-col items-center justify-center">
-        <FloatingNav />
-
-        <div className="relative w-full min-h-[calc(100vh-2rem)] rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.95)] flex flex-col items-center justify-between">
-
-          {/* Background */}
-          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-            <Image
-              src={heroCinematicImg}
-              alt="DubFlow Studio - Sound Design & Dubbing Background Canvas"
-              fill
-              priority
-              className="object-cover object-center filter brightness-[0.32] contrast-[1.15] blur-[2px] scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/60" />
-          </div>
-
-          {/* Film grain */}
-          <div
-            className="absolute -top-1/2 -left-1/2 w-[200%] h-[200%] pointer-events-none z-10 opacity-70"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E")`
-            }}
-          />
-
-          <div className="h-16 sm:h-20 w-full shrink-0" />
-
-          {/* Session Gate Card */}
-          <main className="relative z-20 w-full max-w-[480px] my-auto rounded-[32px] sm:rounded-[40px] overflow-hidden bg-[#111113]/90 backdrop-blur-2xl border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.9)] p-8 sm:p-10 flex flex-col items-center text-center">
-
-            {/* Avatar Circle */}
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black text-2xl font-black mb-5 shadow-[0_8px_25px_rgba(245,158,11,0.3)]">
-              {user.first_name?.charAt(0)?.toUpperCase() || "U"}
-            </div>
-
-            {/* Kicker */}
-            <div className="text-[11px] font-semibold uppercase tracking-[1.2px] text-[#737373] mb-2 select-none">
-              ACTIVE SESSION DETECTED
-            </div>
-
-            {/* Headline */}
-            <h1 className="text-[26px] sm:text-[30px] font-black text-[#f4efe6] tracking-tight leading-[1.08] mb-2">
-              Welcome back!
-            </h1>
-
-            {/* User Info */}
-            <p className="text-sm text-[#a0a0a0] mb-6">
-              You are signed in as{" "}
-              <span className="text-[#f4efe6] font-bold">{user.first_name} {user.last_name}</span>
-              <br />
-              <span className="text-[#777] text-xs">{user.email}</span>
-            </p>
-
-            {/* Continue Button */}
-            <button
-              onClick={() => {
-                if (user.requires_profile_completion || !user.job_type) {
-                  window.location.href = "/complete-profile";
-                } else {
-                  window.location.href = "/projects";
-                }
-              }}
-              className="w-full h-[50px] bg-[#ECE8DF] hover:bg-white text-black font-extrabold text-[15px] rounded-[20px] shadow-[0_8px_20px_rgba(0,0,0,0.4)] flex items-center justify-center gap-2.5 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer mb-3"
-            >
-              <span>Continue to workspace</span>
-              <ArrowRight size={16} strokeWidth={2.5} />
-            </button>
-
-            {/* Divider */}
-            <div className="text-xs font-normal text-[#555555] my-3 select-none">or</div>
-
-            {/* Sign Out & Switch */}
-            <button
-              onClick={handleSignOutAndSwitch}
-              className="w-full h-[46px] bg-transparent hover:bg-white/5 border border-white/10 hover:border-white/20 text-[#b0b0b0] hover:text-white font-semibold text-[13px] rounded-[18px] flex items-center justify-center gap-2.5 transition-all cursor-pointer"
-            >
-              <LogOut size={15} strokeWidth={2} />
-              <span>Sign out &amp; use a different account</span>
-            </button>
-
-          </main>
-
-          {/* Footer */}
-          <footer className="w-full max-w-[980px] z-20 py-4 px-6 flex flex-col sm:flex-row items-center justify-between gap-2 font-mono text-[11px] text-zinc-500">
-            <div>© 2026 DubFlow Studio Inc. All rights reserved.</div>
-            <div className="flex items-center gap-4">
-              <Link href="/#vision" className="hover:text-zinc-300 transition-colors">Confidentialité</Link>
-              <Link href="/#vision" className="hover:text-zinc-300 transition-colors">Protocole Sécurité</Link>
-              <Link href="/#workflows" className="hover:text-zinc-300 transition-colors">Statut Réseau P2P</Link>
-            </div>
-          </footer>
-
+      <div className="min-h-screen bg-[#070707] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-[#a0a0a0] text-sm font-medium animate-pulse">Redirecting to workspace...</p>
         </div>
       </div>
     );
