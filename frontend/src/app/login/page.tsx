@@ -12,7 +12,7 @@ import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, googleClientId, loginWithGoogle, user, isAuthenticated, isLoading, logout } = useAuth();
+  const { login, googleClientId, loginWithGoogle, user, isAuthenticated, isLoading } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
