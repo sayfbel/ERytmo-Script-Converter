@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from datetime import timedelta
 from typing import Optional, Dict, Any
 import jwt
+import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from dotenv import load_dotenv
@@ -35,13 +36,16 @@ VERIFICATION_CODE_EXPIRE_MINUTES = 10
 MAX_VERIFICATION_ATTEMPTS = 5
 RESEND_COOLDOWN_SECONDS = 60
 
-# SMTP Configuration
+# SMTP Configuration (Blocked by Render Free Tier, but kept for local/paid use)
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "").strip()
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "DubFlow Studio")
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "").strip() or SMTP_USER
+
+# Brevo / Sendinblue API Configuration (HTTP API over Port 443 - Allowed on Render Free Tier)
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "").strip()
 
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
@@ -163,133 +167,62 @@ def send_verification_email(to_email: str, code: str, first_name: str, purpose: 
     action_text = "securely reset your account password" if is_reset else "complete your studio registration"
     disregard_text = "If you did not request a password reset, you can safely ignore this email. Your account remains secure." if is_reset else "If you did not create a DubFlow Studio account, you can safely ignore this email."
 
-    # Check if SMTP is configured
-    if not SMTP_USER or not SMTP_PASSWORD:
+    # Check if we have credentials to send email
+    if not BREVO_API_KEY and (not SMTP_USER or not SMTP_PASSWORD):
         print("\n" + "=" * 70)
         mode_label = "PASSWORD RESET" if is_reset else "REGISTRATION"
         print(f"  [DEV NOTIFICATION - DUBFLOW VERIFICATION ({mode_label})]")
         print(f"  To: {to_email}")
         print(f"  User: {first_name}")
         print(f"  Verification Code: {code}")
-        print("  NOTE: SMTP_USER and SMTP_PASSWORD are not yet set in .env.")
+        print("  NOTE: BREVO_API_KEY and SMTP credentials are not yet set in .env.")
         print("  Use the 6-digit code above to test verification in your browser.")
         print("=" * 70 + "\n")
         return True
 
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
-        msg["To"] = to_email
+        # OPTION 1: Send via Brevo API (Port 443 HTTP - Works on Render Free Tier)
+        if BREVO_API_KEY:
+            headers = {
+                "api-key": BREVO_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+            data = {
+                "sender": {"name": SMTP_FROM_NAME, "email": SMTP_FROM_EMAIL},
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "htmlContent": html_body
+            }
+            response = requests.post("https://api.brevo.com/v3/smtp/email", json=data, headers=headers, timeout=10)
+            if response.status_code in [200, 201, 202]:
+                print(f"[AUTH] Successfully sent verification email via Brevo API to {to_email}")
+                return True
+            else:
+                raise Exception(f"Brevo API error {response.status_code}: {response.text}")
 
-        # Plain-text version
-        text_body = f"""Hello {first_name},
+        # OPTION 2: Send via SMTP (Port 587 - Blocked on Render Free Tier)
+        else:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
+            msg["To"] = to_email
+            
+            msg.attach(MIMEText(text_body, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
 
-{title_text} - DubFlow Studio
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=12) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.send_message(msg)
 
-Your 6-digit security code is: {code}
-
-Use this code to {action_text}.
-This code will expire in {VERIFICATION_CODE_EXPIRE_MINUTES} minutes.
-{disregard_text}
-
-Best regards,
-DubFlow Studio Security Team
-"""
-
-        # Sleek HTML email matching DubFlow Studio luxury branding
-        html_body = f"""<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{title_text}</title>
-</head>
-<body style="margin: 0; padding: 32px 16px; background-color: #09090b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f4efe6;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 540px; margin: 0 auto; background-color: #121215; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden; box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);">
-    <!-- Header with Brand Accent -->
-    <tr>
-      <td style="padding: 40px 36px 20px 36px; text-align: center; background: radial-gradient(circle at top, rgba(245, 158, 11, 0.14) 0%, rgba(18, 18, 21, 0) 70%);">
-        <!-- Logo Emblem -->
-        <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto 16px auto;">
-          <tr>
-            <td style="width: 48px; height: 48px; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 14px; text-align: center; vertical-align: middle; box-shadow: 0 4px 18px rgba(245, 158, 11, 0.4);">
-              <span style="font-size: 22px; font-weight: 900; color: #000000; line-height: 48px; display: inline-block;">✦</span>
-            </td>
-          </tr>
-        </table>
-        
-        <!-- Brand Name -->
-        <div style="font-size: 13px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; color: #f59e0b; margin-bottom: 12px;">
-          DUBFLOW STUDIO
-        </div>
-        <h1 style="margin: 0; font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; line-height: 1.25;">
-          {title_text}
-        </h1>
-        <p style="margin: 10px 0 0 0; font-size: 14px; color: #9ca3af; line-height: 1.55;">
-          Hello <strong style="color: #f4efe6;">{first_name}</strong>, please use the 6-digit security code below to {action_text}.
-        </p>
-      </td>
-    </tr>
-
-    <!-- Code Display Box -->
-    <tr>
-      <td style="padding: 10px 36px 24px 36px; text-align: center;">
-        <div style="background-color: #1a1a1f; border: 1.5px solid rgba(245, 158, 11, 0.35); border-radius: 18px; padding: 24px 16px; margin: 12px 0 20px 0; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);">
-          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #71717a; margin-bottom: 8px;">
-            One-Time Security Code
-          </div>
-          <div style="font-family: 'SF Mono', Monaco, Menlo, Consolas, 'Courier New', monospace; font-size: 38px; font-weight: 800; letter-spacing: 12px; color: #fbbf24; text-shadow: 0 0 20px rgba(251, 191, 36, 0.3); padding-left: 12px;">
-            {code}
-          </div>
-          <div style="font-size: 12px; color: #a1a1aa; margin-top: 10px; font-weight: 500;">
-            ⏳ Code expires in <span style="color: #f59e0b; font-weight: 700;">{VERIFICATION_CODE_EXPIRE_MINUTES} minutes</span>
-          </div>
-        </div>
-
-        <p style="margin: 0; font-size: 12.5px; color: #71717a; line-height: 1.55;">
-          {disregard_text}
-        </p>
-      </td>
-    </tr>
-
-    <!-- Divider -->
-    <tr>
-      <td style="padding: 0 36px;">
-        <div style="height: 1px; background-color: rgba(255, 255, 255, 0.08);"></div>
-      </td>
-    </tr>
-
-    <!-- Footer -->
-    <tr>
-      <td style="padding: 24px 36px 36px 36px; text-align: center;">
-        <div style="font-size: 11px; color: #52525b; line-height: 1.6;">
-          This is an automated security notification from DubFlow Studio.<br>
-          &copy; {datetime.datetime.utcnow().year} DubFlow Studio Inc. Zero-Cloud Local Workstation Security.
-        </div>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-"""
-
-        msg.attach(MIMEText(text_body, "plain"))
-        msg.attach(MIMEText(html_body, "html"))
-
-        # Connect to SMTP server
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=12) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-
-        print(f"[AUTH] Successfully sent verification email to {to_email}")
-        return True
+            print(f"[AUTH] Successfully sent verification email via SMTP to {to_email}")
+            return True
 
     except Exception as e:
-        print(f"[AUTH ERROR] Failed to send email via SMTP ({e}). Falling back to terminal display.")
+        print(f"[AUTH ERROR] Failed to send email ({e}). Falling back to terminal display.")
         print(f"[DEV FALLBACK CODE FOR {to_email}]: {code}")
         return False
 
