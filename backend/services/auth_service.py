@@ -44,8 +44,8 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "DubFlow Studio")
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "").strip() or SMTP_USER
 
-# Brevo / Sendinblue API Configuration (HTTP API over Port 443 - Allowed on Render Free Tier)
-BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "").strip()
+# Resend API Configuration (HTTP API over Port 443 - Allowed on Render Free Tier)
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
@@ -168,38 +168,37 @@ def send_verification_email(to_email: str, code: str, first_name: str, purpose: 
     disregard_text = "If you did not request a password reset, you can safely ignore this email. Your account remains secure." if is_reset else "If you did not create a DubFlow Studio account, you can safely ignore this email."
 
     # Check if we have credentials to send email
-    if not BREVO_API_KEY and (not SMTP_USER or not SMTP_PASSWORD):
+    if not RESEND_API_KEY and (not SMTP_USER or not SMTP_PASSWORD):
         print("\n" + "=" * 70)
         mode_label = "PASSWORD RESET" if is_reset else "REGISTRATION"
         print(f"  [DEV NOTIFICATION - DUBFLOW VERIFICATION ({mode_label})]")
         print(f"  To: {to_email}")
         print(f"  User: {first_name}")
         print(f"  Verification Code: {code}")
-        print("  NOTE: BREVO_API_KEY and SMTP credentials are not yet set in .env.")
+        print("  NOTE: RESEND_API_KEY and SMTP credentials are not yet set in .env.")
         print("  Use the 6-digit code above to test verification in your browser.")
         print("=" * 70 + "\n")
         return True
 
     try:
-        # OPTION 1: Send via Brevo API (Port 443 HTTP - Works on Render Free Tier)
-        if BREVO_API_KEY:
+        # OPTION 1: Send via Resend API (Port 443 HTTP - Works on Render Free Tier)
+        if RESEND_API_KEY:
             headers = {
-                "api-key": BREVO_API_KEY,
-                "Content-Type": "application/json",
-                "Accept": "application/json"
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json"
             }
             data = {
-                "sender": {"name": SMTP_FROM_NAME, "email": SMTP_FROM_EMAIL},
-                "to": [{"email": to_email}],
+                "from": f"{SMTP_FROM_NAME} <onboarding@resend.dev>",
+                "to": [to_email],
                 "subject": subject,
-                "htmlContent": html_body
+                "html": html_body
             }
-            response = requests.post("https://api.brevo.com/v3/smtp/email", json=data, headers=headers, timeout=10)
+            response = requests.post("https://api.resend.com/emails", json=data, headers=headers, timeout=10)
             if response.status_code in [200, 201, 202]:
-                print(f"[AUTH] Successfully sent verification email via Brevo API to {to_email}")
+                print(f"[AUTH] Successfully sent verification email via Resend API to {to_email}")
                 return True
             else:
-                raise Exception(f"Brevo API error {response.status_code}: {response.text}")
+                raise Exception(f"Resend API error {response.status_code}: {response.text}")
 
         # OPTION 2: Send via SMTP (Port 587 - Blocked on Render Free Tier)
         else:
