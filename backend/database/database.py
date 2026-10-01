@@ -17,6 +17,14 @@ SQLITE_URL = f"sqlite:///{os.path.join(DB_DIR, 'erytmo.db')}"
 
 # Determine Database URL
 raw_db_url = os.getenv("DATABASE_URL")
+
+# Fix Aiven and other generic MySQL URLs
+if raw_db_url:
+    if raw_db_url.startswith("mysql://"):
+        raw_db_url = raw_db_url.replace("mysql://", "mysql+pymysql://", 1)
+    if "ssl-mode=REQUIRED" in raw_db_url:
+        raw_db_url = raw_db_url.replace("?ssl-mode=REQUIRED", "").replace("&ssl-mode=REQUIRED", "").replace("ssl-mode=REQUIRED", "")
+
 if not raw_db_url and os.getenv("MYSQL_HOST"):
     mysql_user = os.getenv("MYSQL_USER", "root")
     mysql_password = os.getenv("MYSQL_PASSWORD", "")
