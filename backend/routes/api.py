@@ -551,6 +551,7 @@ def create_project(
     deadline: str = None, 
     company_id: int = None, 
     total_time: int = None,
+    description: str = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -583,7 +584,8 @@ def create_project(
         target_software=target_software,
         project_type=project_type,
         deadline=dl_dt,
-        total_time=total_time
+        total_time=total_time,
+        description=description
     )
     db.add(db_project)
     db.commit()
@@ -647,6 +649,7 @@ def update_project(
     deadline: str = None, 
     company_id: int = None,
     total_time: int = None,
+    description: str = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -672,6 +675,7 @@ def update_project(
             project.company_id = None
         
     if name is not None: project.name = name
+    if description is not None: project.description = description
     if company_name is not None: project.company_name = company_name
     if folder_path is not None: project.folder_path = folder_path
     if target_software is not None: project.target_software = target_software

@@ -11,6 +11,8 @@ export interface User {
   phone_number?: string | null;
   google_id?: string | null;
   email_verified: boolean;
+  is_private?: boolean;
+  avatar_url?: string | null;
   requires_profile_completion?: boolean;
   created_at?: string;
 }

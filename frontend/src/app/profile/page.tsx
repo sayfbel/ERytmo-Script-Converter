@@ -1,60 +1,72 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
-  User as UserIcon, Mail, Phone, Briefcase, Lock, KeyRound, 
-  CheckCircle2, AlertCircle, Loader2, ShieldCheck, Eye, EyeOff, Send
-} from "lucide-react";
+import { User as UserIcon, ShieldCheck, Lock, KeyRound, Loader2, Send, EyeOff, Eye } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { useToast } from "@/context/ToastContext";
+import CustomSelect from "@/components/CustomSelect";
+import ConfirmModal from "@/components/ConfirmModal";
 
-const PRESET_ROLES = [
-  "Poseur de texte",
-  "Détecteur / Détectrice",
-  "Calligraphe",
-  "Doubleur / Doubleuse",
-  "Ingénieur du son",
-  "Directeur artistique",
-  "Adaptateur / Adaptatrice",
-  "Monteur vidéo",
-  "Autre"
+const JOB_OPTIONS = [
+  { value: "Poseur de texte", label: "Poseur de texte" },
+  { value: "Détecteur / Détectrice", label: "Détecteur / Détectrice" },
+  { value: "Calligraphe", label: "Calligraphe" },
+  { value: "Doubleur / Doubleuse", label: "Doubleur / Doubleuse" },
+  { value: "Ingénieur du son", label: "Ingénieur du son" },
+  { value: "Directeur artistique", label: "Directeur artistique" },
+  { value: "Adaptateur / Adaptatrice", label: "Adaptateur / Adaptatrice" },
+  { value: "Monteur vidéo", label: "Monteur vidéo" },
+  { value: "Autre", label: "Autre" }
 ];
 
 export default function ProfilePage() {
   const { user, refreshSession } = useAuth();
+  const { showToast } = useToast();
 
-  // Profile Data State
+  const [activeTab, setActiveTab] = useState<"general" | "security">("general");
+
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  // General Profile State
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [jobType, setJobType] = useState("");
+  const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
-  const [profileErrorMsg, setProfileErrorMsg] = useState<string | null>(null);
+  const [jobTitle, setJobTitle] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
 
-  // Password Change State
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // Security State
   const [verificationCode, setVerificationCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [passwordSuccessMsg, setPasswordSuccessMsg] = useState<string | null>(null);
-  const [passwordErrorMsg, setPasswordErrorMsg] = useState<string | null>(null);
 
-  // Sync form with user state
   useEffect(() => {
     if (user) {
       setFirstName(user.first_name || "");
       setLastName(user.last_name || "");
-      setJobType(user.job_type || "");
+      setEmail(user.email || "");
+      setJobTitle(user.job_type || "");
       setPhoneNumber(user.phone_number || "");
+      setIsPrivate(user.is_private || false);
+      
+      if (user.avatar_url) {
+        // Construct the full URL if necessary
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, "") || "http://localhost:8000";
+        setAvatarPreview(user.avatar_url.startsWith("http") ? user.avatar_url : `${baseUrl}${user.avatar_url}`);
+      }
     }
   }, [user]);
 
-  // Cooldown countdown timer
   useEffect(() => {
     if (cooldown <= 0) return;
     const interval = setInterval(() => {
@@ -63,22 +75,14 @@ export default function ProfilePage() {
     return () => clearInterval(interval);
   }, [cooldown]);
 
-  // Handle Profile Update
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setProfileSuccessMsg(null);
-    setProfileErrorMsg(null);
+  const confirmSaveProfile = () => {
+    setShowConfirmModal(true);
+  };
 
-    if (!firstName.trim()) {
-      setProfileErrorMsg("First name is required.");
-      return;
-    }
-    if (!lastName.trim()) {
-      setProfileErrorMsg("Last name is required.");
-      return;
-    }
-    if (!jobType.trim()) {
-      setProfileErrorMsg("Job type / profession is required.");
+  const handleUpdateProfile = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!firstName.trim() || !lastName.trim() || !jobTitle.trim()) {
+      showToast("Validation Error", "Please fill in all required fields.", "error");
       return;
     }
 
@@ -90,69 +94,61 @@ export default function ProfilePage() {
         body: JSON.stringify({
           first_name: firstName.trim(),
           last_name: lastName.trim(),
-          job_type: jobType.trim(),
-          phone_number: phoneNumber.trim() || null
+          job_type: jobTitle.trim(),
+          phone_number: phoneNumber.trim() || null,
+          is_private: isPrivate
         })
       });
 
       const data = await res.json();
       if (res.ok) {
-        setProfileSuccessMsg("Profile information updated successfully.");
+        showToast("Changes Saved", "Your profile details have been successfully updated.", "success");
         await refreshSession();
       } else {
-        setProfileErrorMsg(data.detail || "Failed to update profile.");
+        showToast("Update Failed", data.detail || "Failed to update profile.", "error");
       }
     } catch {
-      setProfileErrorMsg("Connection error while updating profile.");
+      showToast("Connection Error", "Network issue while updating profile.", "error");
     } finally {
       setIsUpdatingProfile(false);
     }
   };
 
-  // Handle Request Code for Password Change
   const handleRequestPasswordCode = async () => {
     if (cooldown > 0) return;
-    setPasswordSuccessMsg(null);
-    setPasswordErrorMsg(null);
     setIsSendingCode(true);
 
     try {
-      const res = await apiFetch("/api/auth/change-password/request-code", {
-        method: "POST"
-      });
+      const res = await apiFetch("/api/auth/change-password/request-code", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        setPasswordSuccessMsg(`Verification code sent to ${user?.email || "your email"}. Check your inbox.`);
+        showToast("Code Sent", `Verification code sent to ${user?.email || "your email"}.`, "success");
         setCooldown(data.cooldown_seconds || 60);
       } else {
-        setPasswordErrorMsg(data.detail || "Failed to send verification code.");
+        showToast("Error", data.detail || "Failed to send code.", "error");
       }
     } catch {
-      setPasswordErrorMsg("Connection error while requesting verification code.");
+      showToast("Connection Error", "Network issue while requesting code.", "error");
     } finally {
       setIsSendingCode(false);
     }
   };
 
-  // Handle Change Password Submit
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordSuccessMsg(null);
-    setPasswordErrorMsg(null);
-
+  const handleChangePassword = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const cleanCode = verificationCode.trim();
     if (!cleanCode || cleanCode.length !== 6 || !/^\d+$/.test(cleanCode)) {
-      setPasswordErrorMsg("Please enter the 6-digit verification code sent to your email.");
+      showToast("Invalid Code", "Please enter the 6-digit verification code.", "error");
       return;
     }
 
     if (newPassword.length < 8) {
-      setPasswordErrorMsg("New password must be at least 8 characters long.");
+      showToast("Weak Password", "New password must be at least 8 characters long.", "error");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordErrorMsg("New passwords do not match.");
+      showToast("Mismatch", "New passwords do not match.", "error");
       return;
     }
 
@@ -170,318 +166,315 @@ export default function ProfilePage() {
 
       const data = await res.json();
       if (res.ok) {
-        setPasswordSuccessMsg("Password changed successfully! Your account is now secured with the new password.");
+        showToast("Password Updated", "Your security password has been changed.", "success");
         setVerificationCode("");
         setNewPassword("");
         setConfirmPassword("");
       } else {
-        setPasswordErrorMsg(data.detail || "Failed to update password.");
+        showToast("Error", data.detail || "Failed to update password.", "error");
       }
     } catch {
-      setPasswordErrorMsg("Connection error while changing password.");
+      showToast("Connection Error", "Network issue while changing password.", "error");
     } finally {
       setIsChangingPassword(false);
     }
   };
 
-  return (
-    <div className="flex-1 h-full overflow-y-auto bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
-      <div className="max-w-4xl mx-auto space-y-6">
+  const handleSaveAll = () => {
+    if (activeTab === "general") {
+      handleUpdateProfile();
+    } else if (activeTab === "security") {
+      handleChangePassword();
+    }
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      // Basic client-side validation
+      if (file.size > 2 * 1024 * 1024) {
+        showToast("File too large", "Maximum allowed size is 2MB.", "error");
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        showToast("Invalid file type", "Please upload an image file.", "error");
+        return;
+      }
+
+      // Optimistic preview
+      const objectUrl = URL.createObjectURL(file);
+      setAvatarPreview(objectUrl);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await apiFetch("/api/auth/profile-picture", {
+          method: "POST",
+          body: formData,
+        });
         
-        {/* Page Header */}
-        <div className="flex items-center justify-between pb-5 border-b border-slate-200/80 dark:border-white/[0.08]">
+        const data = await res.json();
+        if (res.ok) {
+          showToast("Avatar updated", "Your profile picture has been successfully updated.", "success");
+          await refreshSession();
+        } else {
+          showToast("Update Failed", data.detail || "Failed to update profile picture.", "error");
+        }
+      } catch {
+        showToast("Connection Error", "Network issue while updating profile picture.", "error");
+      }
+    }
+  };
+
+  const handleDiscard = () => {
+    if (user) {
+      setFirstName(user.first_name || "");
+      setLastName(user.last_name || "");
+      setJobTitle(user.job_type || "");
+      setPhoneNumber(user.phone_number || "");
+    }
+    setVerificationCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    showToast("Form Reset", "Reverted unsaved changes to defaults.", "info");
+  };
+
+  return (
+    <div className="flex-1 min-w-0 bg-[#f8fafc] overflow-y-auto px-5 py-6 md:px-10 md:py-8 font-sans selection:bg-brand-100 selection:text-brand-700">
+      <div className="max-w-5xl mx-auto space-y-6">
+        
+        {/* Header Title Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-[#f4efe6] flex items-center tracking-tight">
-              <UserIcon className="mr-3 rtl:mr-0 rtl:ml-3 text-amber-500 dark:text-amber-400" size={28} />
-              My Profile &amp; Security
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9f988b] mt-1">
-              Manage your personal credentials, studio profession, and account security.
-            </p>
+            <div className="flex items-center gap-2.5">
+              <span className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                <UserIcon className="w-5 h-5" />
+              </span>
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Account Information</h1>
+            </div>
+            <p className="text-sm text-slate-500 mt-1">Manage your personal profile, credentials and security parameters.</p>
           </div>
         </div>
 
-        {/* User Identity Overview Card */}
-        {user && (
-          <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 sm:p-6 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex flex-col sm:flex-row items-center sm:items-start gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-black font-black text-2xl flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(245,158,11,0.25)] uppercase">
-              {user.first_name ? user.first_name[0] : "U"}{user.last_name ? user.last_name[0] : ""}
-            </div>
+        {/* Tabs Navigation */}
+        <div className="flex items-center border-b border-slate-200 gap-8 text-sm font-medium">
+          <button 
+            onClick={() => setActiveTab("general")} 
+            className={`pb-3 border-b-2 transition-colors ${activeTab === "general" ? "border-amber-500 text-amber-600 font-semibold" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+          >
+            General Profile
+          </button>
+          <button 
+            onClick={() => setActiveTab("security")} 
+            className={`pb-3 border-b-2 transition-colors ${activeTab === "security" ? "border-amber-500 text-amber-600 font-semibold" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+          >
+            Password & Security
+          </button>
+        </div>
 
-            <div className="flex-1 min-w-0 text-center sm:text-left rtl:sm:text-right">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-[#f4efe6]">
-                  {user.first_name} {user.last_name}
-                </h2>
-                {user.email_verified && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 w-fit mx-auto sm:mx-0">
-                    <ShieldCheck size={13} /> Verified Account
-                  </span>
-                )}
+        {/* Tab Contents */}
+        {activeTab === "general" && (
+          <section className="space-y-6 animate-in fade-in duration-300">
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+              <h2 className="text-base font-bold text-slate-900 mb-1">Public Profile</h2>
+              <p className="text-xs text-slate-500 mb-6">This information is shared across team projects and audio conversion logs.</p>
+
+              {/* Dynamic Avatar */}
+              <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-slate-100">
+                <div className="relative group">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="Avatar" className="w-20 h-20 rounded-2xl object-cover ring-4 ring-slate-50 shadow-inner" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-black font-black text-3xl flex items-center justify-center shrink-0 shadow-inner uppercase">
+                      {firstName ? firstName[0] : "U"}{lastName ? lastName[0] : ""}
+                    </div>
+                  )}
+                  {user?.email_verified && (
+                    <span className="absolute bottom-[-4px] right-[-4px] w-5 h-5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                  )}
+                </div>
+                <div className="space-y-1 text-center sm:text-left">
+                  <div className="flex flex-wrap gap-2.5 justify-center sm:justify-start mb-2">
+                    <label className="cursor-pointer px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold transition-colors">
+                      Upload new picture
+                      <input type="file" accept="image/png, image/jpeg, image/webp, image/gif" className="hidden" onChange={handleAvatarChange} />
+                    </label>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">{firstName} {lastName}</h3>
+                  <p className="text-xs text-slate-500">{email}</p>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mt-2 text-xs text-slate-500 dark:text-[#9f988b]">
-                <span className="flex items-center gap-1.5">
-                  <Mail size={14} className="text-slate-400 dark:text-[#71717a]" />
-                  {user.email}
-                </span>
-                {user.job_type && (
-                  <span className="flex items-center gap-1.5">
-                    <Briefcase size={14} className="text-amber-500 dark:text-amber-400" />
-                    {user.job_type}
-                  </span>
-                )}
+              {/* Form Fields Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-6">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">First Name</label>
+                  <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-sm font-medium text-slate-800 transition-all outline-none" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Last Name</label>
+                  <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-sm font-medium text-slate-800 transition-all outline-none" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Email Address</label>
+                  <div className="relative">
+                    <input type="email" value={email} readOnly className="w-full pl-3.5 pr-24 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none cursor-not-allowed opacity-80" />
+                    {user?.email_verified && (
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        <ShieldCheck className="w-3 h-3" /> Verified
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Phone Number</label>
+                  <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-sm font-medium text-slate-800 transition-all outline-none" />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Role / Title</label>
+                  <CustomSelect
+                    options={JOB_OPTIONS}
+                    value={jobTitle}
+                    onChange={(val) => setJobTitle(val)}
+                    placeholder="Select your profession..."
+                    className="w-full"
+                  />
+                </div>
               </div>
+
+              {/* Privacy Setting */}
+              <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Private Account</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">When enabled, your profile is hidden and you cannot be added to new projects.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPrivate(!isPrivate)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                    isPrivate ? "bg-amber-500" : "bg-slate-200"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      isPrivate ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="mt-8 flex justify-end">
+                <button 
+                  type="button" 
+                  onClick={confirmSaveProfile} 
+                  disabled={isUpdatingProfile}
+                  className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 active:scale-[0.98] disabled:opacity-70 rounded-xl shadow-sm shadow-amber-500/20 transition-all"
+                >
+                  {isUpdatingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  <span>Save Changes</span>
+                </button>
+              </div>
+
             </div>
-          </div>
+          </section>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* SECTION 1: Personal Information */}
-          <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 sm:p-6 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex flex-col justify-between">
-            <div>
-              <div className="flex items-center space-x-2 rtl:space-x-reverse pb-3 mb-4 border-b border-slate-100 dark:border-white/[0.08]">
-                <UserIcon size={18} className="text-amber-500 dark:text-amber-400" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-[#f4efe6]">Personal Details</h3>
+        {activeTab === "security" && (
+          <section className="space-y-6 animate-in fade-in duration-300">
+            {/* Change Password Section */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Change Password</h2>
+                  <p className="text-xs text-slate-500">Ensure your account is utilizing a long and random password to stay secure.</p>
+                </div>
               </div>
 
-              {profileSuccessMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
-                  <CheckCircle2 size={16} className="shrink-0 text-emerald-500 dark:text-emerald-400" />
-                  <span>{profileSuccessMsg}</span>
-                </div>
-              )}
-
-              {profileErrorMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
-                  <AlertCircle size={16} className="shrink-0 text-rose-500 dark:text-rose-400" />
-                  <span>{profileErrorMsg}</span>
-                </div>
-              )}
-
-              <form id="profile-form" onSubmit={handleUpdateProfile} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 dark:text-[#c2bcaf] mb-1.5">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#18181c] text-xs text-slate-900 dark:text-[#f4efe6] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 transition-colors"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 dark:text-[#c2bcaf] mb-1.5">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#18181c] text-xs text-slate-900 dark:text-[#f4efe6] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 transition-colors"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-[#c2bcaf] mb-1.5">
-                    Studio Profession / Role
-                  </label>
-                  <input
-                    type="text"
-                    value={jobType}
-                    onChange={(e) => setJobType(e.target.value)}
-                    placeholder="e.g. Poseur de texte, Détecteur..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#18181c] text-xs text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 transition-colors"
-                    required
-                  />
-                  {/* Preset chips */}
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {PRESET_ROLES.slice(0, 5).map((role) => (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => setJobType(role)}
-                        className={`text-[10px] px-2.5 py-1 rounded-lg transition-colors font-semibold cursor-pointer ${
-                          jobType === role
-                            ? "bg-amber-400 text-black shadow-sm font-extrabold"
-                            : "bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-[#9f988b] hover:bg-slate-200 dark:hover:bg-white/[0.08] hover:text-slate-900 dark:hover:text-[#f4efe6]"
-                        }`}
-                      >
-                        {role}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-[#c2bcaf] mb-1.5">
-                    Phone Number (Optional)
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#71717a]" size={14} />
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+212 600 000 000"
-                      className="w-full pl-9 rtl:pl-3 rtl:pr-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#18181c] text-xs text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 transition-colors"
-                    />
-                  </div>
-                </div>
-              </form>
-            </div>
-
-            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-white/[0.08] flex justify-end">
-              <button
-                type="submit"
-                form="profile-form"
-                disabled={isUpdatingProfile}
-                className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 text-black font-extrabold rounded-xl text-xs transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer"
-              >
-                {isUpdatingProfile && <Loader2 size={14} className="animate-spin mr-1.5 rtl:mr-0 rtl:ml-1.5" />}
-                Save Changes
-              </button>
-            </div>
-          </div>
-
-          {/* SECTION 2: Security & Password Change */}
-          <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-5 sm:p-6 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex flex-col justify-between">
-            <div>
-              <div className="flex items-center space-x-2 rtl:space-x-reverse pb-3 mb-4 border-b border-slate-100 dark:border-white/[0.08]">
-                <Lock size={18} className="text-amber-500 dark:text-amber-400" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-[#f4efe6]">Security &amp; Password</h3>
-              </div>
-
-              {passwordSuccessMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
-                  <CheckCircle2 size={16} className="shrink-0 text-emerald-500 dark:text-emerald-400" />
-                  <span>{passwordSuccessMsg}</span>
-                </div>
-              )}
-
-              {passwordErrorMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
-                  <AlertCircle size={16} className="shrink-0 text-rose-500 dark:text-rose-400" />
-                  <span>{passwordErrorMsg}</span>
-                </div>
-              )}
-
-              <form id="password-form" onSubmit={handleChangePassword} className="space-y-4">
-                
-                {/* Step 1: Verification Code Button */}
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 space-y-2">
+              <div className="space-y-4 max-w-lg mt-4">
+                {/* 6-Digit Verification Code */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-semibold text-xs text-slate-800 dark:text-[#f4efe6]">Email Verification Required</p>
-                      <p className="text-[11px] text-slate-400 dark:text-[#71717a]">Click to receive a 6-digit code on your email</p>
+                      <p className="font-semibold text-xs text-slate-800">Email Verification Required</p>
+                      <p className="text-[11px] text-slate-500">We will send a 6-digit code to {user?.email}</p>
                     </div>
                     <button
                       type="button"
                       onClick={handleRequestPasswordCode}
                       disabled={isSendingCode || cooldown > 0}
-                      className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 disabled:opacity-50 text-amber-700 dark:text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-50 border border-amber-200 disabled:opacity-50 text-amber-700 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0"
                     >
-                      {isSendingCode ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <Send size={13} />
-                      )}
+                      {isSendingCode ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                       <span>{cooldown > 0 ? `Wait ${cooldown}s` : "Get Code"}</span>
                     </button>
                   </div>
-                </div>
-
-                {/* Step 2: Enter 6-digit code */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-[#c2bcaf] mb-1.5">
-                    6-Digit Verification Code
-                  </label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#71717a]" size={14} />
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-                      placeholder="123456"
-                      className="w-full pl-9 rtl:pl-3 rtl:pr-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#18181c] text-xs font-mono tracking-widest text-slate-900 dark:text-[#f4efe6] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 transition-colors"
-                      required
-                    />
+                  <div className="pt-2 border-t border-slate-200 mt-2">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">6-Digit Code</label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                      <input 
+                        type="text" 
+                        maxLength={6} 
+                        value={verificationCode} 
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
+                        placeholder="123456" 
+                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 focus:border-amber-500 rounded-lg text-sm tracking-widest font-mono outline-none transition-all" 
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* New Password */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-[#c2bcaf] mb-1.5">
-                    New Password
-                  </label>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">New Password</label>
                   <div className="relative">
-                    <input
-                      type={showNewPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Minimum 8 characters"
-                      className="w-full px-3.5 py-2.5 pr-10 rtl:pr-3.5 rtl:pl-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#18181c] text-xs text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 transition-colors"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-[#71717a] dark:hover:text-[#f4efe6] p-1"
-                    >
+                    <input type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Minimum 8 characters" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 rounded-xl text-sm outline-none transition-all pr-10" />
+                    <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
                       {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
                 </div>
 
-                {/* Confirm New Password */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-[#c2bcaf] mb-1.5">
-                    Confirm New Password
-                  </label>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Confirm New Password</label>
                   <div className="relative">
-                    <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Re-enter new password"
-                      className="w-full px-3.5 py-2.5 pr-10 rtl:pr-3.5 rtl:pl-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#18181c] text-xs text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 transition-colors"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-[#71717a] dark:hover:text-[#f4efe6] p-1"
-                    >
+                    <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter new password" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 rounded-xl text-sm outline-none transition-all pr-10" />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
                       {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
                 </div>
-              </form>
-            </div>
 
-            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-white/[0.08] flex justify-end">
-              <button
-                type="submit"
-                form="password-form"
-                disabled={isChangingPassword || !verificationCode || !newPassword}
-                className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 text-black font-extrabold rounded-xl text-xs transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer"
-              >
-                {isChangingPassword && <Loader2 size={14} className="animate-spin mr-1.5 rtl:mr-0 rtl:ml-1.5" />}
-                Update Password
-              </button>
+                <button type="button" onClick={handleChangePassword} disabled={isChangingPassword} className="mt-2 px-4 py-2 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 active:scale-95 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2">
+                  {isChangingPassword && <Loader2 size={14} className="animate-spin" />}
+                  Update Password
+                </button>
+              </div>
             </div>
-          </div>
+          </section>
+        )}
 
-        </div>
+
 
       </div>
+
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        title="Save Profile Changes?"
+        message="Are you sure you want to save these changes? This will update your public profile settings for all team members."
+        type="info"
+        confirmText="Yes, Save"
+        onConfirm={() => {
+          setShowConfirmModal(false);
+          handleUpdateProfile();
+        }}
+        onCancel={() => setShowConfirmModal(false)}
+      />
     </div>
   );
 }

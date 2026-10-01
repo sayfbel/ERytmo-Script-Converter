@@ -85,6 +85,7 @@ export default function ProjectsPage() {
 
   // Form State
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [isCustomCompany, setIsCustomCompany] = useState(false);
   const [realCompanies, setRealCompanies] = useState<CompanyData[]>([]);
@@ -267,6 +268,7 @@ export default function ProjectsPage() {
 
     const params = new URLSearchParams();
     params.append("name", name);
+    if (description) params.append("description", description);
     if (companyName) params.append("company_name", companyName);
     if (folderPath) params.append("folder_path", folderPath);
     if (targetSoftware) params.append("target_software", targetSoftware);
@@ -293,6 +295,7 @@ export default function ProjectsPage() {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         fetchProjects();
         setName("");
+        setDescription("");
         setCompanyName("");
         setFolderPath("");
         setSelectedFilesForNewProject([]);
@@ -1346,6 +1349,21 @@ export default function ProjectsPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf]">Description <span className="font-normal text-slate-400 dark:text-[#71717a]">(optional)</span></label>
+                  <span className={`text-[11px] font-mono ${description.length > 700 ? "text-rose-500" : "text-slate-400 dark:text-[#71717a]"}`}>{description.length}/750</span>
+                </div>
+                <textarea
+                  maxLength={750}
+                  rows={3}
+                  placeholder="Describe the project scope, notes, or any relevant information..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a] resize-none leading-relaxed"
                 />
               </div>
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from typing import Optional
@@ -98,6 +98,7 @@ class UpdateProfilePayload(BaseModel):
     last_name: str
     phone_number: Optional[str] = None
     job_type: str
+    is_private: Optional[bool] = False
 
 class ChangePasswordPayload(BaseModel):
     code: str
@@ -403,7 +404,9 @@ def verify_email(payload: VerifyEmailPayload, response: Response, db: Session = 
             "job_type": user.job_type,
             "email": user.email,
             "phone_number": user.phone_number,
-            "email_verified": True
+            "email_verified": True,
+            "is_private": user.is_private,
+            "avatar_url": user.avatar_url
         }
     }
 
@@ -512,6 +515,7 @@ def login_user(payload: LoginPayload, response: Response, db: Session = Depends(
             "email": user.email,
             "phone_number": user.phone_number,
             "email_verified": True,
+            "avatar_url": user.avatar_url,
             "requires_profile_completion": not bool(user.job_type)
         }
     }
@@ -599,6 +603,7 @@ def google_authentication(payload: GoogleAuthPayload, response: Response, db: Se
             "email": user.email,
             "phone_number": user.phone_number,
             "email_verified": True,
+            "avatar_url": user.avatar_url,
             "requires_profile_completion": not bool(user.job_type)
         }
     }
@@ -772,7 +777,9 @@ def submit_browser_google_auth(payload: BrowserSubmitPayload, db: Session = Depe
         "last_name": user.last_name,
         "email": user.email,
         "phone_number": user.phone_number,
-        "email_verified": True
+        "email_verified": True,
+        "is_private": user.is_private,
+        "avatar_url": user.avatar_url
     }
 
     # Automatically close/destroy the small Google window
@@ -821,6 +828,8 @@ def get_current_user_profile(response: Response, user: Optional[models.User] = D
         "email": user.email,
         "phone_number": user.phone_number,
         "email_verified": user.email_verified,
+        "is_private": user.is_private,
+        "avatar_url": user.avatar_url,
         "requires_profile_completion": not bool(user.job_type),
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
@@ -893,6 +902,8 @@ def update_user_profile(
     current_user.last_name = last_name
     current_user.job_type = job_type
     current_user.phone_number = phone_number
+    if payload.is_private is not None:
+        current_user.is_private = payload.is_private
     current_user.updated_at = datetime.datetime.utcnow()
     db.commit()
     db.refresh(current_user)
@@ -908,6 +919,8 @@ def update_user_profile(
             "email": current_user.email,
             "phone_number": current_user.phone_number,
             "email_verified": current_user.email_verified,
+            "is_private": current_user.is_private,
+            "avatar_url": current_user.avatar_url,
             "requires_profile_completion": False
         }
     }
@@ -1290,3 +1303,45 @@ def logout_user(request: Request, response: Response, db: Session = Depends(get_
         "success": True,
         "message": "Logged out successfully."
     }
+
+import uuid
+
+@router.post("/profile-picture")
+async def upload_profile_picture(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    """
+    Handles profile picture uploads. Fixes file size to 2MB max and restricts to images.
+    """
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image files are allowed.")
+    
+    # Read file content to check size
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File is too large. Maximum size is 2MB.")
+    
+    # Secure filename and setup paths
+    ext = file.filename.split(".")[-1] if "." in file.filename else "png"
+    unique_filename = f"{user.id}-{uuid.uuid4().hex[:8]}.{ext}"
+    
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "profiles")
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    # Save file
+    with open(file_path, "wb") as f:
+        f.write(content)
+        
+    avatar_url = f"/uploads/profiles/{unique_filename}"
+    
+    # Update DB
+    user.avatar_url = avatar_url
+    user.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+    
+    return {"success": True, "message": "Avatar updated successfully", "avatar_url": avatar_url}

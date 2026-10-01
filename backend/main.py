@@ -24,6 +24,14 @@ app = FastAPI(
     redoc_url=None
 )
 
+# Ensure uploads directory exists
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+PROFILE_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "profiles")
+os.makedirs(PROFILE_UPLOAD_DIR, exist_ok=True)
+
+# Mount static files for uploads
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
 # Setup CORS to allow Next.js frontend (local, preview, and production Vercel)
 cors_origins = [
     "https://e-rytmo-script-converter.vercel.app",

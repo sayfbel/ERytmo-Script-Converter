@@ -5,6 +5,7 @@ import { SettingsProvider } from "@/context/SettingsContext";
 import { ConverterProvider } from "@/context/ConverterContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { SignalingProvider } from "@/context/SignalingContext";
+import { ToastProvider } from "@/context/ToastContext";
 import AppShell from "@/components/AppShell";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -56,9 +57,11 @@ export default function RootLayout({
           <AuthProvider>
             <SignalingProvider>
               <ConverterProvider>
-                <AppShell>
-                  {children}
-                </AppShell>
+                <ToastProvider>
+                  <AppShell>
+                    {children}
+                  </AppShell>
+                </ToastProvider>
               </ConverterProvider>
             </SignalingProvider>
           </AuthProvider>

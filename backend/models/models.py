@@ -32,6 +32,7 @@ class Project(Base):
     folder_path = Column(String(500), nullable=True)
     target_software = Column(String(100), nullable=True)
     project_type = Column(String(100), nullable=True)
+    description = Column(Text, nullable=True)
     deadline = Column(DateTime, nullable=True)
     total_time = Column(Integer, nullable=True)
     status = Column(String(50), default="active") # active, completed, etc.
@@ -107,6 +108,8 @@ class User(Base):
     job_type = Column(String(100), nullable=True)
     google_id = Column(String(191), unique=True, index=True, nullable=True)
     email_verified = Column(Boolean, default=False, nullable=False)
+    is_private = Column(Boolean, default=False, nullable=False)
+    avatar_url = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
