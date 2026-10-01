@@ -8,7 +8,7 @@ import heroCinematicImg from "@/assets/hero_cinematic.jpg";
 import studioCardImg from "@/assets/studio_card.jpg";
 import { useAuth } from "@/context/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
-import { Eye, EyeOff, LogOut, ArrowRight } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -101,9 +101,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleSignOutAndSwitch = async () => {
-    await logout();
-  };
 
   // ─── SESSION GATE: Automatically redirect if already authenticated ───
   React.useEffect(() => {
