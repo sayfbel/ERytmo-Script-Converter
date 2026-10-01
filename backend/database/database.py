@@ -243,4 +243,47 @@ def init_db():
             except Exception as e:
                 print(f"[DB Migration] projects.files_index: {e}")
 
+        # Migration: users.is_private
+        try:
+            conn.execute(text("SELECT is_private FROM users LIMIT 1"))
+        except Exception:
+            try:
+                if is_mysql:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN is_private BOOLEAN NOT NULL DEFAULT 0"))
+                else:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN is_private BOOLEAN NOT NULL DEFAULT 0"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] users.is_private: {e}")
+                
+        # Migration: users.avatar_url
+        try:
+            conn.execute(text("SELECT avatar_url FROM users LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(255) NULL"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] users.avatar_url: {e}")
+
+        # Migration: projects.description
+        try:
+            conn.execute(text("SELECT description FROM projects LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN description TEXT NULL"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] projects.description: {e}")
+                
+        # Migration: companies.description
+        try:
+            conn.execute(text("SELECT description FROM companies LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE companies ADD COLUMN description TEXT NULL"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] companies.description: {e}")
+
 
