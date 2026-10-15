@@ -1,11 +1,13 @@
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 env/
 venv/
+**/venv/
 ENV/
 build/
 build_installer/
@@ -32,17 +34,20 @@ samples/
 *.sqlite
 *.sqlite3
 *.log
-backend/conversion_debug.log
+**/*.log
+
+# User uploads & media
+uploads/
+**/uploads/*
+!**/uploads/.gitkeep
 
 # Frontend dependencies & builds
 node_modules/
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-
-# Sample files
-*.xlsx
+**/node_modules/
+.next/
+**/.next/
+out/
+**/out/
 
 # PyWebView Storage
 .webview_storage/
-

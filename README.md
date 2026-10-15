@@ -1,91 +1,99 @@
-# ERytmo Script Converter 🎬
+# DubFlow Studio (v2.0) 🎬
 
-A modern Light Mode desktop application designed to convert company subtitling and dubbing scripts (`.docx`, `.pdf`, `.txt`, `.text`) into the exact **Format A specification** required by **ERytmo Factory**.
-
-![ERytmo Script Converter](src/app_logo.png)
-
----
-
-## 🌟 Key Features
-
-* **Multi-Format Parser**: Supports company Word documents (`.docx`), PDF files (`.pdf`), and plain text files (`.txt`, `.text`).
-* **Format A Output**: Automatically converts scripts into ERytmo Factory Format A:
-  - **Line 1**: Start Timecode (`HH:MM:SS:FF` or `HH:MM:SS`)
-  - **Line 2**: Clean Character Name (e.g. `CÉCILE`, `MUNA`)
-  - **Line 3+**: Dialogue / Text / Audio Cues
-  - **Line 4**: Blank line separator between cues
-* **Automatic OUT Timecode Removal**: Strips OUT timecodes that break ERytmo Factory's internal regex parser.
-* **Dual Live Table Preview**:
-  - **Table 1**: Raw imported company script preview.
-  - **Table 2**: Converted ERytmo Format A script preview.
-* **Modern Light Mode GUI**: Built with **PySide6 (Qt)** featuring drag-and-drop file upload, file save dialogs, and clean slate typography.
-* **Standalone Windows Installer**: Bundles into a single standalone setup executable (`Setup_ERytmo_Script_Converter.exe`) requiring zero dependencies on client PCs.
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-* Python 3.10+
-* Windows 10/11
-
-### Installation & Running from Source
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/sayfbel/ERytmo-Script-Converter.git
-   cd ERytmo-Script-Converter
-   ```
-
-2. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Run the Application**:
-   ```bash
-   python src/main_gui.py
-   ```
-
----
-
-## 🔨 Building Executables
-
-### Build Desktop Application Executable (`.exe`)
-```bash
-python src/build_exe.py
-```
-*Generates `dist/ERytmo_Script_Converter.exe`.*
-
-### Build Standalone Client Installer (`Setup.exe`)
-```bash
-python installer/build_installer.py
-```
-*Generates `installer/Setup_ERytmo_Script_Converter.exe`.*
-
----
-
-## 📁 Repository Structure
+DubFlow is a professional dubbing workflow, script conversion, and studio collaboration platform. It is architected as a clean monorepo with two independent, fully autonomous applications:
 
 ```text
-├── src/
-│   ├── main_gui.py            # PySide6 Desktop GUI Application
-│   ├── script_parser.py       # Core Multi-Format Script Parsing Engine
-│   ├── generate_logo.py       # PNG and ICO Logo Asset Generator
-│   └── build_exe.py           # PyInstaller Build Script for App Executable
-├── installer/
-│   ├── installer_gui.py       # Custom PySide6 Client Setup Wizard
-│   └── build_installer.py     # PyInstaller Build Script for Setup Executable
-├── script company/            # Sample Company Script Input Files
-├── script correct formate/    # ERytmo Format A Reference Output Files
-├── requirements.txt           # Python Dependency Manifest
-├── .gitignore                 # Git Ignore Rules
-└── README.md                  # Project Documentation
+DubFlow/
+├── desktop/                  # 🖥️ Standalone Desktop App (Electron + Local FastAPI)
+│   ├── backend/              # Local FastAPI Backend (SQLite default, Host OS integration)
+│   ├── frontend/             # Electron + Next.js 14 Desktop UI
+│   ├── run_desktop.sh        # 1-Click Launch Script
+│   └── .env                  # Desktop environment configuration
+│
+└── web/                      # 🌐 Standalone Cloud Web App (Next.js + Cloud FastAPI)
+    ├── backend/              # Cloud FastAPI Backend (File streaming, MySQL/PostgreSQL)
+    ├── frontend/             # Pure Next.js 14 Web Frontend (Vercel / Browser downloads)
+    ├── Dockerfile            # Container deployment manifest
+    ├── render.yaml           # Render deployment configuration
+    └── .env                  # Cloud environment configuration
+```
+
+---
+
+## 🖥️ 1. Desktop Application (`desktop/`)
+
+Designed for local audio/video editors and studio engineers who need direct access to local files and offline capabilities.
+
+### Key Features:
+* **Electron Window**: Native desktop window with zero browser address bar distractions.
+* **Local File System**: Direct host OS file opening, folder explorer browsing, and automatic reveal in File Explorer / Finder.
+* **Zero-Setup Database**: Auto-initializes an embedded SQLite database (`erytmo.db`) locally with no external database server needed.
+* **Native Downloads**: Generates `.xlsx` and `.docx` directly into the system's `Downloads` folder.
+
+### Running Desktop App:
+```bash
+cd desktop
+chmod +x run_desktop.sh
+./run_desktop.sh
+```
+*Or manually:*
+```bash
+# Terminal 1: Backend
+cd desktop/backend
+source venv/bin/activate
+uvicorn backend.main:app --port 8000
+
+# Terminal 2: Frontend & Electron
+cd desktop/frontend
+npm run desktop
+```
+
+---
+
+## 🌐 2. Cloud Web Application (`web/`)
+
+Designed for cloud hosting (e.g. Render, Vercel, Docker, VPS) for distributed teams and clients.
+
+### Key Features:
+* **Pure Next.js Web Frontend**: Deploys seamlessly to Vercel or any Node.js hosting platform with zero Electron dependencies.
+* **Direct Browser File Streaming**: Uses `FileResponse` to stream `.xlsx` and `.docx` downloads directly into the user's web browser, with automatic background cleanup of temporary server files.
+* **Cloud Database Ready**: Built-in support for MySQL (e.g., Aiven, PlanetScale, XAMPP) or PostgreSQL via `DATABASE_URL` with connection pooling and keepalive pinging.
+* **Security Hardened**: Advanced rate limiting, reverse proxy IP header resolution, magic byte file inspection, PBKDF2 hashing, and token revocation.
+
+### Running Web App Locally:
+```bash
+# Terminal 1: Cloud Backend
+cd web/backend
+source venv/bin/activate
+uvicorn backend.main:app --host 0.0.0.0 --port 8000
+
+# Terminal 2: Cloud Frontend
+cd web/frontend
+npm run dev
+# Open http://localhost:3000 in your browser
+```
+
+### Deploying Web App with Docker:
+```bash
+cd web
+docker build -t dubflow-web .
+docker run -p 7860:7860 dubflow-web
+```
+
+---
+
+## 🛡️ Security & Test Suite
+
+Both backend implementations include a comprehensive regression test suite with **81 automated security tests**:
+```bash
+# Test Desktop backend:
+python desktop/backend/tests/run_all_tests.py
+
+# Test Web backend:
+python web/backend/tests/run_all_tests.py
 ```
 
 ---
 
 ## 📜 License
-
-MIT License. Designed for dubbing & subtitling workflow optimization.
+MIT License. DubFlow Studio 2026.
