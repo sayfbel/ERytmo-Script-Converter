@@ -144,6 +144,15 @@ body {
   background: rgba(100, 116, 139, 0.7);
 }
 
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Claymorphism 3D Graphic System */
 .clay-card {
   background: rgba(255, 255, 255, 0.9);
