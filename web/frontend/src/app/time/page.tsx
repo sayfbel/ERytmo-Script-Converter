@@ -5,6 +5,7 @@ import { Clock, Plus, Trash2, Calendar as CalendarIcon, DollarSign, TrendingUp, 
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import CustomSelect from "@/components/CustomSelect";
+import DateSelect from "@/components/DateSelect";
 import { apiFetch } from "@/lib/api";
 
 interface Project {
@@ -356,11 +357,12 @@ export default function TimeManagementPage() {
             <form onSubmit={handleSaveEntry} className="flex flex-col flex-1 min-h-0 overflow-hidden">
               {/* Scrollable Body */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 min-h-0">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("time.form.date")}</label>
-                  <input type="date" required value={date} onChange={e => setDate(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-[#f4efe6] focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20" />
-                </div>
+                <DateSelect
+                  label={t("time.form.date")}
+                  required
+                  value={date}
+                  onChange={(newDate) => setDate(newDate)}
+                />
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("time.form.project")}</label>
                   <CustomSelect

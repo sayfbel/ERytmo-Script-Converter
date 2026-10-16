@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
+import DateSelect from "@/components/DateSelect";
 import MediaViewerModal, { detectFileCategory, ProjectViewerFile } from "@/components/MediaViewerModal";
 import LargeFileRequirementModal from "@/components/LargeFileRequirementModal";
 import { useSettings } from "@/context/SettingsContext";
@@ -1643,12 +1644,11 @@ export default function ProjectsClient() {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.deadline")}</label>
-                    <input 
-                      type="date"
+                    <DateSelect
+                      label={t("project.form.deadline")}
                       value={deadline}
-                      onChange={(e) => setDeadline(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6]"
+                      onChange={(val) => setDeadline(val)}
+                      placeholder="Select deadline"
                     />
                   </div>
                   <div className="flex-1">

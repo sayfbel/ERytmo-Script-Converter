@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
+import DateSelect from "@/components/DateSelect";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { useSignaling } from "@/context/SignalingContext";
@@ -1504,12 +1505,11 @@ export default function ProjectsPage() {
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.deadline")}</label>
-                  <input 
-                    type="date"
+                  <DateSelect
+                    label={t("project.form.deadline")}
                     value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6]"
+                    onChange={(val) => setDeadline(val)}
+                    placeholder="Select deadline"
                   />
                 </div>
                 <div className="flex-1">

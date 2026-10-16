@@ -1,0 +1,441 @@
+"use client";
+
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-react";
+
+export interface DateSelectProps {
+  value: string; // YYYY-MM-DD
+  onChange: (value: string) => void;
+  label?: string;
+  placeholder?: string;
+  required?: boolean;
+  disabled?: boolean;
+  minDate?: string;
+  maxDate?: string;
+  className?: string;
+  id?: string;
+}
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export default function DateSelect({
+  value,
+  onChange,
+  label,
+  placeholder = "Select Date",
+  required = false,
+  disabled = false,
+  minDate,
+  maxDate,
+  className = "",
+  id,
+}: DateSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [openUpwards, setOpenUpwards] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Parse initial selected date to determine active view month/year
+  const parsedSelected = useMemo(() => {
+    if (!value) return null;
+    const parts = value.split("-");
+    if (parts.length !== 3) return null;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+    return { year: y, month: m, day: d };
+  }, [value]);
+
+  const today = useMemo(() => {
+    const now = new Date();
+    return {
+      year: now.getFullYear(),
+      month: now.getMonth(),
+      day: now.getDate()
+    };
+  }, []);
+
+  const [viewYear, setViewYear] = useState<number>(() => parsedSelected?.year ?? today.year);
+  const [viewMonth, setViewMonth] = useState<number>(() => parsedSelected?.month ?? today.month);
+
+  // Sync view when value changes from outside
+  useEffect(() => {
+    if (parsedSelected) {
+      setViewYear(parsedSelected.year);
+      setViewMonth(parsedSelected.month);
+    }
+  }, [parsedSelected]);
+
+  // Auto-detect if popover should open upwards
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const estimatedHeight = 340;
+      if (spaceBelow < estimatedHeight && rect.top > estimatedHeight) {
+        setOpenUpwards(true);
+      } else {
+        setOpenUpwards(false);
+      }
+    }
+  }, [isOpen]);
+
+  // Click outside to close
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node) &&
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  // Month navigation
+  const handlePrevMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((prev) => prev - 1);
+    } else {
+      setViewMonth((prev) => prev - 1);
+    }
+  };
+
+  const handleNextMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((prev) => prev + 1);
+    } else {
+      setViewMonth((prev) => prev + 1);
+    }
+  };
+
+  // Format date helper (YYYY-MM-DD)
+  const formatYMD = (y: number, m: number, d: number) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${y}-${pad(m + 1)}-${pad(d)}`;
+  };
+
+  // Formatted display date for input field (e.g. "Nov 20, 2024")
+  const displayDate = useMemo(() => {
+    if (!parsedSelected) return "";
+    const dt = new Date(parsedSelected.year, parsedSelected.month, parsedSelected.day);
+    return dt.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  }, [parsedSelected]);
+
+  // Build calendar days grid
+  const calendarDays = useMemo(() => {
+    const daysInCurrentMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
+    const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+    const days: Array<{
+      day: number;
+      month: number;
+      year: number;
+      isCurrentMonth: boolean;
+      dateString: string;
+      isSelected: boolean;
+      isToday: boolean;
+      isDisabled: boolean;
+    }> = [];
+
+    // Leading days from previous month
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+      const d = daysInPrevMonth - i;
+      const m = viewMonth === 0 ? 11 : viewMonth - 1;
+      const y = viewMonth === 0 ? viewYear - 1 : viewYear;
+      const dateStr = formatYMD(y, m, d);
+      const isSelected = parsedSelected?.year === y && parsedSelected?.month === m && parsedSelected?.day === d;
+      const isToday = today.year === y && today.month === m && today.day === d;
+      const isDisabled = Boolean(
+        (minDate && dateStr < minDate) || (maxDate && dateStr > maxDate)
+      );
+
+      days.push({
+        day: d,
+        month: m,
+        year: y,
+        isCurrentMonth: false,
+        dateString: dateStr,
+        isSelected: Boolean(isSelected),
+        isToday,
+        isDisabled
+      });
+    }
+
+    // Days in current month
+    for (let d = 1; d <= daysInCurrentMonth; d++) {
+      const dateStr = formatYMD(viewYear, viewMonth, d);
+      const isSelected = parsedSelected?.year === viewYear && parsedSelected?.month === viewMonth && parsedSelected?.day === d;
+      const isToday = today.year === viewYear && today.month === viewMonth && today.day === d;
+      const isDisabled = Boolean(
+        (minDate && dateStr < minDate) || (maxDate && dateStr > maxDate)
+      );
+
+      days.push({
+        day: d,
+        month: viewMonth,
+        year: viewYear,
+        isCurrentMonth: true,
+        dateString: dateStr,
+        isSelected: Boolean(isSelected),
+        isToday,
+        isDisabled
+      });
+    }
+
+    // Trailing days from next month to make 35 or 42 cells total (uniform 6-row grid)
+    const totalCells = days.length <= 35 ? 35 : 42;
+    const remaining = totalCells - days.length;
+    for (let d = 1; d <= remaining; d++) {
+      const m = viewMonth === 11 ? 0 : viewMonth + 1;
+      const y = viewMonth === 11 ? viewYear + 1 : viewYear;
+      const dateStr = formatYMD(y, m, d);
+      const isSelected = parsedSelected?.year === y && parsedSelected?.month === m && parsedSelected?.day === d;
+      const isToday = today.year === y && today.month === m && today.day === d;
+      const isDisabled = Boolean(
+        (minDate && dateStr < minDate) || (maxDate && dateStr > maxDate)
+      );
+
+      days.push({
+        day: d,
+        month: m,
+        year: y,
+        isCurrentMonth: false,
+        dateString: dateStr,
+        isSelected: Boolean(isSelected),
+        isToday,
+        isDisabled
+      });
+    }
+
+    return days;
+  }, [viewYear, viewMonth, parsedSelected, today, minDate, maxDate]);
+
+  const handleSelectDate = (dateStr: string) => {
+    onChange(dateStr);
+    setIsOpen(false);
+  };
+
+  const handleQuickToday = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const todayStr = formatYMD(today.year, today.month, today.day);
+    setViewYear(today.year);
+    setViewMonth(today.month);
+    onChange(todayStr);
+    setIsOpen(false);
+  };
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange("");
+  };
+
+  return (
+    <div className={`relative ${className}`} ref={containerRef}>
+      {label && (
+        <label
+          htmlFor={id}
+          className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5"
+        >
+          {label}
+        </label>
+      )}
+
+      {/* Input Trigger Button matching project tokens */}
+      <button
+        type="button"
+        id={id}
+        disabled={disabled}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs sm:text-sm font-medium rounded-xl border transition-all text-left cursor-pointer focus:outline-none ${
+          disabled ? "opacity-50 cursor-not-allowed" : ""
+        } ${
+          isOpen
+            ? "border-amber-500 dark:border-amber-400 ring-2 ring-amber-500/20 dark:ring-amber-400/20 bg-white dark:bg-[#131316]"
+            : "border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-white dark:bg-[#131316]"
+        }`}
+      >
+        <span
+          className={`truncate ${
+            displayDate
+              ? "text-slate-900 dark:text-[#f4efe6] font-semibold"
+              : "text-slate-400 dark:text-[#71717a]"
+          }`}
+        >
+          {displayDate || placeholder}
+        </span>
+
+        <div className="flex items-center gap-1.5 shrink-0 text-slate-400 dark:text-[#9f988b]">
+          {value && !disabled && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={handleClear}
+              className="p-0.5 rounded hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              aria-label="Clear date"
+            >
+              <X size={14} />
+            </span>
+          )}
+          <CalendarIcon
+            size={16}
+            className={`transition-colors ${
+              isOpen
+                ? "text-amber-500 dark:text-amber-400"
+                : "text-slate-400 dark:text-[#9f988b]"
+            }`}
+          />
+        </div>
+      </button>
+
+      {/* Hidden input for HTML form validation if required */}
+      {required && (
+        <input
+          type="text"
+          value={value}
+          required
+          onChange={() => {}}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Popover Calendar Dropdown */}
+      {isOpen && (
+        <div
+          ref={popoverRef}
+          className={`absolute ${
+            openUpwards ? "bottom-full mb-2" : "top-full mt-2"
+          } left-0 sm:left-auto right-auto sm:right-0 z-[99999] w-[290px] sm:w-[310px] p-4 bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/15 rounded-2xl shadow-2xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150`}
+        >
+          {/* Calendar Header: Month + Year and Nav Controls */}
+          <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-white/[0.08]">
+            <div className="flex items-baseline gap-1.5 select-none">
+              <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-[#f4efe6] tracking-tight">
+                {MONTH_NAMES[viewMonth]}
+              </span>
+              <span className="text-xs sm:text-sm font-semibold text-slate-400 dark:text-[#9f988b]">
+                {viewYear}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handlePrevMonth}
+                aria-label="Previous month"
+                className="p-1.5 rounded-lg text-slate-500 dark:text-[#c2bcaf] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                aria-label="Next month"
+                className="p-1.5 rounded-lg text-slate-500 dark:text-[#c2bcaf] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Weekday Names Header */}
+          <div className="grid grid-cols-7 mb-1.5 text-center">
+            {WEEKDAY_NAMES.map((name) => (
+              <div
+                key={name}
+                className="text-[11px] font-semibold text-slate-400 dark:text-[#71717a] py-1 select-none"
+              >
+                {name}
+              </div>
+            ))}
+          </div>
+
+          {/* Days Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {calendarDays.map((cell, idx) => {
+              const isCellSelected = cell.isSelected;
+              const isCellToday = cell.isToday;
+
+              return (
+                <button
+                  key={`${cell.dateString}-${idx}`}
+                  type="button"
+                  disabled={cell.isDisabled}
+                  onClick={() => handleSelectDate(cell.dateString)}
+                  className={`h-8 w-8 sm:h-9 sm:w-9 mx-auto rounded-full flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
+                    cell.isDisabled
+                      ? "opacity-25 cursor-not-allowed text-slate-400 dark:text-[#555]"
+                      : isCellSelected
+                      ? "bg-amber-500 dark:bg-amber-400 text-slate-950 font-bold shadow-md shadow-amber-500/30 scale-105"
+                      : isCellToday
+                      ? "border border-amber-500/60 dark:border-amber-400/60 text-amber-600 dark:text-amber-400 font-bold hover:bg-amber-500/10 dark:hover:bg-amber-400/10"
+                      : cell.isCurrentMonth
+                      ? "text-slate-800 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-950 dark:hover:text-white"
+                      : "text-slate-300 dark:text-[#52525b] hover:bg-slate-50 dark:hover:bg-white/5 opacity-60"
+                  }`}
+                >
+                  {cell.day}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick Action Footer: Today & Clear */}
+          <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100 dark:border-white/[0.08] text-xs">
+            <button
+              type="button"
+              onClick={handleQuickToday}
+              className="font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
+            >
+              Today
+            </button>
+
+            {value && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="font-medium text-slate-400 dark:text-[#71717a] hover:text-slate-600 dark:hover:text-[#c2bcaf] transition-colors cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
