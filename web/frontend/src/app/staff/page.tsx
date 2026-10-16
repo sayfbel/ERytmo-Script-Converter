@@ -479,13 +479,13 @@ export default function StaffPage() {
 
       {/* Create / Edit Collaborator Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#141417] rounded-3xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-md animate-in zoom-in-95 duration-200 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-white dark:bg-[#141417] rounded-3xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6] overflow-hidden my-auto">
             
             {/* Modal Header */}
-            <div className="p-6 pb-4 border-b border-slate-200/80 dark:border-white/[0.08] flex justify-between items-center bg-slate-50/50 dark:bg-white/[0.02]">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-[#f4efe6] flex items-center gap-2.5">
-                <Users size={20} className="text-amber-500 dark:text-amber-400" />
+            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] flex justify-between items-center bg-slate-50/50 dark:bg-white/[0.02] shrink-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-[#f4efe6] flex items-center gap-2">
+                <Users size={18} className="text-amber-500 dark:text-amber-400" />
                 <span>{editingStaffId ? "Edit Collaborator" : "Add Direct Collaborator"}</span>
               </h2>
               <button 
@@ -497,187 +497,190 @@ export default function StaffPage() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmitStaff} className="p-6 space-y-4">
-              {error && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 text-xs rounded-xl font-medium">
-                  {error}
-                </div>
-              )}
+            <form onSubmit={handleSubmitStaff} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Scrollable Form Body */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 sm:space-y-4 min-h-0">
+                {error && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 text-xs rounded-xl font-medium">
+                    {error}
+                  </div>
+                )}
 
-              {/* Registered User Search / Selection */}
-              {!editingStaffId ? (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
-                    Select Registered User <span className="text-amber-500 dark:text-amber-400">*</span>
-                  </label>
+                {/* Registered User Search / Selection */}
+                {!editingStaffId ? (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
+                      Select Registered User <span className="text-amber-500 dark:text-amber-400">*</span>
+                    </label>
 
-                  {selectedUser ? (
-                    <div className="p-3 bg-amber-400/10 border border-amber-400/25 rounded-xl flex items-center justify-between animate-in fade-in duration-200">
-                      <div className="flex items-center space-x-2.5 rtl:space-x-reverse min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-amber-400 text-black font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
-                          <Check size={16} />
+                    {selectedUser ? (
+                      <div className="p-3 bg-amber-400/10 border border-amber-400/25 rounded-xl flex items-center justify-between animate-in fade-in duration-200">
+                        <div className="flex items-center space-x-2.5 rtl:space-x-reverse min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-amber-400 text-black font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                            <Check size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] truncate">
+                              {selectedUser.name}
+                            </p>
+                            <p className="text-[11px] text-amber-700 dark:text-amber-300 truncate">
+                              {selectedUser.email}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] truncate">
-                            {selectedUser.name}
-                          </p>
-                          <p className="text-[11px] text-amber-700 dark:text-amber-300 truncate">
-                            {selectedUser.email}
-                          </p>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedUser(null);
+                            setName("");
+                            setEmail("");
+                            setStaffUserId(null);
+                          }}
+                          className="text-xs font-semibold text-slate-500 dark:text-[#9f988b] hover:text-slate-900 dark:hover:text-[#f4efe6] px-2.5 py-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Change
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedUser(null);
-                          setName("");
-                          setEmail("");
-                          setStaffUserId(null);
-                        }}
-                        className="text-xs font-semibold text-slate-500 dark:text-[#9f988b] hover:text-slate-900 dark:hover:text-[#f4efe6] px-2.5 py-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Change
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="relative">
+                    ) : (
                       <div className="relative">
-                        <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#71717a]" size={15} />
-                        <input
-                          type="text"
-                          value={userSearchQuery}
-                          onChange={(e) => setUserSearchQuery(e.target.value)}
-                          className="w-full pl-9 rtl:pl-3 rtl:pr-9 pr-8 py-2.5 bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-colors"
-                          placeholder="Search registered user by name or email..."
-                          autoFocus
-                        />
-                        {isSearchingUsers && (
-                          <Loader2 className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-amber-500 dark:text-amber-400 animate-spin" size={15} />
-                        )}
-                      </div>
-
-                      {/* Search Results Dropdown */}
-                      {userSearchQuery.trim().length > 0 && (
-                        <div className="mt-1.5 max-h-48 overflow-y-auto bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.8)] divide-y divide-slate-100 dark:divide-white/5 z-10">
-                          {userSearchResults.length === 0 && !isSearchingUsers ? (
-                            <div className="p-3 text-center text-xs text-slate-400 dark:text-[#71717a]">
-                              No registered user found matching &quot;{userSearchQuery}&quot;
-                            </div>
-                          ) : (
-                            userSearchResults.map((u) => (
-                              <button
-                                key={u.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedUser(u);
-                                  setName(u.name);
-                                  setEmail(u.email);
-                                  setStaffUserId(u.id);
-                                  setUserSearchQuery("");
-                                  setUserSearchResults([]);
-                                }}
-                                className="w-full p-2.5 text-left rtl:text-right hover:bg-amber-50 dark:hover:bg-amber-400/10 flex items-center justify-between transition-colors group cursor-pointer"
-                              >
-                                <div className="min-w-0 pr-2">
-                                  <p className="font-semibold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400 truncate">
-                                    {u.name}
-                                  </p>
-                                  <p className="text-[11px] text-slate-500 dark:text-[#71717a] truncate">
-                                    {u.email}
-                                  </p>
-                                </div>
-                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 shrink-0 px-2 py-0.5 rounded bg-amber-400/20 border border-amber-400/30">
-                                  Select
-                                </span>
-                              </button>
-                            ))
+                        <div className="relative">
+                          <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#71717a]" size={15} />
+                          <input
+                            type="text"
+                            value={userSearchQuery}
+                            onChange={(e) => setUserSearchQuery(e.target.value)}
+                            className="w-full pl-9 rtl:pl-3 rtl:pr-9 pr-8 py-2.5 bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-colors"
+                            placeholder="Search registered user by name or email..."
+                            autoFocus
+                          />
+                          {isSearchingUsers && (
+                            <Loader2 className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-amber-500 dark:text-amber-400 animate-spin" size={15} />
                           )}
                         </div>
-                      )}
-                      <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-1">
-                        Only registered accounts in ERytmo can be added as project collaborators.
+
+                        {/* Search Results Dropdown */}
+                        {userSearchQuery.trim().length > 0 && (
+                          <div className="mt-1.5 max-h-48 overflow-y-auto bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.8)] divide-y divide-slate-100 dark:divide-white/5 z-10">
+                            {userSearchResults.length === 0 && !isSearchingUsers ? (
+                              <div className="p-3 text-center text-xs text-slate-400 dark:text-[#71717a]">
+                                No registered user found matching &quot;{userSearchQuery}&quot;
+                              </div>
+                            ) : (
+                              userSearchResults.map((u) => (
+                                <button
+                                  key={u.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedUser(u);
+                                    setName(u.name);
+                                    setEmail(u.email);
+                                    setStaffUserId(u.id);
+                                    setUserSearchQuery("");
+                                    setUserSearchResults([]);
+                                  }}
+                                  className="w-full p-2.5 text-left rtl:text-right hover:bg-amber-50 dark:hover:bg-amber-400/10 flex items-center justify-between transition-colors group cursor-pointer"
+                                >
+                                  <div className="min-w-0 pr-2">
+                                    <p className="font-semibold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400 truncate">
+                                      {u.name}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 dark:text-[#71717a] truncate">
+                                      {u.email}
+                                    </p>
+                                  </div>
+                                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 shrink-0 px-2 py-0.5 rounded bg-amber-400/20 border border-amber-400/30">
+                                    Select
+                                  </span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                        <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-1">
+                          Only registered accounts in ERytmo can be added as project collaborators.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl">
+                    <p className="font-bold text-xs text-slate-900 dark:text-[#f4efe6]">{name}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-[#71717a]">{email}</p>
+                  </div>
+                )}
+
+                {/* Role / Task */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
+                    Assigned Role / Task
+                  </label>
+                  <CustomSelect
+                    options={[
+                      { label: "pose le text", value: "pose le text" },
+                      { label: "les apois", value: "les apois" },
+                      { label: "complet", value: "complet" },
+                      { label: "partner", value: "partner" }
+                    ]}
+                    value={task}
+                    onChange={setTask}
+                  />
+                </div>
+
+                {/* Granular Access Level Control */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
+                    Project Access Level <span className="text-amber-500 dark:text-amber-400">*</span>
+                  </label>
+                  <CustomSelect
+                    options={[
+                      { label: "Full Access", value: "full_access", icon: <ShieldCheck size={15} /> },
+                      { label: "Spectator", value: "spectator", icon: <Eye size={15} /> }
+                    ]}
+                    value={accessLevel}
+                    onChange={(val) => setAccessLevel(val as "full_access" | "spectator")}
+                  />
+                  <p className="text-[11px] text-slate-500 dark:text-[#71717a] mt-1.5 leading-relaxed">
+                    {accessLevel === "full_access" 
+                      ? "Can view shared projects, inspect files, and download via P2P." 
+                      : "Read-only. Can inspect project metadata. All downloads strictly disabled."}
+                  </p>
+                </div>
+
+                {/* Auto-Approval Checkbox */}
+                <div className="pt-1">
+                  <label className="flex items-start space-x-2.5 rtl:space-x-reverse cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={autoAcceptTransfers}
+                      onChange={(e) => setAutoAcceptTransfers(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-amber-500 accent-amber-500 focus:ring-amber-400 border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-[#18181c] cursor-pointer"
+                    />
+                    <div className="text-xs text-slate-700 dark:text-[#c2bcaf]">
+                      <span className="font-semibold flex items-center gap-1">
+                        <Zap size={12} className="text-amber-500 dark:text-amber-400 fill-amber-400" />
+                        Auto-approve P2P transfer requests
+                      </span>
+                      <p className="text-[11px] text-slate-400 dark:text-[#71717a]">
+                        Files will stream immediately when this collaborator requests downloads without waiting for prompt.
                       </p>
                     </div>
-                  )}
+                  </label>
                 </div>
-              ) : (
-                <div className="p-3 bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl">
-                  <p className="font-bold text-xs text-slate-900 dark:text-[#f4efe6]">{name}</p>
-                  <p className="text-[11px] text-slate-500 dark:text-[#71717a]">{email}</p>
-                </div>
-              )}
-
-              {/* Role / Task */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
-                  Assigned Role / Task
-                </label>
-                <CustomSelect
-                  options={[
-                    { label: "pose le text", value: "pose le text" },
-                    { label: "les apois", value: "les apois" },
-                    { label: "complet", value: "complet" },
-                    { label: "partner", value: "partner" }
-                  ]}
-                  value={task}
-                  onChange={setTask}
-                />
               </div>
 
-              {/* Granular Access Level Control */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
-                  Project Access Level <span className="text-amber-500 dark:text-amber-400">*</span>
-                </label>
-                <CustomSelect
-                  options={[
-                    { label: "Full Access", value: "full_access", icon: <ShieldCheck size={15} /> },
-                    { label: "Spectator", value: "spectator", icon: <Eye size={15} /> }
-                  ]}
-                  value={accessLevel}
-                  onChange={(val) => setAccessLevel(val as "full_access" | "spectator")}
-                />
-                <p className="text-[11px] text-slate-500 dark:text-[#71717a] mt-1.5 leading-relaxed">
-                  {accessLevel === "full_access" 
-                    ? "Can view shared projects, inspect files, and download via P2P." 
-                    : "Read-only. Can inspect project metadata. All downloads strictly disabled."}
-                </p>
-              </div>
-
-              {/* Auto-Approval Checkbox */}
-              <div className="pt-1">
-                <label className="flex items-start space-x-2.5 rtl:space-x-reverse cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={autoAcceptTransfers}
-                    onChange={(e) => setAutoAcceptTransfers(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-amber-500 accent-amber-500 focus:ring-amber-400 border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-[#18181c] cursor-pointer"
-                  />
-                  <div className="text-xs text-slate-700 dark:text-[#c2bcaf]">
-                    <span className="font-semibold flex items-center gap-1">
-                      <Zap size={12} className="text-amber-500 dark:text-amber-400 fill-amber-400" />
-                      Auto-approve P2P transfer requests
-                    </span>
-                    <p className="text-[11px] text-slate-400 dark:text-[#71717a]">
-                      Files will stream immediately when this collaborator requests downloads without waiting for prompt.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Modal Action Buttons */}
-              <div className="pt-4 flex justify-end gap-2.5 border-t border-slate-200/80 dark:border-white/[0.08]">
+              {/* Modal Action Buttons Footer */}
+              <div className="px-5 py-3 sm:px-6 sm:py-3.5 flex justify-end gap-2.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2.5 text-xs text-slate-700 dark:text-[#f4efe6] font-semibold hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 sm:px-4 sm:py-2.5 text-xs text-slate-700 dark:text-[#f4efe6] font-semibold hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors cursor-pointer"
                 >
                   {t("cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !name.trim()}
-                  className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 text-black font-black rounded-xl text-xs transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer"
+                  className="px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 text-black font-black rounded-xl text-xs transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer"
                 >
                   {isSubmitting && <Loader2 size={14} className="animate-spin mr-1.5 rtl:mr-0 rtl:ml-1.5" />}
                   {editingStaffId ? "Update Collaborator" : "Add Collaborator"}

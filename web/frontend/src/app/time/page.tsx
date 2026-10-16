@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Clock, Plus, Trash2, Calendar as CalendarIcon, DollarSign, TrendingUp, BarChart2, ChevronDown } from "lucide-react";
+import { Clock, Plus, Trash2, Calendar as CalendarIcon, DollarSign, TrendingUp, BarChart2, ChevronDown, X } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import CustomSelect from "@/components/CustomSelect";
@@ -338,41 +338,55 @@ export default function TimeManagementPage() {
 
       {/* Add Entry Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl w-full max-w-md border border-slate-200/80 dark:border-white/10 animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-200/80 dark:border-white/[0.08]">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-[#f4efe6]">{t("time.add")}</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-2 rounded-full transition-colors cursor-pointer">✕</button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-3 sm:p-5 overflow-y-auto" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col border border-slate-200/80 dark:border-white/10 overflow-hidden my-auto animate-in zoom-in-95 duration-200 text-slate-800 dark:text-[#f4efe6]">
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex justify-between items-center shrink-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-[#f4efe6]">{t("time.add")}</h2>
+              <button 
+                onClick={() => setShowModal(false)} 
+                className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 sm:p-2 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleSaveEntry} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("time.form.date")}</label>
-                <input type="date" required value={date} onChange={e => setDate(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-[#f4efe6] focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20" />
+            
+            {/* Form */}
+            <form onSubmit={handleSaveEntry} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 min-h-0">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("time.form.date")}</label>
+                  <input type="date" required value={date} onChange={e => setDate(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-[#f4efe6] focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("time.form.project")}</label>
+                  <CustomSelect
+                    value={projectId}
+                    onChange={val => setProjectId(val)}
+                    options={projects.map(p => ({ value: p.id.toString(), label: `${p.name} — ${p.project_type || "?"}` }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("time.form.duration")} <span className="font-normal text-slate-400">(e.g. 120 = 2h)</span></label>
+                  <input type="number" required min="1" placeholder="120" value={duration} onChange={e => setDuration(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20" />
+                  {projectId && duration && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 font-mono">
+                      ≈ {(parseInt(duration) * getRateForProject(parseInt(projectId))).toFixed(2)} MAD at {getRateForProject(parseInt(projectId))} MAD/min
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("time.form.project")}</label>
-                <CustomSelect
-                  value={projectId}
-                  onChange={val => setProjectId(val)}
-                  options={projects.map(p => ({ value: p.id.toString(), label: `${p.name} — ${p.project_type || "?"}` }))}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("time.form.duration")} <span className="font-normal text-slate-400">(e.g. 120 = 2h)</span></label>
-                <input type="number" required min="1" placeholder="120" value={duration} onChange={e => setDuration(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20" />
-                {projectId && duration && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 font-mono">
-                    ≈ {(parseInt(duration) * getRateForProject(parseInt(projectId))).toFixed(2)} MAD at {getRateForProject(parseInt(projectId))} MAD/min
-                  </p>
-                )}
-              </div>
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-200/80 dark:border-white/[0.08]">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-[#c2bcaf] bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl transition-colors cursor-pointer">
+
+              {/* Pinned Footer */}
+              <div className="flex justify-end gap-2.5 px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-[#c2bcaf] bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl transition-colors cursor-pointer">
                   {t("cancel")}
                 </button>
-                <button type="submit" className="px-5 py-2.5 text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] cursor-pointer">
+                <button type="submit" className="px-5 py-2 text-xs sm:text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] cursor-pointer">
                   {t("time.add")}
                 </button>
               </div>

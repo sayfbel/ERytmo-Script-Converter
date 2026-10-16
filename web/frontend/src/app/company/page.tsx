@@ -384,124 +384,129 @@ export default function CompanyPage() {
 
       {/* Create/Edit Company Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-lg animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6]">
-            <div className="flex justify-between items-center p-6 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] rounded-t-2xl">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingCompanyId ? t("company.edit") : t("company.add_new")}</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-2 rounded-full transition-colors cursor-pointer">
-                <X size={20} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6] overflow-hidden my-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingCompanyId ? t("company.edit") : t("company.add_new")}</h2>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 sm:p-2 rounded-xl transition-colors cursor-pointer">
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitCompany} className="p-6 space-y-4">
-              {error && (
-                <div className="bg-rose-500/10 text-rose-500 dark:text-rose-400 text-sm p-3 rounded-xl border border-rose-500/20">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.name")} *</label>
-                <input 
-                  type="text"
-                  required
-                  placeholder="e.g. Netflix, Amazon"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.desc")}</label>
-                <textarea 
-                  placeholder="Notes about this company..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all resize-none h-20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.detection")}</label>
-                  <div className="relative">
-                    <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
-                    <input 
-                      type="number" step="0.01" placeholder="e.g. 50"
-                      value={rateDetection} onChange={(e) => setRateDetection(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
-                    />
+            <form onSubmit={handleSubmitCompany} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Scrollable Form Body */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 sm:space-y-4 min-h-0">
+                {error && (
+                  <div className="bg-rose-500/10 text-rose-500 dark:text-rose-400 text-sm p-3 rounded-xl border border-rose-500/20">
+                    {error}
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.conformation")}</label>
-                  <div className="relative">
-                    <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
-                    <input 
-                      type="number" step="0.01" placeholder="e.g. 50"
-                      value={rateConformation} onChange={(e) => setRateConformation(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.pose_texte")}</label>
-                  <div className="relative">
-                    <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
-                    <input 
-                      type="number" step="0.01" placeholder="e.g. 50"
-                      value={ratePoseTexte} onChange={(e) => setRatePoseTexte(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.chantant")}</label>
-                  <div className="relative">
-                    <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
-                    <input 
-                      type="number" step="0.01" placeholder="e.g. 50"
-                      value={rateChantant} onChange={(e) => setRateChantant(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
-                    />
-                  </div>
-                </div>
-              </div>
+                )}
 
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.software")}</label>
-                  <CustomSelect
-                    value={targetSoftware}
-                    onChange={(val) => setTargetSoftware(val)}
-                    options={[
-                      { value: "ERytmo", label: "ERytmo Factory" },
-                      { value: "Mosaic", label: "Mosaic Formate" }
-                    ]}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.email")}</label>
-                <div className="relative">
-                  <Mail size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-[#71717a]" />
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.name")} *</label>
                   <input 
-                    type="email"
-                    placeholder="e.g. supplier@company.com"
-                    value={supplierEmail}
-                    onChange={(e) => setSupplierEmail(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                    type="text"
+                    required
+                    placeholder="e.g. Netflix, Amazon"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 sm:py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.desc")}</label>
+                  <textarea 
+                    placeholder="Notes about this company..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all resize-none h-16 sm:h-20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.detection")}</label>
+                    <div className="relative">
+                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
+                      <input 
+                        type="number" step="0.01" placeholder="e.g. 50"
+                        value={rateDetection} onChange={(e) => setRateDetection(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.conformation")}</label>
+                    <div className="relative">
+                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
+                      <input 
+                        type="number" step="0.01" placeholder="e.g. 50"
+                        value={rateConformation} onChange={(e) => setRateConformation(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.pose_texte")}</label>
+                    <div className="relative">
+                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
+                      <input 
+                        type="number" step="0.01" placeholder="e.g. 50"
+                        value={ratePoseTexte} onChange={(e) => setRatePoseTexte(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.chantant")}</label>
+                    <div className="relative">
+                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
+                      <input 
+                        type="number" step="0.01" placeholder="e.g. 50"
+                        value={rateChantant} onChange={(e) => setRateChantant(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.software")}</label>
+                    <CustomSelect
+                      value={targetSoftware}
+                      onChange={(val) => setTargetSoftware(val)}
+                      options={[
+                        { value: "ERytmo", label: "ERytmo Factory" },
+                        { value: "Mosaic", label: "Mosaic Formate" }
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.email")}</label>
+                  <div className="relative">
+                    <Mail size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-[#71717a]" />
+                    <input 
+                      type="email"
+                      placeholder="e.g. supplier@company.com"
+                      value={supplierEmail}
+                      onChange={(e) => setSupplierEmail(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 rtl:space-x-reverse pt-6 border-t border-slate-200/80 dark:border-white/[0.08] mt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
+              {/* Pinned Action Buttons Footer */}
+              <div className="flex justify-end space-x-3 rtl:space-x-reverse px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
                   {t("cancel")}
                 </button>
-                <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer disabled:opacity-50">
+                <button type="submit" disabled={isSubmitting} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer disabled:opacity-50">
                   {isSubmitting && <Loader2 size={16} className="animate-spin mr-2 rtl:mr-0 rtl:ml-2" />}
                   {editingCompanyId ? t("update") : t("create")}
                 </button>

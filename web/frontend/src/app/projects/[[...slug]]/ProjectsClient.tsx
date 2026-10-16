@@ -1117,8 +1117,8 @@ export default function ProjectsClient() {
 
             {/* Indexing Status Banner */}
             {isIndexing && (
-              <div className="p-3 mx-4 mt-3 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 flex items-center space-x-2 text-xs animate-in fade-in duration-200">
-                <Loader2 size={15} className="animate-spin text-teal-600 dark:text-teal-400 shrink-0" />
+              <div className="p-3 mx-4 mt-3 rounded-xl border border-amber-400/30 dark:border-amber-400/20 bg-amber-500/10 dark:bg-amber-400/5 text-amber-800 dark:text-amber-300 flex items-center space-x-2 text-xs animate-in fade-in duration-200">
+                <Loader2 size={15} className="animate-spin text-amber-600 dark:text-amber-400 shrink-0" />
                 <span className="font-medium">Indexing local folder files directly... Zero server disk upload.</span>
               </div>
             )}
@@ -1207,13 +1207,13 @@ export default function ProjectsClient() {
                     const isMedia = fileCat === 'video' || fileCat === 'audio';
 
                     const catConfig = {
-                      image: { icon: ImageIcon, color: "bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 border-cyan-500/20", label: "IMAGE" },
-                      video: { icon: Video, color: "bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 border-sky-500/20", label: "VIDEO" },
-                      audio: { icon: Headphones, color: "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-500/20", label: "AUDIO" },
-                      pdf: { icon: FileText, color: "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-500/20", label: "PDF" },
-                      docx: { icon: FileText, color: "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-500/20", label: "DOCX" },
-                      script: { icon: FileCode, color: "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-500/20", label: "SCRIPT" },
-                      other: { icon: FileText, color: "bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-500/20", label: "FILE" },
+                      image: { icon: ImageIcon, color: "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-300/60 dark:border-white/10", label: "IMAGE" },
+                      video: { icon: Video, color: "bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 border-amber-500/25", label: "VIDEO" },
+                      audio: { icon: Headphones, color: "bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 border-amber-500/25", label: "AUDIO" },
+                      pdf: { icon: FileText, color: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-500/20", label: "PDF" },
+                      docx: { icon: FileText, color: "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-300/60 dark:border-white/10", label: "DOCX" },
+                      script: { icon: FileCode, color: "bg-amber-500/10 dark:bg-amber-400/10 text-amber-800 dark:text-amber-300 border-amber-500/25", label: "SCRIPT" },
+                      other: { icon: FileText, color: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10", label: "FILE" },
                     }[fileCat];
                     const CatIcon = catConfig.icon;
 
@@ -1238,7 +1238,7 @@ export default function ProjectsClient() {
                                   {file.name}
                                 </span>
                                 {activeFile?.name === file.name && (
-                                  <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.2 rounded bg-amber-500 text-black font-mono shrink-0 animate-pulse">
+                                  <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-mono shrink-0 shadow-xs">
                                     ACTIVE
                                   </span>
                                 )}
@@ -1251,11 +1251,12 @@ export default function ProjectsClient() {
                                   {formatFileSize(file.size)}
                                 </span>
                                 {hasLocal ? (
-                                  <span className="inline-flex items-center text-[10px] text-teal-600 dark:text-teal-400 font-medium">
-                                    • Local
+                                  <span className="inline-flex items-center text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block mr-1"></span>
+                                    Local
                                   </span>
                                 ) : isOwner ? (
-                                  <span className="inline-flex items-center text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                                  <span className="inline-flex items-center text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                                     • Cloud
                                   </span>
                                 ) : null}
@@ -1270,8 +1271,8 @@ export default function ProjectsClient() {
                               onClick={(e) => handleOpenFile(file, e)}
                               className={`text-xs font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer ${
                                 isMedia 
-                                  ? "bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20" 
-                                  : "bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/50"
+                                  ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/25" 
+                                  : "bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/10"
                               }`}
                               title={isMedia ? "Play in Studio" : "View File"}
                             >
@@ -1308,7 +1309,7 @@ export default function ProjectsClient() {
                                         handleOpenFile(file, e);
                                       }
                                     }}
-                                    className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer"
+                                    className="p-1 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded transition-colors cursor-pointer"
                                     title="Download Local"
                                   >
                                     <Download size={14} />
@@ -1330,7 +1331,7 @@ export default function ProjectsClient() {
                                       <span>Requesting PC 1...</span>
                                     </div>
                                   ) : transfer?.status === 'transferring' ? (
-                                    <span className="text-xs font-semibold text-teal-600 dark:text-teal-400">
+                                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
                                       {transfer.progress}%
                                     </span>
                                   ) : transfer?.status === 'completed' ? (
@@ -1350,7 +1351,7 @@ export default function ProjectsClient() {
                                   ) : (
                                     <button
                                       onClick={(e) => handleInitiateDownload(file, e)}
-                                      className="px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors flex items-center space-x-1 cursor-pointer"
+                                      className="px-3 py-1 text-xs font-semibold rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-bold shadow-xs transition-all flex items-center space-x-1 cursor-pointer"
                                       title="Download directly from PC 1 via P2P"
                                     >
                                       <Download size={12} className="mr-1" />
@@ -1382,7 +1383,7 @@ export default function ProjectsClient() {
                                   <span>Waiting approval...</span>
                                 </div>
                               ) : transfer?.status === 'transferring' ? (
-                                <span className="text-xs font-semibold text-teal-600 dark:text-teal-400">
+                                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
                                   {transfer.progress}%
                                 </span>
                               ) : transfer?.status === 'completed' ? (
@@ -1402,7 +1403,7 @@ export default function ProjectsClient() {
                               ) : (
                                 <button
                                   onClick={(e) => handleInitiateDownload(file, e)}
-                                  className="px-3 py-1 text-xs font-semibold rounded-lg bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-colors flex items-center space-x-1"
+                                  className="px-3 py-1 text-xs font-semibold rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-bold shadow-xs transition-all flex items-center space-x-1 cursor-pointer"
                                 >
                                   <Download size={12} className="mr-1" />
                                   <span>Download</span>
@@ -1415,13 +1416,13 @@ export default function ProjectsClient() {
                         {/* Progress Bar when transfer is active */}
                         {transfer?.status === 'transferring' && (
                           <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
-                            <div className="flex justify-between text-[11px] text-teal-600 dark:text-teal-400 font-semibold mb-1">
+                            <div className="flex justify-between text-[11px] text-amber-600 dark:text-amber-400 font-semibold mb-1">
                               <span>{isOwner && !hasLocal ? "Syncing from PC 1" : "Transferring"}: {transfer.progress}%</span>
                               <span>P2P Data Stream</span>
                             </div>
                             <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
                               <div 
-                                className="bg-teal-500 h-1.5 rounded-full transition-all duration-300"
+                                className="bg-gradient-to-r from-amber-500 to-amber-400 h-1.5 rounded-full transition-all duration-300"
                                 style={{ width: `${transfer.progress}%` }}
                               />
                             </div>
@@ -1459,212 +1460,217 @@ export default function ProjectsClient() {
 
       {/* Create Project Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-lg animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6]">
-            <div className="flex justify-between items-center p-6 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] rounded-t-2xl">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingProjectId ? t("project.edit") : t("project.add_new")}</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-2 rounded-full transition-colors cursor-pointer">
-                <X size={20} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6] overflow-hidden my-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingProjectId ? t("project.edit") : t("project.add_new")}</h2>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 sm:p-2 rounded-xl transition-colors cursor-pointer">
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitProject} className="p-6 space-y-4">
-              {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg border border-red-200 dark:border-red-800/50">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.name")} *</label>
-                <input 
-                  type="text"
-                  required
-                  placeholder="e.g. Episode 10 Translation"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf]">Description <span className="font-normal text-slate-400 dark:text-[#71717a]">(optional)</span></label>
-                  <span className={`text-[11px] font-mono ${description.length > 700 ? "text-rose-500" : "text-slate-400 dark:text-[#71717a]"}`}>{description.length}/750</span>
-                </div>
-                <textarea
-                  maxLength={750}
-                  rows={3}
-                  placeholder="Describe the project scope, notes, or any relevant information..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a] resize-none leading-relaxed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
-                  {t("project.form.folder")} *
-                </label>
-                
-                <input
-                  type="file"
-                  ref={folderInputRef}
-                  className="hidden"
-                  // @ts-expect-error webkitdirectory is standard in browsers
-                  webkitdirectory=""
-                  directory=""
-                  onChange={(e) => {
-                    const files = e.target.files;
-                    if (files && files.length > 0) {
-                      const fileArray = Array.from(files);
-                      setSelectedFilesForNewProject(fileArray);
-                      const firstFile = files[0];
-                      const rel = firstFile.webkitRelativePath || "";
-                      const rootName = rel.split("/")[0] || firstFile.name;
-                      setFolderPath(rootName);
-                      if (!name) setName(rootName);
-                    }
-                  }}
-                />
-
-                <div 
-                  onDragOver={(e) => { e.preventDefault(); setIsDraggingNewProject(true); }}
-                  onDragLeave={() => setIsDraggingNewProject(false)}
-                  onDrop={handleDropNewProject}
-                  className={`flex items-center rounded-xl border transition-all overflow-hidden ${
-                    isDraggingNewProject 
-                      ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/20' 
-                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#161619] hover:border-slate-300 dark:hover:border-white/20 focus-within:border-amber-500 dark:focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-500/20 dark:focus-within:ring-amber-400/20'
-                  }`}
-                >
-                  <div className="pl-3.5 pr-2 text-slate-400 dark:text-[#71717a] flex items-center justify-center shrink-0">
-                    <FolderOpen size={18} className="text-amber-500 dark:text-amber-400" />
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. C:/Projects/Episode1 or browse folder..."
-                    value={folderPath}
-                    onChange={(e) => setFolderPath(e.target.value)}
-                    className="flex-1 bg-transparent py-2.5 px-1 text-xs font-mono text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none"
-                  />
-                  <div className="p-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleBrowseFolder}
-                      className="px-3.5 py-1.5 bg-slate-200/70 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-[#f4efe6] rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <FolderOpen size={14} />
-                      <span>{t("project.form.browse")}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {selectedFilesForNewProject.length > 0 && (
-                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-2 text-xs text-amber-600 dark:text-amber-400 font-medium animate-in fade-in duration-150">
-                    <CheckCircle2 size={14} className="shrink-0" />
-                    <span>{selectedFilesForNewProject.length} files detected in folder</span>
+            <form onSubmit={handleSubmitProject} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Scrollable Form Body */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 sm:space-y-4 min-h-0">
+                {error && (
+                  <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg border border-red-200 dark:border-red-800/50">
+                    {error}
                   </div>
                 )}
-                <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-1">{t("project.form.folder_desc")}</p>
-              </div>
 
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.company")}</label>
-                  {!isCustomCompany ? (
-                    <CustomSelect
-                      value={companyName}
-                      onChange={(val) => {
-                        if (val === "OTHER_CUSTOM_COMPANY") {
-                          setIsCustomCompany(true);
-                          setCompanyName("");
-                        } else {
-                          setCompanyName(val);
-                          const comp = realCompanies.find(c => c.name === val);
-                          if (comp) setTargetSoftware(comp.target_software);
-                        }
-                      }}
-                      options={[
-                        ...realCompanies.map(c => ({ value: c.name, label: c.name })),
-                        { value: "OTHER_CUSTOM_COMPANY", label: "Other..." }
-                      ]}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.name")} *</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="e.g. Episode 10 Translation"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 sm:py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf]">Description <span className="font-normal text-slate-400 dark:text-[#71717a]">(optional)</span></label>
+                    <span className={`text-[11px] font-mono ${description.length > 700 ? "text-rose-500" : "text-slate-400 dark:text-[#71717a]"}`}>{description.length}/750</span>
+                  </div>
+                  <textarea
+                    maxLength={750}
+                    rows={2}
+                    placeholder="Describe the project scope, notes, or any relevant information..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a] resize-none leading-relaxed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
+                    {t("project.form.folder")} *
+                  </label>
+                  
+                  <input
+                    type="file"
+                    ref={folderInputRef}
+                    className="hidden"
+                    // @ts-expect-error webkitdirectory is standard in browsers
+                    webkitdirectory=""
+                    directory=""
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        const fileArray = Array.from(files);
+                        setSelectedFilesForNewProject(fileArray);
+                        const firstFile = files[0];
+                        const rel = firstFile.webkitRelativePath || "";
+                        const rootName = rel.split("/")[0] || firstFile.name;
+                        setFolderPath(rootName);
+                        if (!name) setName(rootName);
+                      }
+                    }}
+                  />
+
+                  <div 
+                    onDragOver={(e) => { e.preventDefault(); setIsDraggingNewProject(true); }}
+                    onDragLeave={() => setIsDraggingNewProject(false)}
+                    onDrop={handleDropNewProject}
+                    className={`flex items-center rounded-xl border transition-all overflow-hidden ${
+                      isDraggingNewProject 
+                        ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/20' 
+                        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#161619] hover:border-slate-300 dark:hover:border-white/20 focus-within:border-amber-500 dark:focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-500/20 dark:focus-within:ring-amber-400/20'
+                    }`}
+                  >
+                    <div className="pl-3.5 pr-2 text-slate-400 dark:text-[#71717a] flex items-center justify-center shrink-0">
+                      <FolderOpen size={18} className="text-amber-500 dark:text-amber-400" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. C:/Projects/Episode1 or browse folder..."
+                      value={folderPath}
+                      onChange={(e) => setFolderPath(e.target.value)}
+                      className="flex-1 bg-transparent py-2 sm:py-2.5 px-1 text-xs font-mono text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none"
                     />
-                  ) : (
-                    <div className="flex gap-2">
-                      <input 
-                        type="text"
-                        placeholder="e.g. Netflix"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => { setIsCustomCompany(false); setCompanyName(""); }}
-                        className="bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-600 dark:text-[#f4efe6] rounded-xl px-3 flex items-center justify-center transition-colors cursor-pointer"
-                        title={t("cancel")}
+                    <div className="p-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleBrowseFolder}
+                        className="px-3 py-1.5 bg-slate-200/70 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-[#f4efe6] rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
                       >
-                        <X size={16} />
+                        <FolderOpen size={14} />
+                        <span>{t("project.form.browse")}</span>
                       </button>
                     </div>
+                  </div>
+
+                  {selectedFilesForNewProject.length > 0 && (
+                    <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-2 text-xs text-amber-600 dark:text-amber-400 font-medium animate-in fade-in duration-150">
+                      <CheckCircle2 size={14} className="shrink-0" />
+                      <span>{selectedFilesForNewProject.length} files detected in folder</span>
+                    </div>
                   )}
+                  <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-1">{t("project.form.folder_desc")}</p>
                 </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.type")}</label>
-                  <CustomSelect
-                    value={projectType}
-                    onChange={(val) => setProjectType(val)}
-                    options={[
-                      { value: "Détection", label: t("project.type.detection") },
-                      { value: "Conformation", label: t("project.type.conformation") },
-                      { value: "Pose de texte", label: t("project.type.pose_texte") },
-                      { value: "Chantant", label: t("project.type.chantant") }
-                    ]}
-                  />
+
+                <div className="flex gap-3 sm:gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.company")}</label>
+                    {!isCustomCompany ? (
+                      <CustomSelect
+                        value={companyName}
+                        onChange={(val) => {
+                          if (val === "OTHER_CUSTOM_COMPANY") {
+                            setIsCustomCompany(true);
+                            setCompanyName("");
+                          } else {
+                            setCompanyName(val);
+                            const comp = realCompanies.find(c => c.name === val);
+                            if (comp) setTargetSoftware(comp.target_software);
+                          }
+                        }}
+                        options={[
+                          ...realCompanies.map(c => ({ value: c.name, label: c.name })),
+                          { value: "OTHER_CUSTOM_COMPANY", label: "Other..." }
+                        ]}
+                      />
+                    ) : (
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          placeholder="e.g. Netflix"
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => { setIsCustomCompany(false); setCompanyName(""); }}
+                          className="bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-600 dark:text-[#f4efe6] rounded-xl px-3 flex items-center justify-center transition-colors cursor-pointer"
+                          title={t("cancel")}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.type")}</label>
+                    <CustomSelect
+                      value={projectType}
+                      onChange={(val) => setProjectType(val)}
+                      options={[
+                        { value: "Détection", label: t("project.type.detection") },
+                        { value: "Conformation", label: t("project.type.conformation") },
+                        { value: "Pose de texte", label: t("project.type.pose_texte") },
+                        { value: "Chantant", label: t("project.type.chantant") }
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 sm:gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.software")}</label>
+                    <CustomSelect
+                      value={targetSoftware}
+                      onChange={(val) => setTargetSoftware(val)}
+                      options={[
+                        { value: "ERytmo", label: "ERytmo Factory" },
+                        { value: "Mosaic", label: "Mosaic Formate" }
+                      ]}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.deadline")}</label>
+                    <input 
+                      type="date"
+                      value={deadline}
+                      onChange={(e) => setDeadline(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6]"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.time")}</label>
+                    <input 
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 120"
+                      value={totalTime}
+                      onChange={(e) => setTotalTime(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.software")}</label>
-                  <CustomSelect
-                    value={targetSoftware}
-                    onChange={(val) => setTargetSoftware(val)}
-                    options={[
-                      { value: "ERytmo", label: "ERytmo Factory" },
-                      { value: "Mosaic", label: "Mosaic Formate" }
-                    ]}
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.deadline")}</label>
-                  <input 
-                    type="date"
-                    value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6]"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.time")}</label>
-                  <input 
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 120"
-                    value={totalTime}
-                    onChange={(e) => setTotalTime(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 rtl:space-x-reverse pt-6 border-t border-slate-200/80 dark:border-white/[0.08] mt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
+              {/* Pinned Action Buttons Footer */}
+              <div className="flex justify-end space-x-3 rtl:space-x-reverse px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
                   {t("cancel")}
                 </button>
-                <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center disabled:opacity-50 cursor-pointer">
+                <button type="submit" disabled={isSubmitting} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center disabled:opacity-50 cursor-pointer">
                   {isSubmitting && <Loader2 size={16} className="animate-spin mr-2 rtl:mr-0 rtl:ml-2" />}
                   {editingProjectId ? t("update") : t("create")}
                 </button>

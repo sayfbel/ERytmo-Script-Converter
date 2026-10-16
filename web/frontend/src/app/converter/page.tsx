@@ -485,45 +485,60 @@ export default function Converter() {
 
       {/* Download Modal - Fixed Fullscreen */}
       {showDownloadModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-white dark:bg-[#141417] rounded-3xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] border border-slate-200/80 dark:border-white/10 w-96 p-6 animate-in zoom-in-95 duration-200 text-slate-800 dark:text-[#f4efe6]">
-            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-200/80 dark:border-white/[0.08]">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-3 sm:p-5 overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && setShowDownloadModal(false)}
+        >
+          <div className="bg-white dark:bg-[#141417] rounded-2xl sm:rounded-3xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] border border-slate-200/80 dark:border-white/10 w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col overflow-hidden my-auto animate-in zoom-in-95 duration-200 text-slate-800 dark:text-[#f4efe6]">
+            {/* Pinned Header */}
+            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex justify-between items-center shrink-0">
               <h3 className="text-base font-bold text-slate-900 dark:text-[#f4efe6]">{t("converter.export_format")}</h3>
-              <button onClick={() => setShowDownloadModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] p-1 rounded-lg cursor-pointer"><X size={18} /></button>
+              <button 
+                onClick={() => setShowDownloadModal(false)} 
+                className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 sm:p-2 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <p className="text-xs text-slate-500 dark:text-[#9f988b] mb-5">{t("converter.export_desc")}</p>
             
-            <div className="space-y-3">
-              <button 
-                onClick={() => handleDownload("ERytmo")}
-                className="w-full text-left rtl:text-right bg-slate-50 hover:bg-slate-100 dark:bg-[#18181c] dark:hover:bg-[#1f1f26] border border-slate-200 dark:border-white/10 hover:border-amber-400/40 p-4 rounded-2xl transition-all group cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400">ERytmo Factory (Standard)</span>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">DOCX</span>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-[#71717a] mt-1">{t("converter.format.erytmo")}</div>
-              </button>
+            {/* Scrollable Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-3.5">
+              <p className="text-xs text-slate-500 dark:text-[#9f988b] leading-relaxed">{t("converter.export_desc")}</p>
               
-              <button 
-                onClick={() => handleDownload("Mosaic")}
-                className="w-full text-left rtl:text-right bg-slate-50 hover:bg-slate-100 dark:bg-[#18181c] dark:hover:bg-[#1f1f26] border border-slate-200 dark:border-white/10 hover:border-amber-400/40 p-4 rounded-2xl transition-all group cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400">Mosaic Format</span>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">Excel (.xlsx)</span>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-[#71717a] mt-1">{t("converter.format.mosaic")}</div>
-              </button>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => handleDownload("ERytmo")}
+                  className="w-full text-left rtl:text-right bg-slate-50 hover:bg-slate-100 dark:bg-[#18181c] dark:hover:bg-[#1f1f26] border border-slate-200 dark:border-white/10 hover:border-amber-400/40 p-4 rounded-2xl transition-all group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400">ERytmo Factory (Standard)</span>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">DOCX</span>
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-[#71717a] mt-1">{t("converter.format.erytmo")}</div>
+                </button>
+                
+                <button 
+                  onClick={() => handleDownload("Mosaic")}
+                  className="w-full text-left rtl:text-right bg-slate-50 hover:bg-slate-100 dark:bg-[#18181c] dark:hover:bg-[#1f1f26] border border-slate-200 dark:border-white/10 hover:border-amber-400/40 p-4 rounded-2xl transition-all group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400">Mosaic Format</span>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">Excel (.xlsx)</span>
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-[#71717a] mt-1">{t("converter.format.mosaic")}</div>
+                </button>
+              </div>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-slate-200/80 dark:border-white/[0.08]">
+            {/* Pinned Footer */}
+            <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
               <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 dark:text-[#c2bcaf] select-none">
                 <input 
                   type="checkbox" 
                   checked={saveAs} 
                   onChange={(e) => setSaveAs(e.target.checked)} 
-                  className="rounded border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-[#18181c] text-amber-500 accent-amber-500 focus:ring-amber-400"
+                  className="rounded border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-[#18181c] text-amber-500 accent-amber-500 focus:ring-amber-400 cursor-pointer"
                 />
                 <span>Choose save location manually (Save As...)</span>
               </label>
