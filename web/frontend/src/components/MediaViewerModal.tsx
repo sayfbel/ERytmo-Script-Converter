@@ -891,7 +891,7 @@ function AudioStudioPlayer({ url, fileName, size }: { url: string; fileName: str
 
   // Generate deterministic seeded waveform peaks based on filename & size
   const defaultPeaks = useMemo(() => {
-    let seed = 0;
+    let seed = size || 0;
     for (let i = 0; i < fileName.length; i++) {
       seed = (seed * 31 + fileName.charCodeAt(i)) & 0xffffffff;
     }
@@ -906,7 +906,7 @@ function AudioStudioPlayer({ url, fileName, size }: { url: string; fileName: str
       result.push(val);
     }
     return result;
-  }, [fileName]);
+  }, [fileName, size]);
 
   // Decode real audio peaks if audio file can be fetched via blob / credentials
   useEffect(() => {
@@ -923,7 +923,9 @@ function AudioStudioPlayer({ url, fileName, size }: { url: string; fileName: str
         // Limit decoding to reasonable size to prevent lag on huge files
         if (arrayBuf.byteLength > 80 * 1024 * 1024) return;
 
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioCtx) return;
+        const audioCtx = new AudioCtx();
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
         if (isCancelled) {
           audioCtx.close();
@@ -952,7 +954,7 @@ function AudioStudioPlayer({ url, fileName, size }: { url: string; fileName: str
           setWaveformPeaks(peaks);
         }
         audioCtx.close();
-      } catch (e) {
+      } catch {
         // Fallback to default deterministic peaks gracefully
       }
     };
