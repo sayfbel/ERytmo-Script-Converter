@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 export interface DateSelectProps {
@@ -36,9 +37,21 @@ export default function DateSelect({
   id,
 }: DateSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [openUpwards, setOpenUpwards] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "310px",
+    zIndex: 999999,
+  });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Parse initial selected date to determine active view month/year
   const parsedSelected = useMemo(() => {
@@ -72,28 +85,66 @@ export default function DateSelect({
     }
   }, [parsedSelected]);
 
-  // Auto-detect if popover should open upwards
-  useEffect(() => {
-    if (isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const estimatedHeight = 340;
-      if (spaceBelow < estimatedHeight && rect.top > estimatedHeight) {
-        setOpenUpwards(true);
-      } else {
-        setOpenUpwards(false);
-      }
-    }
-  }, [isOpen]);
+  // Dynamic position calculation for fixed overlay
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const calendarWidth = Math.min(310, window.innerWidth - 32);
+    const calendarHeight = 350;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
 
-  // Click outside to close
+    let top = 0;
+    if (spaceBelow < calendarHeight + 10 && spaceAbove > spaceBelow) {
+      // Open upwards above the input
+      top = Math.max(10, rect.top - calendarHeight - 8);
+    } else {
+      // Open downwards below the input
+      top = Math.min(window.innerHeight - calendarHeight - 10, rect.bottom + 8);
+    }
+
+    let left = rect.left;
+    if (left + calendarWidth > window.innerWidth - 16) {
+      left = Math.max(16, window.innerWidth - calendarWidth - 16);
+    }
+    if (left < 16) {
+      left = 16;
+    }
+
+    setPopoverStyle({
+      position: "fixed",
+      top: `${top}px`,
+      left: `${left}px`,
+      width: `${calendarWidth}px`,
+      zIndex: 999999,
+    });
+  }, []);
+
+  // Update position when opened or when scrolling/resizing
   useEffect(() => {
+    if (!isOpen) return;
+    updatePosition();
+
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen, updatePosition]);
+
+  // Click outside and escape handling
+  useEffect(() => {
+    if (!isOpen) return;
+
     function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
       if (
         containerRef.current &&
-        !containerRef.current.contains(event.target as Node) &&
+        !containerRef.current.contains(target) &&
         popoverRef.current &&
-        !popoverRef.current.contains(event.target as Node)
+        !popoverRef.current.contains(target)
       ) {
         setIsOpen(false);
       }
@@ -105,10 +156,9 @@ export default function DateSelect({
       }
     }
 
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("keydown", handleKeyDown);
-    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
@@ -333,13 +383,12 @@ export default function DateSelect({
         />
       )}
 
-      {/* Popover Calendar Dropdown */}
-      {isOpen && (
+      {/* Popover Calendar Dropdown - Portaled with position: fixed */}
+      {isOpen && mounted && typeof document !== "undefined" && createPortal(
         <div
           ref={popoverRef}
-          className={`absolute ${
-            openUpwards ? "bottom-full mb-2" : "top-full mt-2"
-          } left-0 sm:left-auto right-auto sm:right-0 z-[99999] w-[290px] sm:w-[310px] p-4 bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/15 rounded-2xl shadow-2xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150`}
+          style={popoverStyle}
+          className="p-4 bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/15 rounded-2xl shadow-2xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150"
         >
           {/* Calendar Header: Month + Year and Nav Controls */}
           <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-white/[0.08]">
@@ -434,7 +483,8 @@ export default function DateSelect({
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
