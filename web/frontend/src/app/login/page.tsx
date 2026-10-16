@@ -89,7 +89,7 @@ export default function LoginPage() {
 
   const handleGoogleLogin = () => {
     if (typeof window !== "undefined") {
-      const clientId = googleClientId || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "977526709418-0gtjdpj33uvlgur9ggjetnicjq61g2uv.apps.googleusercontent.com";
+      const clientId = googleClientId || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "935592593846-fhapt1tbp4pbhgefptjv0e63lingo12p.apps.googleusercontent.com";
       if (!clientId) {
         setToastInfo("Google Client ID is not configured.");
         return;

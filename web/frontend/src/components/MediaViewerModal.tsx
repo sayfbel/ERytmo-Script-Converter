@@ -9,6 +9,7 @@ import {
   ChevronRight, Sparkles, Loader2, ArrowLeft
 } from "lucide-react";
 import { apiFetch, getApiUrl } from "@/lib/api";
+import LargeFileRequirementModal from "@/components/LargeFileRequirementModal";
 
 export type MediaCategory = 'image' | 'video' | 'audio' | 'pdf' | 'docx' | 'script' | 'other';
 
@@ -98,6 +99,7 @@ export default function MediaViewerModal({
 }: MediaViewerModalProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showLargeFileModal, setShowLargeFileModal] = useState(false);
 
   // Keyboard navigation (ESC to close, Left/Right for prev/next)
   const currentIndex = useMemo(() => {
@@ -160,6 +162,17 @@ export default function MediaViewerModal({
 
   const handleDownload = () => {
     if (isSpectator) return;
+
+    const isDesktopEnv = typeof window !== "undefined" && (
+      window.location.port === "8000" ||
+      typeof (window as unknown as { pywebview?: unknown }).pywebview !== "undefined"
+    );
+
+    if (!isDesktopEnv && (file.size || 0) >= 1024 * 1024 * 1024) {
+      setShowLargeFileModal(true);
+      return;
+    }
+
     if (localFile) {
       const url = URL.createObjectURL(localFile);
       const a = document.createElement("a");
@@ -382,13 +395,31 @@ export default function MediaViewerModal({
   );
 
   if (inline && !isMaximized) {
-    return content;
+    return (
+      <>
+        {content}
+        <LargeFileRequirementModal
+          isOpen={showLargeFileModal}
+          onClose={() => setShowLargeFileModal(false)}
+          fileName={file.name}
+          fileSize={file.size}
+        />
+      </>
+    );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      {content}
-    </div>
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+        {content}
+      </div>
+      <LargeFileRequirementModal
+        isOpen={showLargeFileModal}
+        onClose={() => setShowLargeFileModal(false)}
+        fileName={file.name}
+        fileSize={file.size}
+      />
+    </>
   );
 }
 

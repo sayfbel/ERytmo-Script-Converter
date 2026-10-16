@@ -58,7 +58,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
   const [mounted, setMounted] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
-  const effectiveClientId = googleClientId || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "977526709418-0gtjdpj33uvlgur9ggjetnicjq61g2uv.apps.googleusercontent.com";
+  const effectiveClientId = googleClientId || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "935592593846-fhapt1tbp4pbhgefptjv0e63lingo12p.apps.googleusercontent.com";
 
   useEffect(() => {
     setMounted(true);
@@ -291,8 +291,8 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
         />
       )}
 
-      {/* Hidden container for GIS button */}
-      <div ref={buttonContainerRef} className="hidden" />
+      {/* Container for GIS button (offscreen so GIS can render) */}
+      <div ref={buttonContainerRef} className="absolute -top-[9999px] -left-[9999px] opacity-0 pointer-events-none" />
 
       {/* Waiting state for Desktop Chrome popup */}
       {browserWaiting ? (

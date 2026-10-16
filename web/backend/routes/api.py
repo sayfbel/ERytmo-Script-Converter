@@ -948,6 +948,8 @@ def resolve_safe_file_path(path: str, current_user: models.User, db: Optional[Se
                 )
             ).all()
             desktop_dir = os.path.expanduser("~/Desktop")
+            docs_dir = os.path.expanduser("~/Documents")
+            downloads_dir = os.path.expanduser("~/Downloads")
             home_dir = os.path.expanduser("~")
 
             for proj in projects:
@@ -959,6 +961,8 @@ def resolve_safe_file_path(path: str, current_user: models.User, db: Optional[Se
                 else:
                     base_folders.extend([
                         os.path.join(desktop_dir, proj.folder_path),
+                        os.path.join(docs_dir, proj.folder_path),
+                        os.path.join(downloads_dir, proj.folder_path),
                         os.path.join(home_dir, proj.folder_path),
                         proj.folder_path
                     ])
@@ -979,10 +983,12 @@ def resolve_safe_file_path(path: str, current_user: models.User, db: Optional[Se
         except Exception as e:
             print(f"Project folder resolution exception: {e}")
 
-    # 5. User desktop or home directory
+    # 5. User desktop, documents, downloads or home directory
     desktop_dir = os.path.expanduser("~/Desktop")
+    docs_dir = os.path.expanduser("~/Documents")
+    downloads_dir = os.path.expanduser("~/Downloads")
     home_dir = os.path.expanduser("~")
-    for base in [desktop_dir, home_dir]:
+    for base in [desktop_dir, docs_dir, downloads_dir, home_dir]:
         f = test_file(os.path.join(base, clean_rel))
         if f:
             return f

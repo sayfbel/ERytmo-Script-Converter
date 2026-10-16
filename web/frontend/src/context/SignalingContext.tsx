@@ -32,6 +32,7 @@ interface SignalingContextType {
   otherDevicesCount: number;
   incomingRequest: IncomingTransferRequest | null;
   fileTransfers: Record<string, TransferState>;
+  downloadedBlobs: Record<string, Blob>;
   transferBanner: { type: 'declined' | 'error' | 'success'; message: string } | null;
   setTransferBanner: React.Dispatch<React.SetStateAction<{ type: 'declined' | 'error' | 'success'; message: string } | null>>;
   respondTransfer: (requestId: string, status: "accepted" | "declined", rememberPreference: boolean) => void;
@@ -80,6 +81,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
   const [otherDevicesCount, setOtherDevicesCount] = useState<number>(0);
   const [incomingRequest, setIncomingRequest] = useState<IncomingTransferRequest | null>(null);
   const [fileTransfers, setFileTransfers] = useState<Record<string, TransferState>>({});
+  const [downloadedBlobs, setDownloadedBlobs] = useState<Record<string, Blob>>({});
   const [transferBanner, setTransferBanner] = useState<{
     type: 'declined' | 'error' | 'success';
     message: string;
@@ -344,6 +346,8 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
               document.body.removeChild(link);
               setTimeout(() => URL.revokeObjectURL(url), 30000);
 
+              setDownloadedBlobs(prev => ({ ...prev, [file_name]: blob }));
+
               setFileTransfers(prev => ({
                 ...prev,
                 [file_name]: { status: 'completed', progress: 100, message: "Sync Complete" }
@@ -520,6 +524,7 @@ export function SignalingProvider({ children }: { children: React.ReactNode }) {
         otherDevicesCount,
         incomingRequest,
         fileTransfers,
+        downloadedBlobs,
         transferBanner,
         setTransferBanner,
         respondTransfer,

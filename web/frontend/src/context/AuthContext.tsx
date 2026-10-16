@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [googleClientId, setGoogleClientId] = useState<string | null>(
-    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "977526709418-0gtjdpj33uvlgur9ggjetnicjq61g2uv.apps.googleusercontent.com"
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "935592593846-fhapt1tbp4pbhgefptjv0e63lingo12p.apps.googleusercontent.com"
   );
 
   // Fetch current user from server session (HttpOnly cookie)

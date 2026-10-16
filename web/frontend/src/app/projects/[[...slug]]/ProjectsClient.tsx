@@ -10,6 +10,7 @@ import {
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
 import MediaViewerModal, { detectFileCategory, ProjectViewerFile } from "@/components/MediaViewerModal";
+import LargeFileRequirementModal from "@/components/LargeFileRequirementModal";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { useSignaling } from "@/context/SignalingContext";
@@ -69,6 +70,7 @@ export default function ProjectsClient() {
     isUserOnline, 
     requestTransfer, 
     fileTransfers, 
+    downloadedBlobs,
     transferBanner, 
     setTransferBanner, 
     registerFileProvider,
@@ -153,12 +155,10 @@ export default function ProjectsClient() {
       if (localFileHandles.has(fileName)) {
         return localFileHandles.get(fileName)!;
       }
-      if (typeof window !== "undefined" && window.location.port === "8000") {
-        try {
-          const res = await fetch(`http://localhost:8000/api/stream-file?path=${encodeURIComponent(fileName)}`);
-          if (res.ok) return await res.blob();
-        } catch {}
-      }
+      try {
+        const res = await fetch(`http://localhost:8000/api/stream-file?path=${encodeURIComponent(fileName)}`);
+        if (res.ok) return await res.blob();
+      } catch {}
       return null;
     });
   }, [localFileHandles, registerFileProvider]);
@@ -171,6 +171,13 @@ export default function ProjectsClient() {
     project?: Project | null;
     fileToDelete?: ProjectFile | null;
   }>({ isOpen: false, type: 'update', project: null, fileToDelete: null });
+
+  // Large File Safeguard Modal (> 1GB Web Download restriction)
+  const [largeFileModal, setLargeFileModal] = useState<{
+    isOpen: boolean;
+    fileName?: string;
+    fileSize?: number;
+  }>({ isOpen: false });
 
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const panelFolderInputRef = useRef<HTMLInputElement | null>(null);
@@ -598,22 +605,57 @@ export default function ProjectsClient() {
     }
   };
 
+  // Watch for completed P2P downloads to immediately display in the media viewer
+  useEffect(() => {
+    if (activeFile && downloadedBlobs[activeFile.name] && (!activeFile.url || activeFile.url.includes('/api/stream-file'))) {
+      const blob = downloadedBlobs[activeFile.name];
+      const url = URL.createObjectURL(blob);
+      setActiveFile(prev => prev ? { ...prev, url } : null);
+    }
+  }, [downloadedBlobs, activeFile]);
+
   const handleOpenFile = async (file: ProjectFile | ProjectViewerFile, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const localFile = localFileHandles.get(file.name);
+    const downloadedBlob = downloadedBlobs[file.name];
+
+    const isDesktopEnv = typeof window !== "undefined" && (
+      window.location.port === "8000" ||
+      typeof (window as unknown as { pywebview?: unknown }).pywebview !== "undefined"
+    );
+
+    // Safeguard: Files >= 1GB require DubFlow Desktop to prevent browser RAM crashes
+    if (!isDesktopEnv && (file.size || 0) >= 1024 * 1024 * 1024 && selectedProject?.is_owner === false && !localFile && !downloadedBlob) {
+      setLargeFileModal({
+        isOpen: true,
+        fileName: file.name,
+        fileSize: file.size
+      });
+      return;
+    }
 
     let mediaUrl = "";
     if (localFile) {
       mediaUrl = URL.createObjectURL(localFile);
+    } else if (downloadedBlob) {
+      mediaUrl = URL.createObjectURL(downloadedBlob);
+    } else if (selectedProject?.is_owner === false) {
+      // Collaborator file not yet downloaded: trigger P2P sync so file streams to browser
+      mediaUrl = "";
+      handleInitiateDownload(file as ProjectFile, e || ({ stopPropagation: () => {} } as React.MouseEvent));
     } else {
       mediaUrl = getApiUrl(`/api/stream-file?path=${encodeURIComponent(file.path || file.name)}`);
     }
 
     let textContent = "";
     const cat = detectFileCategory(file.name, file.type);
-    if (cat === 'script' && localFile) {
+    if (cat === 'script') {
       try {
-        textContent = await localFile.text();
+        if (localFile) {
+          textContent = await localFile.text();
+        } else if (downloadedBlob) {
+          textContent = await downloadedBlob.text();
+        }
       } catch {
         textContent = "";
       }
@@ -669,6 +711,21 @@ export default function ProjectsClient() {
   const handleInitiateDownload = async (file: ProjectFile, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!selectedProject) return;
+
+    const isDesktopEnv = typeof window !== "undefined" && (
+      window.location.port === "8000" ||
+      typeof (window as unknown as { pywebview?: unknown }).pywebview !== "undefined"
+    );
+
+    // Safeguard: Files >= 1GB require DubFlow Desktop to prevent browser RAM crashes
+    if (!isDesktopEnv && (file.size || 0) >= 1024 * 1024 * 1024) {
+      setLargeFileModal({
+        isOpen: true,
+        fileName: file.name,
+        fileSize: file.size
+      });
+      return;
+    }
 
     if (selectedProject.access_level === 'spectator') {
       setTransferBanner({
@@ -1642,6 +1699,14 @@ export default function ProjectsClient() {
             setShowModal(true);
           }
         }}
+      />
+
+      {/* Large File Safeguard (> 1GB Web Download) Modal */}
+      <LargeFileRequirementModal
+        isOpen={largeFileModal.isOpen}
+        onClose={() => setLargeFileModal({ isOpen: false })}
+        fileName={largeFileModal.fileName}
+        fileSize={largeFileModal.fileSize}
       />
     </div>
   );
