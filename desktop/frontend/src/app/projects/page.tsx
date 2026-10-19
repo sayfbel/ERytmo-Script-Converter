@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Briefcase, Search, Plus, FolderOpen, Video, FileText, Calendar, Building, X, 
   Loader2, ChevronRight, Edit2, Trash2, Clock, Download, CheckCircle2, AlertCircle, Eye, ShieldAlert,
-  Play, Music
+  Play, Music, Users, Lock, Unlock, UploadCloud, ShieldCheck, Star, FileCode, Film, Headphones, Image as ImageIcon
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
@@ -13,6 +13,40 @@ import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { useSignaling } from "@/context/SignalingContext";
 import { apiFetch, getApiUrl } from "@/lib/api";
+
+export interface ProjectCollaborator {
+  staff_id?: number;
+  staff_name: string;
+  staff_email?: string | null;
+  staff_user_id?: number | null;
+  task?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  can_update_project_file?: boolean;
+  comment?: string;
+}
+
+export interface ProjectMasterFile {
+  name: string;
+  path?: string;
+  size?: number;
+  type?: string;
+  updated_at?: string;
+  updated_by_id?: number;
+  updated_by_name?: string;
+}
+
+export interface Staff {
+  id: number;
+  name: string;
+  email: string | null;
+  task: string | null;
+  access_level: "full_access" | "spectator";
+  auto_accept_transfers: boolean;
+  staff_user_id?: number | null;
+  is_online?: boolean;
+  created_at?: string | null;
+}
 
 export interface Project {
   id: number;
@@ -28,6 +62,11 @@ export interface Project {
   access_level?: "full_access" | "spectator";
   owner_id?: number;
   owner_name?: string;
+  description?: string;
+  collaborators?: ProjectCollaborator[];
+  project_file?: ProjectMasterFile | null;
+  can_update_project_file?: boolean;
+  my_collaboration?: ProjectCollaborator | null;
 }
 
 export interface ProjectFile {
@@ -60,6 +99,19 @@ const formatFileSize = (bytes: number): string => {
   }
   return `${bytes} B`;
 };
+
+function detectFileCategory(fileName: string, serverType?: string): 'image' | 'video' | 'audio' | 'pdf' | 'docx' | 'script' | 'other' {
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'bmp', 'avif', 'ico'].includes(ext)) return 'image';
+  if (['mp4', 'webm', 'mov', 'mkv', 'avi', 'wmv', 'flv', 'm4v'].includes(ext)) return 'video';
+  if (['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma', 'aiff', 'alac'].includes(ext)) return 'audio';
+  if (ext === 'pdf') return 'pdf';
+  if (['docx', 'doc', 'odt', 'rtf'].includes(ext)) return 'docx';
+  if (['txt', 'srt', 'vtt', 'sub', 'ass', 'ssa', 'json', 'csv', 'xml', 'mos', 'awf', 'md', 'js', 'ts', 'py'].includes(ext)) return 'script';
+  if (serverType === 'video') return 'video';
+  if (serverType === 'audio') return 'audio';
+  return 'other';
+}
 
 export default function ProjectsPage() {
   const { t } = useSettings();
@@ -96,6 +148,13 @@ export default function ProjectsPage() {
   const [deadline, setDeadline] = useState("");
   const [totalTime, setTotalTime] = useState("");
 
+  // Collaboration & Team Assignment State
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [projectCollaborators, setProjectCollaborators] = useState<ProjectCollaborator[]>([]);
+  const [showMasterFileModal, setShowMasterFileModal] = useState(false);
+  const [isUpdatingMasterFile, setIsUpdatingMasterFile] = useState(false);
+  const masterFileInputRef = useRef<HTMLInputElement | null>(null);
+
   // Project Details State
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
@@ -108,6 +167,8 @@ export default function ProjectsPage() {
     url?: string;
     content?: string;
   } | null>(null);
+  const [fileSearchQuery, setFileSearchQuery] = useState("");
+  const [fileCategoryFilter, setFileCategoryFilter] = useState("all");
 
   // Local File Handles State
   const [localFileHandles, setLocalFileHandles] = useState<Map<string, File>>(new Map());
@@ -140,13 +201,180 @@ export default function ProjectsPage() {
 
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const panelFolderInputRef = useRef<HTMLInputElement | null>(null);
+  const panelFileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFilesForNewProject, setSelectedFilesForNewProject] = useState<File[]>([]);
   const [isDraggingNewProject, setIsDraggingNewProject] = useState(false);
   const [isDraggingPanel, setIsDraggingPanel] = useState(false);
 
+  const fetchStaff = async () => {
+    try {
+      const res = await apiFetch("/api/staff");
+      if (res.ok) {
+        const data = await res.json();
+        setStaffList(data);
+        return data;
+      }
+    } catch (err) {
+      console.error("Error fetching staff:", err);
+    }
+    return [];
+  };
+
+  const handleAddCollaborator = (currentStaffList: Staff[] = staffList) => {
+    const list = currentStaffList.length > 0 ? currentStaffList : staffList;
+    if (list.length === 0) {
+      setProjectCollaborators(prev => [
+        ...prev,
+        {
+          staff_name: "",
+          task: "pose le text",
+          start_date: "",
+          end_date: "",
+          can_update_project_file: false,
+          comment: ""
+        }
+      ]);
+      return;
+    }
+
+    const existingStaffIds = new Set(projectCollaborators.map(c => c.staff_id).filter(Boolean));
+    const availableStaff = list.find(s => !existingStaffIds.has(s.id)) || list[0];
+
+    setProjectCollaborators(prev => [
+      ...prev,
+      {
+        staff_id: availableStaff.id,
+        staff_name: availableStaff.name,
+        staff_email: availableStaff.email,
+        staff_user_id: availableStaff.staff_user_id,
+        // Default to staff's already assigned task
+        task: availableStaff.task || "pose le text",
+        start_date: "",
+        end_date: "",
+        can_update_project_file: false,
+        comment: ""
+      }
+    ]);
+  };
+
+  const handleSelectStaffForCollab = (index: number, staffId: number) => {
+    const selectedStaff = staffList.find(s => s.id === staffId);
+    if (!selectedStaff) return;
+    setProjectCollaborators(prev => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        staff_id: selectedStaff.id,
+        staff_name: selectedStaff.name,
+        staff_email: selectedStaff.email,
+        staff_user_id: selectedStaff.staff_user_id,
+        task: selectedStaff.task || "pose le text"
+      };
+      return next;
+    });
+  };
+
+  const handleUpdateCollabField = <K extends keyof ProjectCollaborator>(
+    index: number,
+    field: K,
+    val: ProjectCollaborator[K]
+  ) => {
+    setProjectCollaborators(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: val };
+      return next;
+    });
+  };
+
+  const handleRemoveCollab = (index: number) => {
+    setProjectCollaborators(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSetMasterFile = async (fileObj: { name: string; path?: string; size?: number; type?: string }) => {
+    if (!selectedProject) return;
+    setIsUpdatingMasterFile(true);
+    try {
+      const res = await apiFetch(`/api/projects/${selectedProject.id}/project-file`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fileObj)
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setSelectedProject(prev => prev ? { ...prev, project_file: saved } : null);
+        setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, project_file: saved } : p));
+        setShowMasterFileModal(false);
+        setTransferBanner({
+          type: "success",
+          message: `Fichier du film défini avec succès : "${saved.name}"`
+        });
+      } else {
+        const data = await res.json();
+        setTransferBanner({
+          type: "declined",
+          message: data.detail || "Échec de la sélection du fichier du film"
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setTransferBanner({
+        type: "declined",
+        message: "Erreur lors de la sélection du fichier du film"
+      });
+    } finally {
+      setIsUpdatingMasterFile(false);
+    }
+  };
+
+  const handleRemoveMasterFile = async () => {
+    if (!selectedProject) return;
+    setIsUpdatingMasterFile(true);
+    try {
+      const res = await apiFetch(`/api/projects/${selectedProject.id}/project-file`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        setSelectedProject(prev => prev ? { ...prev, project_file: null } : null);
+        setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, project_file: null } : p));
+        setTransferBanner({
+          type: "success",
+          message: "Fichier du film retiré."
+        });
+      } else {
+        const data = await res.json();
+        setTransferBanner({
+          type: "declined",
+          message: data.detail || "Échec du retrait du fichier du film"
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdatingMasterFile(false);
+    }
+  };
+
+  const handleMasterFileSelectFromDisk = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedProject) return;
+    setLocalFileHandles(prev => {
+      const next = new Map(prev);
+      next.set(file.name, file);
+      return next;
+    });
+    await handleSetMasterFile({
+      name: file.name,
+      path: file.name,
+      size: file.size,
+      type: file.type || undefined
+    });
+    e.target.value = "";
+  };
+
   const openCreateModal = () => {
     setEditingProjectId(null);
     setName("");
+    setDescription("");
     setCompanyName("");
     setIsCustomCompany(false);
     setFolderPath("");
@@ -155,6 +383,8 @@ export default function ProjectsPage() {
     setProjectType("Détection");
     setDeadline("");
     setTotalTime("");
+    setProjectCollaborators([]);
+    fetchStaff();
     setShowModal(true);
   };
 
@@ -162,6 +392,7 @@ export default function ProjectsPage() {
     e.stopPropagation();
     setEditingProjectId(project.id);
     setName(project.name);
+    setDescription(project.description || "");
     setCompanyName(project.company_name || "");
     
     if (project.company_name) {
@@ -175,6 +406,15 @@ export default function ProjectsPage() {
     setProjectType(project.project_type || "Détection");
     setDeadline(project.deadline ? new Date(project.deadline).toISOString().split('T')[0] : "");
     setTotalTime(project.total_time?.toString() || "");
+
+    let collabs: ProjectCollaborator[] = [];
+    if (Array.isArray(project.collaborators)) {
+      collabs = project.collaborators;
+    } else if (typeof project.collaborators === "string") {
+      try { collabs = JSON.parse(project.collaborators); } catch {}
+    }
+    setProjectCollaborators(collabs);
+    fetchStaff();
     setShowModal(true);
   };
 
@@ -208,9 +448,11 @@ export default function ProjectsPage() {
     if (user?.id) {
       fetchProjects();
       fetchCompanies();
+      fetchStaff();
     } else {
       setProjects([]);
       setRealCompanies([]);
+      setStaffList([]);
     }
   }, [user?.id]);
 
@@ -235,6 +477,11 @@ export default function ProjectsPage() {
       if (res.ok) {
         const data = await res.json();
         setProjects(data);
+        setSelectedProject(prev => {
+          if (!prev) return null;
+          const fresh = data.find((p: Project) => p.id === prev.id);
+          return fresh ? { ...prev, ...fresh } : prev;
+        });
       } else {
         setProjects([]);
       }
@@ -278,6 +525,11 @@ export default function ProjectsPage() {
     if (deadline) {
       params.append("deadline", `${deadline}T00:00:00Z`);
     }
+    if (projectCollaborators.length > 0) {
+      params.append("collaborators", JSON.stringify(projectCollaborators));
+    } else {
+      params.append("collaborators", "[]");
+    }
 
     try {
       const res = await apiFetch(`${url}?${params.toString()}`, {
@@ -304,6 +556,7 @@ export default function ProjectsPage() {
         setProjectType("Détection");
         setDeadline("");
         setTotalTime("");
+        setProjectCollaborators([]);
         setEditingProjectId(null);
 
         if (resultProject && !editingProjectId) {
@@ -1038,8 +1291,218 @@ export default function ProjectsPage() {
                   : 'bg-slate-50/50 dark:bg-black/20'
               }`}
             >
+              {/* Active Collaborator Role Banner */}
+              {selectedProject.my_collaboration && (
+                <div className="mb-4 rounded-xl border border-blue-500/25 bg-blue-500/10 dark:bg-blue-500/[0.08] p-3 text-xs shadow-xs animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between font-bold text-blue-800 dark:text-blue-300">
+                    <div className="flex items-center gap-1.5">
+                      <Users size={15} />
+                      <span>Your Role: {selectedProject.my_collaboration.task || "Collaborator"}</span>
+                    </div>
+                    {selectedProject.my_collaboration.can_update_project_file ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                        <Unlock size={10} /> File Update Authorized
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                        <Lock size={10} /> View-Only Master File
+                      </span>
+                    )}
+                  </div>
+                  {(selectedProject.my_collaboration.start_date || selectedProject.my_collaboration.end_date) && (
+                    <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-600 dark:text-[#c2bcaf] font-mono">
+                      <Calendar size={12} className="text-blue-500 shrink-0" />
+                      <span>
+                        {selectedProject.my_collaboration.start_date || "Start"} → {selectedProject.my_collaboration.end_date || "Deadline"}
+                      </span>
+                    </div>
+                  )}
+                  {selectedProject.my_collaboration.comment && (
+                    <p className="mt-1.5 text-[11px] text-slate-600 dark:text-[#9f988b] italic border-t border-blue-500/15 pt-1.5">
+                      &quot;{selectedProject.my_collaboration.comment}&quot;
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Clean Controllers Toolbar: Add File (+) & Delete (Trash) */}
+              <div className="mb-3 p-2 px-3 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-bold text-slate-800 dark:text-[#f4efe6]">
+                    Fichiers ({projectFiles.length})
+                  </span>
+                  {selectedProject.project_file && (
+                    <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium truncate hidden sm:inline" title={selectedProject.project_file.name}>
+                      • Film : {selectedProject.project_file.name}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {selectedProject.is_owner !== false && (
+                    <>
+                      <input
+                        type="file"
+                        ref={panelFileInputRef}
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0 && selectedProject) {
+                            const files = Array.from(e.target.files);
+                            indexProjectFiles(selectedProject.id, files);
+                            e.target.value = "";
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => panelFileInputRef.current?.click()}
+                        disabled={isIndexing}
+                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-400 hover:bg-amber-300 text-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                        title="Ajouter des fichiers au projet"
+                      >
+                        <Plus size={13} />
+                        <span>Ajouter</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => panelFolderInputRef.current?.click()}
+                        disabled={isIndexing}
+                        className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-200/60 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                        title="Indexer un dossier complet"
+                      >
+                        <FolderOpen size={14} />
+                      </button>
+                    </>
+                  )}
+
+                  {selectedProject.is_owner !== false && activeFile && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        const match = projectFiles.find(f => f.name === activeFile.name);
+                        if (match) promptDeleteFile(match, e);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer"
+                      title={`Supprimer "${activeFile.name}"`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Search & Category Filter Pills */}
+              {projectFiles.length > 0 && (() => {
+                const videoCount = projectFiles.filter(f => detectFileCategory(f.name, f.type) === 'video').length;
+                const audioCount = projectFiles.filter(f => detectFileCategory(f.name, f.type) === 'audio').length;
+                const scriptCount = projectFiles.filter(f => detectFileCategory(f.name, f.type) === 'script').length;
+                const docCount = projectFiles.filter(f => {
+                  const cat = detectFileCategory(f.name, f.type);
+                  return cat === 'pdf' || cat === 'docx' || cat === 'image' || cat === 'other';
+                }).length;
+
+                return (
+                  <div className="mb-3 space-y-2">
+                    <div className="relative">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Rechercher parmi les fichiers..."
+                        value={fileSearchQuery}
+                        onChange={(e) => setFileSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#161619] text-xs text-slate-900 dark:text-[#f4efe6] placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-400/50"
+                      />
+                      {fileSearchQuery && (
+                        <button
+                          onClick={() => setFileSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] scrollbar-none">
+                      <button
+                        type="button"
+                        onClick={() => setFileCategoryFilter("all")}
+                        className={`px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer ${
+                          fileCategoryFilter === "all"
+                            ? "bg-amber-400 text-black font-bold shadow-2xs"
+                            : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-[#9f988b] hover:bg-slate-200 dark:hover:bg-white/10"
+                        }`}
+                      >
+                        Tous ({projectFiles.length})
+                      </button>
+
+                      {videoCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFileCategoryFilter("video")}
+                          className={`px-2 py-1 rounded-lg transition-all shrink-0 cursor-pointer flex items-center gap-1 ${
+                            fileCategoryFilter === "video"
+                              ? "bg-amber-400 text-black font-bold shadow-2xs"
+                              : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-[#9f988b] hover:bg-slate-200 dark:hover:bg-white/10"
+                          }`}
+                        >
+                          <Video size={11} />
+                          <span>Vidéos ({videoCount})</span>
+                        </button>
+                      )}
+
+                      {audioCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFileCategoryFilter("audio")}
+                          className={`px-2 py-1 rounded-lg transition-all shrink-0 cursor-pointer flex items-center gap-1 ${
+                            fileCategoryFilter === "audio"
+                              ? "bg-amber-400 text-black font-bold shadow-2xs"
+                              : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-[#9f988b] hover:bg-slate-200 dark:hover:bg-white/10"
+                          }`}
+                        >
+                          <Headphones size={11} />
+                          <span>Audio ({audioCount})</span>
+                        </button>
+                      )}
+
+                      {scriptCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFileCategoryFilter("script")}
+                          className={`px-2 py-1 rounded-lg transition-all shrink-0 cursor-pointer flex items-center gap-1 ${
+                            fileCategoryFilter === "script"
+                              ? "bg-amber-400 text-black font-bold shadow-2xs"
+                              : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-[#9f988b] hover:bg-slate-200 dark:hover:bg-white/10"
+                          }`}
+                        >
+                          <FileCode size={11} />
+                          <span>Scripts ({scriptCount})</span>
+                        </button>
+                      )}
+
+                      {docCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFileCategoryFilter("doc")}
+                          className={`px-2 py-1 rounded-lg transition-all shrink-0 cursor-pointer flex items-center gap-1 ${
+                            fileCategoryFilter === "doc"
+                              ? "bg-amber-400 text-black font-bold shadow-2xs"
+                              : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-[#9f988b] hover:bg-slate-200 dark:hover:bg-white/10"
+                          }`}
+                        >
+                          <FileText size={11} />
+                          <span>Docs ({docCount})</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {loadingFiles ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500">
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 py-12">
                   <Loader2 size={24} className="animate-spin mb-2" />
                   <span className="text-sm">{t("project.scanning")}</span>
                 </div>
@@ -1064,7 +1527,7 @@ export default function ProjectsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="flex flex-col items-center justify-center h-full text-center py-12">
                     <FolderOpen size={48} className="text-slate-300 dark:text-slate-600 mb-3" />
                     <p className="text-slate-600 dark:text-slate-400 font-medium">{t("project.no_files")}</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs">
@@ -1072,252 +1535,176 @@ export default function ProjectsPage() {
                     </p>
                   </div>
                 )
-              ) : (
-                <div className="space-y-3">
-                  {projectFiles.map((file, idx) => {
-                    const isOwner = selectedProject.is_owner !== false;
-                    const hasLocal = localFileHandles.has(file.name);
-                    const isSpectator = selectedProject.access_level === 'spectator';
-                    const isFullAccess = selectedProject.access_level === 'full_access';
-                    const ownerOnline = selectedProject.owner_id ? isUserOnline(selectedProject.owner_id) : false;
-                    const transfer = fileTransfers[file.name];
+              ) : (() => {
+                const filteredFiles = projectFiles.filter((file) => {
+                  if (fileSearchQuery.trim()) {
+                    const q = fileSearchQuery.toLowerCase();
+                    if (!file.name.toLowerCase().includes(q)) return false;
+                  }
+                  if (fileCategoryFilter !== "all") {
+                    const cat = detectFileCategory(file.name, file.type);
+                    if (fileCategoryFilter === "video") return cat === "video";
+                    if (fileCategoryFilter === "audio") return cat === "audio";
+                    if (fileCategoryFilter === "script") return cat === "script";
+                    if (fileCategoryFilter === "doc") return cat === "pdf" || cat === "docx" || cat === "image" || cat === "other";
+                  }
+                  return true;
+                });
 
-                    return (
-                      <div 
-                        key={idx} 
-                        onClick={() => {
-                          if (isOwner) {
-                            if (hasLocal) {
-                              handleOpenFile(file);
-                            } else if (otherDevicesCount > 0) {
-                              handleInitiateDownload(file, { stopPropagation: () => {} } as React.MouseEvent);
-                            } else {
-                              setTransferBanner({
-                                type: 'error',
-                                message: "This file is on your PC 1. Keep PC 1 open to sync or stream it."
-                              });
-                            }
-                          }
-                        }}
-                        className={`bg-white dark:bg-[#161619] border border-slate-200/80 dark:border-white/[0.08] rounded-xl p-3.5 flex flex-col shadow-xs hover:border-amber-400/50 dark:hover:border-amber-400/50 hover:shadow-md transition-all ${
-                          isOwner ? 'cursor-pointer' : 'cursor-default'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center min-w-0 flex-1 mr-2 rtl:mr-0 rtl:ml-2">
-                            <div className={`p-2 rounded-lg mr-3 rtl:mr-0 rtl:ml-3 shrink-0 ${
-                              file.type === 'video' 
-                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500' 
-                                : file.type === 'audio'
-                                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500'
-                                : 'bg-purple-50 dark:bg-purple-900/30 text-purple-500'
-                            }`}>
-                              {file.type === 'video' ? <Video size={18} /> : file.type === 'audio' ? <Music size={18} /> : <FileText size={18} />}
+                if (filteredFiles.length === 0) {
+                  return (
+                    <div className="py-12 text-center text-slate-400 text-xs">
+                      Aucun fichier trouvé pour cette recherche.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2.5">
+                    {filteredFiles.map((file, idx) => {
+                      const isOwner = selectedProject.is_owner !== false;
+                      const hasLocal = localFileHandles.has(file.name);
+                      const isSpectator = selectedProject.access_level === 'spectator';
+                      const isFullAccess = selectedProject.access_level === 'full_access';
+                      const ownerOnline = selectedProject.owner_id ? isUserOnline(selectedProject.owner_id) : false;
+                      const transfer = fileTransfers[file.name];
+
+                      const canUpdateMasterFile = selectedProject.is_owner !== false || Boolean(selectedProject.can_update_project_file);
+                      const isFilmFile = selectedProject.project_file?.name === file.name;
+
+                      const fileCat = detectFileCategory(file.name, file.type);
+                      const isMedia = fileCat === 'video' || fileCat === 'audio';
+
+                      const catConfig = {
+                        image: { icon: ImageIcon, color: "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-300/60 dark:border-white/10", label: "IMAGE" },
+                        video: { icon: Video, color: "bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 border-amber-500/25", label: "VIDEO" },
+                        audio: { icon: Headphones, color: "bg-teal-500/10 dark:bg-teal-400/10 text-teal-700 dark:text-teal-400 border-teal-500/25", label: "AUDIO" },
+                        pdf: { icon: FileText, color: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-500/20", label: "PDF" },
+                        docx: { icon: FileText, color: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-500/20", label: "DOCX" },
+                        script: { icon: FileCode, color: "bg-amber-500/10 dark:bg-amber-400/10 text-amber-800 dark:text-amber-300 border-amber-500/25", label: "SCRIPT" },
+                        other: { icon: FileText, color: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10", label: "FILE" },
+                      }[fileCat];
+                      const CatIcon = catConfig.icon;
+
+                      return (
+                        <div 
+                          key={idx} 
+                          onClick={() => handleOpenFile(file)}
+                          className={`rounded-xl p-2.5 px-3 flex items-center justify-between gap-3 shadow-2xs transition-all cursor-pointer group border ${
+                            isFilmFile
+                              ? 'border-amber-500/70 dark:border-amber-400/60 bg-amber-500/[0.04] dark:bg-amber-400/[0.03] ring-1 ring-amber-500/30'
+                              : activeFile?.name === file.name
+                              ? 'border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-white/[0.03]'
+                              : 'bg-white dark:bg-[#161619] border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/20'
+                          }`}
+                        >
+                          {/* Left: Radio for film selection + Category Icon + File Name & Metadata */}
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            {/* Radio: mutually exclusive single film file selection */}
+                            {canUpdateMasterFile && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isFilmFile) {
+                                    handleRemoveMasterFile();
+                                  } else {
+                                    handleSetMasterFile({
+                                      name: file.name,
+                                      path: file.path || file.name,
+                                      size: file.size,
+                                      type: file.type
+                                    });
+                                  }
+                                }}
+                                disabled={isUpdatingMasterFile}
+                                className="shrink-0 p-0.5 cursor-pointer"
+                                title={isFilmFile ? "Fichier du film actif (cliquer pour retirer)" : "Définir comme fichier du film"}
+                              >
+                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                                  isFilmFile
+                                    ? "border-amber-500 bg-amber-500/10"
+                                    : "border-slate-300 dark:border-white/20 hover:border-amber-400"
+                                }`}>
+                                  {isFilmFile && <div className="w-2 h-2 rounded-full bg-amber-500" />}
+                                </div>
+                              </button>
+                            )}
+
+                            {/* Category Icon */}
+                            <div className={`p-1.5 rounded-lg shrink-0 border ${catConfig.color}`}>
+                              <CatIcon size={15} />
                             </div>
+
+                            {/* Name & size info */}
                             <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-sm text-slate-900 dark:text-[#f4efe6] truncate" title={file.name}>
-                                {file.name}
+                              <div className="flex items-center gap-1.5">
+                                <p className={`font-semibold text-xs sm:text-sm truncate ${
+                                  isFilmFile ? "text-amber-900 dark:text-amber-200" : "text-slate-900 dark:text-[#f4efe6]"
+                                }`} title={file.name}>
+                                  {file.name}
+                                </p>
+                                {isFilmFile && (
+                                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 font-mono shrink-0">
+                                    • Film
+                                  </span>
+                                )}
                               </div>
-                              <div className="flex items-center space-x-2 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                <span className="font-medium text-slate-600 dark:text-[#c2bcaf] font-mono">
-                                  {formatFileSize(file.size)}
-                                </span>
+                              <div className="flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
+                                <span>{formatFileSize(file.size)}</span>
+                                <span>•</span>
+                                <span>{catConfig.label}</span>
                                 {hasLocal ? (
-                                  <span className="inline-flex items-center text-[10px] text-teal-600 dark:text-teal-400 font-medium">
-                                    • Local
-                                  </span>
+                                  <span className="text-emerald-600 dark:text-emerald-400">• Local</span>
                                 ) : isOwner ? (
-                                  <span className="inline-flex items-center text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
-                                    • On Other PC
-                                  </span>
+                                  <span>• Cloud</span>
                                 ) : null}
                               </div>
                             </div>
                           </div>
 
-                          {/* Action Controls */}
-                          <div className="shrink-0 flex items-center space-x-1 rtl:space-x-reverse">
-                            {isOwner ? (
-                              hasLocal ? (
-                                <>
-                                  <button 
-                                    onClick={(e) => handleOpenFile(file, e)}
-                                    className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 flex items-center gap-1.5 transition-colors cursor-pointer"
-                                    title={file.type === 'video' || file.type === 'audio' ? "Instant Playback" : "View"}
-                                  >
-                                    {file.type === 'video' || file.type === 'audio' ? (
-                                      <>
-                                        <Play size={12} className="fill-current" />
-                                        <span>Play</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Eye size={12} />
-                                        <span>View</span>
-                                      </>
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const local = localFileHandles.get(file.name);
-                                      if (local) {
-                                        const url = URL.createObjectURL(local);
-                                        const a = document.createElement("a");
-                                        a.href = url;
-                                        a.download = file.name;
-                                        document.body.appendChild(a);
-                                        a.click();
-                                        document.body.removeChild(a);
-                                        setTimeout(() => URL.revokeObjectURL(url), 10000);
-                                      } else {
-                                        handleOpenFile(file, e);
-                                      }
-                                    }}
-                                    className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer"
-                                    title="Download Local"
-                                  >
-                                    <Download size={14} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => promptDeleteFile(file, e)}
-                                    className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                    title="Delete file"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </>
-                              ) : (
-                                // Cross-device same-account: PC 2 requesting file from PC 1
-                                <div className="flex items-center space-x-1 rtl:space-x-reverse">
-                                  {transfer?.status === 'pending' ? (
-                                    <div className="flex items-center text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 rounded-lg">
-                                      <Loader2 size={12} className="animate-spin mr-1.5" />
-                                      <span>Requesting PC 1...</span>
-                                    </div>
-                                  ) : transfer?.status === 'transferring' ? (
-                                    <span className="text-xs font-semibold text-teal-600 dark:text-teal-400">
-                                      {transfer.progress}%
-                                    </span>
-                                  ) : transfer?.status === 'completed' ? (
-                                    <span className="inline-flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg">
-                                      <CheckCircle2 size={12} className="mr-1" />
-                                      Downloaded
-                                    </span>
-                                  ) : otherDevicesCount <= 0 ? (
-                                    <button
-                                      disabled
-                                      title="Your other PC (PC 1) is offline. Keep PC 1 online to sync files directly."
-                                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed flex items-center space-x-1"
-                                    >
-                                      <Download size={12} className="mr-1 opacity-50" />
-                                      <span>PC 1 Offline</span>
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={(e) => handleInitiateDownload(file, e)}
-                                      className="px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors flex items-center space-x-1 cursor-pointer"
-                                      title="Download directly from PC 1 via P2P"
-                                    >
-                                      <Download size={12} className="mr-1" />
-                                      <span>Sync from PC 1</span>
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={(e) => promptDeleteFile(file, e)}
-                                    className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                    title="Delete file"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              )
-                            ) : isSpectator ? (
-                              <button
-                                disabled
-                                title="Spectator Mode — Downloads Disabled"
-                                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-400 dark:text-slate-500 cursor-not-allowed flex items-center space-x-1"
+                          {/* Right: Quick actions (Lire button only for video/audio, and delete trash icon) */}
+                          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            {isMedia && (
+                              <button 
+                                onClick={(e) => handleOpenFile(file, e)}
+                                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-400 hover:bg-amber-300 text-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                title="Lire dans le Studio"
                               >
-                                <Eye size={12} className="mr-1" />
-                                <span>Spectator</span>
+                                <Play size={10} className="fill-black" />
+                                <span>Lire</span>
                               </button>
-                            ) : isFullAccess ? (
-                              transfer?.status === 'pending' ? (
-                                <div className="flex items-center text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-lg">
-                                  <Loader2 size={12} className="animate-spin mr-1.5" />
-                                  <span>Waiting approval...</span>
-                                </div>
-                              ) : transfer?.status === 'transferring' ? (
-                                <span className="text-xs font-semibold text-teal-600 dark:text-teal-400">
-                                  {transfer.progress}%
-                                </span>
-                              ) : transfer?.status === 'completed' ? (
-                                <span className="inline-flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg">
-                                  <CheckCircle2 size={12} className="mr-1" />
-                                  Downloaded
-                                </span>
-                              ) : !ownerOnline ? (
-                                <button
-                                  disabled
-                                  title="Owner is offline. Files can only be downloaded when owner is connected."
-                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed flex items-center space-x-1"
-                                >
-                                  <Download size={12} className="mr-1 opacity-50" />
-                                  <span>Owner Offline</span>
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={(e) => handleInitiateDownload(file, e)}
-                                  className="px-3 py-1 text-xs font-semibold rounded-lg bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-colors flex items-center space-x-1"
-                                >
-                                  <Download size={12} className="mr-1" />
-                                  <span>Download</span>
-                                </button>
-                              )
-                            ) : null}
+                            )}
+
+                            {isOwner && (
+                              <button
+                                onClick={(e) => promptDeleteFile(file, e)}
+                                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors cursor-pointer"
+                                title="Supprimer le fichier"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </div>
-
-                        {/* Progress Bar when transfer is active */}
-                        {transfer?.status === 'transferring' && (
-                          <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
-                            <div className="flex justify-between text-[11px] text-teal-600 dark:text-teal-400 font-semibold mb-1">
-                              <span>{isOwner && !hasLocal ? "Syncing from PC 1" : "Transferring"}: {transfer.progress}%</span>
-                              <span>P2P Data Stream</span>
-                            </div>
-                            <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                              <div 
-                                className="bg-teal-500 h-1.5 rounded-full transition-all duration-300"
-                                style={{ width: `${transfer.progress}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {transfer?.status === 'declined' && (
-                          <div className="mt-2 text-[11px] text-red-600 dark:text-red-400 font-medium flex items-center">
-                            <ShieldAlert size={12} className="mr-1 shrink-0" />
-                            <span>Download request declined by owner</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
             
-            <div className="p-4 border-t border-slate-200/80 dark:border-white/[0.08] text-xs text-slate-500 dark:text-[#71717a] text-center bg-slate-50/70 dark:bg-black/20 rounded-b-xl">
-              {selectedProject.is_owner !== false ? (
-                <>
-                  {t("project.files_not_copied")}<br/>
-                  <span className="font-mono text-slate-600 dark:text-[#9f988b]">{selectedProject.folder_path}</span>
-                </>
-              ) : (
-                <span>
-                  Collaborator Project • Managed by {selectedProject.owner_name || "Owner"}
+            {/* Clean, informative footer */}
+            <div className="px-4 py-3 border-t border-slate-200/80 dark:border-white/[0.08] text-xs text-slate-500 dark:text-[#71717a] flex items-center justify-between bg-slate-50/70 dark:bg-black/20 rounded-b-2xl">
+              <div className="flex items-center gap-1.5 truncate mr-2" title={selectedProject.folder_path}>
+                <FolderOpen size={13} className="text-amber-500 shrink-0" />
+                <span className="truncate font-mono text-[11px] text-slate-600 dark:text-[#9f988b]">
+                  {selectedProject.folder_path || "Dossier local"}
                 </span>
-              )}
+              </div>
+              <span className="shrink-0 text-[11px] font-semibold text-slate-500">
+                {projectFiles.length} fichier{projectFiles.length > 1 ? "s" : ""}
+              </span>
             </div>
           </div>
         )}
@@ -1325,16 +1712,17 @@ export default function ProjectsPage() {
 
       {/* Create Project Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-lg animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6]">
-            <div className="flex justify-between items-center p-6 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] rounded-t-2xl">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingProjectId ? t("project.edit") : t("project.add_new")}</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-2 rounded-full transition-colors cursor-pointer">
-                <X size={20} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-2xl max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6] overflow-hidden my-auto">
+            <div className="flex justify-between items-center px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingProjectId ? t("project.edit") : t("project.add_new")}</h2>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 sm:p-2 rounded-xl transition-colors cursor-pointer">
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitProject} className="p-6 space-y-4">
+            <form onSubmit={handleSubmitProject} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 sm:space-y-4 min-h-0">
               {error && (
                 <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg border border-red-200 dark:border-red-800/50">
                   {error}
@@ -1525,19 +1913,335 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 rtl:space-x-reverse pt-6 border-t border-slate-200/80 dark:border-white/[0.08] mt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
-                  {t("cancel")}
-                </button>
-                <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center disabled:opacity-50 cursor-pointer">
-                  {isSubmitting && <Loader2 size={16} className="animate-spin mr-2 rtl:mr-0 rtl:ml-2" />}
-                  {editingProjectId ? t("update") : t("create")}
-                </button>
+              {/* Collaboration & Staff Assignment Section (Optional) */}
+              <div className="pt-3 border-t border-slate-200/80 dark:border-white/[0.08] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 dark:text-amber-400 shrink-0">
+                      <Users size={16} />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-[#f4efe6] flex items-center gap-1.5">
+                        <span>Team Collaboration & Staff Assignment</span>
+                        <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-[#9f988b]">
+                          Optional
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400 dark:text-[#71717a]">
+                        Assign roles, specific tasks, date ranges, and master file permissions.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddCollaborator()}
+                    className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                  >
+                    <Plus size={14} />
+                    <span>Add Staff</span>
+                  </button>
+                </div>
+
+                {projectCollaborators.length === 0 ? (
+                  <div className="p-3.5 rounded-xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.01] text-center">
+                    <p className="text-xs text-slate-600 dark:text-[#c2bcaf] font-medium">
+                      Solo Project (No staff assigned)
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-0.5">
+                      Leave this section empty to work alone, or click &quot;Add Staff&quot; above to collaborate with your team.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {projectCollaborators.map((collab, idx) => {
+                      const staffObj = staffList.find(s => s.id === collab.staff_id);
+                      const taskPresets = [
+                        { label: "pose de text (Pose le texte)", value: "pose le text" },
+                        { label: "les apois (Les appuis)", value: "les apois" },
+                        { label: "verification (Vérification / QA)", value: "verification" },
+                        { label: "complet (Complet)", value: "complet" },
+                        { label: "partner (Partenaire)", value: "partner" },
+                        { label: "traduction (Traduction)", value: "traduction" },
+                        { label: "mixage (Mixage / Sound)", value: "mixage" },
+                        { label: "adaptation (Adaptation)", value: "adaptation" }
+                      ];
+
+                      return (
+                        <div 
+                          key={idx} 
+                          className="p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.02] space-y-3 relative group"
+                        >
+                          {/* Header: Staff Selector + Remove */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <label className="block text-[11px] font-bold text-slate-700 dark:text-[#c2bcaf] mb-1">
+                                Team Member {idx + 1} *
+                              </label>
+                              {staffList.length > 0 ? (
+                                <CustomSelect
+                                  value={String(collab.staff_id || staffList[0].id)}
+                                  onChange={(val) => handleSelectStaffForCollab(idx, Number(val))}
+                                  options={staffList.map(s => ({
+                                    value: String(s.id),
+                                    label: `${s.name} ${s.task ? `(${s.task})` : ''} - ${s.email || 'No email'}`
+                                  }))}
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  required
+                                  placeholder="Staff name or email..."
+                                  value={collab.staff_name}
+                                  onChange={(e) => {
+                                    handleUpdateCollabField(idx, "staff_name", e.target.value);
+                                    handleUpdateCollabField(idx, "staff_email", e.target.value);
+                                  }}
+                                  className="w-full bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 text-slate-900 dark:text-[#f4efe6]"
+                                />
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCollab(idx)}
+                              className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer mt-5"
+                              title="Remove collaborator"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          {/* Role / Task Assignment */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-[11px] font-bold text-slate-700 dark:text-[#c2bcaf]">
+                                Collaboration Task / Role *
+                              </label>
+                              {staffObj?.task && (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400/90 font-medium">
+                                  Default: {staffObj.task}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <div className="flex-1">
+                                <CustomSelect
+                                  value={taskPresets.some(p => p.value === collab.task) ? (collab.task || "pose le text") : "CUSTOM_TASK"}
+                                  onChange={(val) => {
+                                    if (val === "CUSTOM_TASK") {
+                                      handleUpdateCollabField(idx, "task", "");
+                                    } else {
+                                      handleUpdateCollabField(idx, "task", val);
+                                    }
+                                  }}
+                                  options={[
+                                    ...taskPresets,
+                                    { label: "Other / Custom Role...", value: "CUSTOM_TASK" }
+                                  ]}
+                                />
+                              </div>
+                              {(!taskPresets.some(p => p.value === collab.task) || collab.task === "") && (
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Pose de texte, Lip-sync, Verification..."
+                                  value={collab.task || ""}
+                                  onChange={(e) => handleUpdateCollabField(idx, "task", e.target.value)}
+                                  className="flex-1 bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Timeline: Start Date & End Date using DateSelect */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <DateSelect
+                              label="Start Date"
+                              value={collab.start_date || ""}
+                              onChange={(val) => handleUpdateCollabField(idx, "start_date", val)}
+                              placeholder="Assign start date"
+                            />
+                            <DateSelect
+                              label="End Date (Deadline)"
+                              value={collab.end_date || ""}
+                              onChange={(val) => handleUpdateCollabField(idx, "end_date", val)}
+                              placeholder="Assign end date"
+                            />
+                          </div>
+
+                          {/* Master File Authorization Toggle */}
+                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#161619] border border-slate-200/80 dark:border-white/10">
+                            <div className="pr-3">
+                              <p className="text-xs font-semibold text-slate-800 dark:text-[#f4efe6] flex items-center gap-1.5">
+                                <ShieldCheck size={14} className="text-amber-500" />
+                                <span>Authorize Project Master File Updates</span>
+                              </p>
+                              <p className="text-[10px] text-slate-400 dark:text-[#71717a] mt-0.5">
+                                Allows this staff member to upload or replace the project master file
+                              </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(collab.can_update_project_file)}
+                                onChange={(e) => handleUpdateCollabField(idx, "can_update_project_file", e.target.checked)}
+                                className="sr-only peer"
+                              />
+                              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-white/10 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                            </label>
+                          </div>
+
+                          {/* Comment / Instruction */}
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 dark:text-[#c2bcaf] mb-1">
+                              Notes & Instructions <span className="font-normal text-slate-400 dark:text-[#71717a]">(optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Specific instructions or scene references for this member..."
+                              value={collab.comment || ""}
+                              onChange={(e) => handleUpdateCollabField(idx, "comment", e.target.value)}
+                              className="w-full bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </form>
+            </div>
+
+            <div className="flex justify-end space-x-3 rtl:space-x-reverse px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
+              <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
+                {t("cancel")}
+              </button>
+              <button type="submit" disabled={isSubmitting} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center disabled:opacity-50 cursor-pointer">
+                {isSubmitting && <Loader2 size={16} className="animate-spin mr-2 rtl:mr-0 rtl:ml-2" />}
+                {editingProjectId ? t("update") : t("create")}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    {/* Assign / Update Project Master File Modal */}
+    {showMasterFileModal && selectedProject && (
+      <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div className="bg-white dark:bg-[#161619] rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 w-full max-w-md overflow-hidden text-slate-800 dark:text-[#f4efe6] animate-in zoom-in-95 duration-150">
+          {/* Minimal Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/[0.06]">
+            <div className="min-w-0 pr-2">
+              <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-[#f4efe6] truncate">
+                Fichier du film
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-[#9f988b] truncate mt-0.5">
+                Sélectionnez le média principal pour {selectedProject.name}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMasterFileModal(false)}
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-[#f4efe6] p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="p-4 space-y-3">
+            {projectFiles.length > 0 ? (
+              <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+                {projectFiles.map((f, i) => {
+                  const isCurrent = selectedProject.project_file?.name === f.name;
+                  const cat = detectFileCategory(f.name, f.type);
+                  const Icon = cat === 'video' ? Video : cat === 'audio' ? Headphones : cat === 'script' ? FileCode : FileText;
+
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => {
+                        if (isCurrent) {
+                          handleRemoveMasterFile();
+                        } else {
+                          handleSetMasterFile({
+                            name: f.name,
+                            path: f.path || f.name,
+                            size: f.size,
+                            type: f.type
+                          });
+                        }
+                      }}
+                      className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors ${
+                        isCurrent
+                          ? "bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-500/30"
+                          : "hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-[#f4efe6] border border-transparent"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                        <Icon size={15} className={isCurrent ? "text-amber-500 shrink-0" : "text-slate-400 shrink-0"} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium truncate" title={f.name}>
+                            {f.name}
+                          </p>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {formatFileSize(f.size || 0)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 flex items-center">
+                        {isCurrent ? (
+                          <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <CheckCircle2 size={14} />
+                            <span>Actuel</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium px-2 py-0.5 rounded-md hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors">
+                            Choisir
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-center text-xs text-slate-400 py-4">
+                Aucun fichier dans le projet
+              </p>
+            )}
+
+            {/* Import from disk (clean minimal button) */}
+            <input
+              type="file"
+              ref={masterFileInputRef}
+              className="hidden"
+              onChange={handleMasterFileSelectFromDisk}
+            />
+            <button
+              type="button"
+              onClick={() => masterFileInputRef.current?.click()}
+              disabled={isUpdatingMasterFile}
+              className="w-full py-2 px-3 rounded-xl border border-dashed border-slate-200 dark:border-white/10 hover:border-amber-400/60 dark:hover:border-amber-400/60 text-xs text-slate-500 dark:text-[#9f988b] hover:text-slate-800 dark:hover:text-[#f4efe6] hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors flex items-center justify-center gap-2 cursor-pointer font-medium"
+            >
+              <UploadCloud size={14} />
+              <span>Importer un autre fichier depuis l&apos;ordinateur</span>
+            </button>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end px-5 py-3 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.01]">
+            <button
+              type="button"
+              onClick={() => setShowMasterFileModal(false)}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              Fermer
+            </button>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* Confirmation Modal */}
       <ConfirmModal 

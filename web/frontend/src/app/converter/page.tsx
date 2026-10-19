@@ -512,7 +512,7 @@ export default function Converter() {
                   className="w-full text-left rtl:text-right bg-slate-50 hover:bg-slate-100 dark:bg-[#18181c] dark:hover:bg-[#1f1f26] border border-slate-200 dark:border-white/10 hover:border-amber-400/40 p-4 rounded-2xl transition-all group cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400">ERytmo Factory (Standard)</span>
+                    <span className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400">DubFlow Word (Standard)</span>
                     <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">DOCX</span>
                   </div>
                   <div className="text-xs text-slate-500 dark:text-[#71717a] mt-1">{t("converter.format.erytmo")}</div>

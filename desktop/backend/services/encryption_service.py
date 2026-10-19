@@ -8,7 +8,7 @@ def _get_fernet_instance() -> Fernet:
     Derives a consistent 32-byte urlsafe-base64 Fernet key
     from ENCRYPTION_KEY or JWT_SECRET.
     """
-    raw_secret = os.environ.get("ENCRYPTION_KEY") or os.environ.get("JWT_SECRET") or "erytmo_super_secret_jwt_key_change_in_production_2026"
+    raw_secret = os.environ.get("ENCRYPTION_KEY") or os.environ.get("JWT_SECRET") or "dubflow_super_secret_jwt_key_change_in_production_2026"
     # Hash the secret to ensure it is exactly 32 bytes, then base64 encode for Fernet
     key_bytes = hashlib.sha256(raw_secret.encode("utf-8")).digest()
     fernet_key = base64.urlsafe_b64encode(key_bytes)

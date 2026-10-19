@@ -12,89 +12,89 @@ if os.path.exists(env_path):
     load_dotenv(env_path)
 load_dotenv()
 
-DB_DIR = os.path.dirname(os.path.abspath(__file__))
-SQLITE_URL = f"sqlite:///{os.path.join(DB_DIR, 'erytmo.db')}"
-
 # Determine Database URL
+# DubFlow relies strictly on MySQL / MariaDB (via XAMPP locally or DATABASE_URL online)
 raw_db_url = os.getenv("DATABASE_URL")
 
-# Fix Aiven and other generic MySQL URLs
-if raw_db_url:
-    if raw_db_url.startswith("mysql://"):
-        raw_db_url = raw_db_url.replace("mysql://", "mysql+pymysql://", 1)
-    if "ssl-mode=REQUIRED" in raw_db_url:
-        raw_db_url = raw_db_url.replace("?ssl-mode=REQUIRED", "").replace("&ssl-mode=REQUIRED", "").replace("ssl-mode=REQUIRED", "")
-
-if not raw_db_url and os.getenv("MYSQL_HOST"):
-    mysql_user = os.getenv("MYSQL_USER", "root")
-    mysql_password = os.getenv("MYSQL_PASSWORD", "")
-    mysql_host = os.getenv("MYSQL_HOST", "localhost")
-    mysql_port = os.getenv("MYSQL_PORT", "3306")
-    mysql_db = os.getenv("MYSQL_DATABASE", "erytmo_db")
-    raw_db_url = f"mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_db}?charset=utf8mb4"
-
-SQLALCHEMY_DATABASE_URL = raw_db_url if raw_db_url else SQLITE_URL
-is_mysql = SQLALCHEMY_DATABASE_URL.startswith("mysql")
-
-def _ensure_mysql_db_exists(url_str: str):
-    """
-    If using MySQL/MariaDB in XAMPP, automatically ensure the database exists.
-    """
-    try:
-        from urllib.parse import urlparse
-        clean_url = url_str.replace("mysql+pymysql://", "http://").replace("mysql://", "http://")
-        parsed = urlparse(clean_url)
-        db_name = parsed.path.lstrip("/").split("?")[0]
-        if not db_name:
-            return
-
-        import pymysql
-        user = parsed.username or "root"
-        password = parsed.password or ""
-        host = parsed.hostname or "localhost"
-        port = parsed.port or 3306
-
-        conn = pymysql.connect(
-            host=host,
-            user=user,
-            password=password,
-            port=port,
-            charset="utf8mb4"
-        )
-        with conn.cursor() as cursor:
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-        conn.commit()
-        conn.close()
-        print(f"[Database] XAMPP MySQL database '{db_name}' verified/ready.")
-    except Exception as e:
-        print(f"[Database] MySQL auto-create notification: {e}")
-
-if is_mysql:
-    try:
-        _ensure_mysql_db_exists(SQLALCHEMY_DATABASE_URL)
-        test_engine = create_engine(
-            SQLALCHEMY_DATABASE_URL,
-            pool_pre_ping=True,
-            pool_recycle=3600
-        )
-        with test_engine.connect() as test_conn:
-            pass
-        engine = test_engine
-        print(f"[Database] Successfully connected to XAMPP MySQL ({SQLALCHEMY_DATABASE_URL})")
-    except Exception as e:
-        print(f"[Database Warning] Could not connect to MySQL in XAMPP ({e})")
-        print(f"[Database] Falling back to local SQLite ({SQLITE_URL})")
-        SQLALCHEMY_DATABASE_URL = SQLITE_URL
-        is_mysql = False
-        engine = create_engine(
-            SQLALCHEMY_DATABASE_URL,
-            connect_args={"check_same_thread": False}
-        )
-else:
+# Pytest / Unit Test isolated in-memory DB support
+if raw_db_url and raw_db_url.startswith("sqlite"):
+    SQLALCHEMY_DATABASE_URL = raw_db_url
+    is_mysql = False
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
         connect_args={"check_same_thread": False}
     )
+else:
+    # Standard Production / Local Environment -> Strictly MySQL (XAMPP or Cloud MySQL)
+    if raw_db_url:
+        if raw_db_url.startswith("mysql://"):
+            raw_db_url = raw_db_url.replace("mysql://", "mysql+pymysql://", 1)
+        if "ssl-mode=REQUIRED" in raw_db_url:
+            raw_db_url = raw_db_url.replace("?ssl-mode=REQUIRED", "").replace("&ssl-mode=REQUIRED", "").replace("ssl-mode=REQUIRED", "")
+    else:
+        # Default to XAMPP MySQL credentials (host: localhost, port: 3306, user: root, password: "")
+        mysql_user = os.getenv("MYSQL_USER", "root")
+        mysql_password = os.getenv("MYSQL_PASSWORD", "")
+        mysql_host = os.getenv("MYSQL_HOST", "localhost")
+        mysql_port = os.getenv("MYSQL_PORT", "3306")
+        mysql_db = os.getenv("MYSQL_DATABASE", "dubflow_db")
+        raw_db_url = f"mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_db}?charset=utf8mb4"
+
+    SQLALCHEMY_DATABASE_URL = raw_db_url
+    is_mysql = True
+
+    def _ensure_mysql_db_exists(url_str: str):
+        """
+        If using MySQL in XAMPP or local/cloud server, ensure the database exists.
+        """
+        try:
+            from urllib.parse import urlparse
+            clean_url = url_str.replace("mysql+pymysql://", "http://").replace("mysql://", "http://")
+            parsed = urlparse(clean_url)
+            db_name = parsed.path.lstrip("/").split("?")[0]
+            if not db_name:
+                return
+
+            import pymysql
+            user = parsed.username or "root"
+            password = parsed.password or ""
+            host = parsed.hostname or "localhost"
+            port = parsed.port or 3306
+
+            conn = pymysql.connect(
+                host=host,
+                user=user,
+                password=password,
+                port=port,
+                charset="utf8mb4"
+            )
+            with conn.cursor() as cursor:
+                cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+            conn.commit()
+            conn.close()
+            print(f"[Database] MySQL database '{db_name}' verified/ready.")
+        except Exception as e:
+            print(f"[Database Notification] Could not auto-create database (might already exist or server not yet reachable): {e}")
+
+    _ensure_mysql_db_exists(SQLALCHEMY_DATABASE_URL)
+
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=3600
+    )
+
+    try:
+        with engine.connect() as test_conn:
+            test_conn.execute(text("SELECT 1"))
+        print(f"[Database] Successfully connected to MySQL ({SQLALCHEMY_DATABASE_URL.split('@')[-1] if '@' in SQLALCHEMY_DATABASE_URL else 'MySQL'})")
+    except Exception as e:
+        print("\n" + "=" * 70)
+        print(f"[Database Error] FAILED TO CONNECT TO MYSQL!")
+        print(f"Details: {e}")
+        print("SQLite fallback is completely DISABLED.")
+        print("Please ensure XAMPP (MySQL) is running (port 3306) or verify your DATABASE_URL in .env.")
+        print("=" * 70 + "\n")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -125,12 +125,19 @@ def _cleanup_expired_revoked_tokens():
 
 def init_db():
     from backend.models import models
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print("\n" + "=" * 70)
+        print(f"[Database Error] Table initialization failed: {e}")
+        print("DubFlow requires MySQL. Please start MySQL in XAMPP (port 3306) and restart.")
+        print("=" * 70 + "\n")
+        raise RuntimeError(f"Database connection failed: Cannot reach MySQL on localhost:3306. Please start XAMPP MySQL. Error: {e}")
 
     # Clean up expired revoked tokens on every startup
     _cleanup_expired_revoked_tokens()
 
-    # Safe migrations for both SQLite and MySQL databases
+    # Safe migrations for MySQL database
     with engine.connect() as conn:
         # Migration: companies.user_id
         try:
@@ -262,6 +269,26 @@ def init_db():
                 conn.commit()
             except Exception as e:
                 print(f"[DB Migration] projects.files_index: {e}")
+
+        # Migration: projects.collaborators
+        try:
+            conn.execute(text("SELECT collaborators FROM projects LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN collaborators TEXT NULL"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] projects.collaborators: {e}")
+
+        # Migration: projects.project_file
+        try:
+            conn.execute(text("SELECT project_file FROM projects LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN project_file TEXT NULL"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] projects.project_file: {e}")
 
         # Migration: users.is_private
         try:

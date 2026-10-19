@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: erytmo-backend
+    name: dubflow-backend
     env: python
     region: frankfurt
     plan: free

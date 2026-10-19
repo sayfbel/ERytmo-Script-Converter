@@ -18,8 +18,8 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path
 load_dotenv()
 
 # JWT Configuration
-JWT_SECRET = os.environ.get("JWT_SECRET", "erytmo_super_secret_jwt_key_change_in_production_2026")
-if os.environ.get("ENVIRONMENT") == "production" and JWT_SECRET == "erytmo_super_secret_jwt_key_change_in_production_2026":
+JWT_SECRET = os.environ.get("JWT_SECRET", "dubflow_super_secret_jwt_key_change_in_production_2026")
+if os.environ.get("ENVIRONMENT") == "production" and (JWT_SECRET.startswith("dubflow_super_secret") or JWT_SECRET.startswith("erytmo_super_secret")):
     import warnings
     warnings.warn(
         "CRITICAL SECURITY WARNING: Running in production with default JWT_SECRET! "

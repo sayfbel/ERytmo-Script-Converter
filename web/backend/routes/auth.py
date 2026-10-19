@@ -165,7 +165,7 @@ class ForgotPasswordResetPayload(BaseModel):
 
 def get_token_from_request(request: Request) -> Optional[str]:
     # 1. Prefer HttpOnly cookie (primary secure session source)
-    cookie_token = request.cookies.get("erytmo_token")
+    cookie_token = request.cookies.get("dubflow_token") or request.cookies.get("erytmo_token")
     if cookie_token:
         return cookie_token.strip()
 
@@ -192,7 +192,7 @@ def set_auth_cookie(response: Response, token: str, max_age_seconds: int):
         os.getenv("SECURE_COOKIES", "").lower() == "true"
     )
     response.set_cookie(
-        key="erytmo_token",
+        key="dubflow_token",
         value=token,
         httponly=True,
         max_age=max_age_seconds,
@@ -200,6 +200,7 @@ def set_auth_cookie(response: Response, token: str, max_age_seconds: int):
         secure=is_prod,
         path="/"
     )
+    response.delete_cookie(key="erytmo_token", path="/")
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.User:
     token = get_token_from_request(request)
@@ -508,7 +509,7 @@ def verify_email(payload: VerifyEmailPayload, response: Response, db: Session = 
 
     return {
         "success": True,
-        "message": "Email verified successfully! Welcome to ERytmo.",
+        "message": "Email verified successfully! Welcome to DubFlow.",
         "token": token,
         "user": {
             "id": user.id,
@@ -1505,6 +1506,13 @@ def logout_user(request: Request, response: Response, db: Session = Depends(get_
         os.getenv("ENVIRONMENT") == "production" or
         os.getenv("RENDER") is not None or
         os.getenv("SECURE_COOKIES", "").lower() == "true"
+    )
+    response.delete_cookie(
+        key="dubflow_token",
+        path="/",
+        httponly=True,
+        samesite="none" if is_prod else "lax",
+        secure=is_prod
     )
     response.delete_cookie(
         key="erytmo_token",

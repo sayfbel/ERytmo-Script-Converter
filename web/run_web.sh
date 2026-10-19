@@ -23,7 +23,7 @@ trap cleanup SIGINT SIGTERM EXIT
 
 # 1. Start Backend (FastAPI on http://localhost:8000)
 echo "📦 [1/2] Starting Backend API on http://localhost:8000 ..."
-PYTHONPATH="$SCRIPT_DIR" "$SCRIPT_DIR/backend/venv/bin/python" -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload &
+PYTHONPATH="$SCRIPT_DIR" "$SCRIPT_DIR/backend/venv/bin/python" -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir "$SCRIPT_DIR/backend" &
 BACKEND_PID=$!
 
 # 2. Start Frontend (Next.js on http://localhost:3000)

@@ -157,7 +157,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
 
             if (claimRes.ok && claimData.success) {
               if (claimData.token && typeof window !== "undefined") {
-                localStorage.setItem("erytmo_token", claimData.token);
+                localStorage.setItem("dubflow_token", claimData.token);
               }
               try {
                 await refreshSession();

@@ -66,7 +66,7 @@ class ScriptValidator:
         Returns a ValidationReport object.
         """
         diagnostic_lines = [
-            "=== ERytmo Script Converter Diagnostic Report ===",
+            "=== DubFlow Script Converter Diagnostic Report ===",
             f"OS: {platform.system()} {platform.release()}",
             f"Python: {platform.python_version()}",
             f"File Path: {file_path}",

@@ -133,7 +133,7 @@ export default function LoginPage() {
       {/* Screen Framed Container (Exact same borderless rounded frame as Welcome Page) */}
       <div className="relative w-full min-h-[calc(100vh-2rem)] rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.95)] flex flex-col items-center justify-between">
 
-        {/* 1. Full-Bleed ERytmo Cinematic Background Visual Canvas */}
+        {/* 1. Full-Bleed DubFlow Cinematic Background Visual Canvas */}
         <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
           <Image
             src={heroCinematicImg}
@@ -163,7 +163,7 @@ export default function LoginPage() {
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden rounded-[32px] lg:hidden">
             <Image
               src={studioCardImg}
-              alt="ERytmo Studio Workstation"
+              alt="DubFlow Studio Workstation"
               fill
               className="object-cover object-center filter brightness-[0.35] contrast-[1.12]"
             />

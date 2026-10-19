@@ -135,7 +135,7 @@ export default function SynergyMatrix() {
             </div>
 
             <a
-              href="/Setup_ERytmo_Script_Converter.exe"
+              href="/Setup_DubFlow_Studio.exe"
               download
               className="w-full py-3 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
             >

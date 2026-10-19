@@ -88,7 +88,7 @@ app.include_router(p2p_signaling.router)
 
 @app.get('/')
 def read_root():
-    return {"status": "ok", "message": "ERytmo API is running."}
+    return {"status": "ok", "message": "DubFlow API is running."}
 
 # Application business logic routes — strictly protected by server-side authentication
 app.include_router(api.router, prefix="/api", dependencies=[Depends(get_current_user)])

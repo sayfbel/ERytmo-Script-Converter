@@ -53,7 +53,7 @@ export default function TimeManagementPage() {
   const [date, setDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [filterType, setFilterType] = useState<string>("all");
 
-  const storageKey = user?.id ? `erytmo_time_entries_${user.id}` : "erytmo_time_entries";
+  const storageKey = user?.id ? `dubflow_time_entries_${user.id}` : "dubflow_time_entries";
 
   useEffect(() => {
     if (user?.id) { fetchProjects(); fetchCompanies(); }
@@ -62,7 +62,7 @@ export default function TimeManagementPage() {
 
   useEffect(() => {
     if (!user) return;
-    const saved = localStorage.getItem(`erytmo_time_entries_${user.id}`);
+    const saved = localStorage.getItem(`dubflow_time_entries_${user.id}`) || localStorage.getItem(`erytmo_time_entries_${user.id}`);
     if (saved) { try { setEntries(JSON.parse(saved)); } catch { setEntries([]); } }
     else setEntries([]);
   }, [user]);

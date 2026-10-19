@@ -45,10 +45,10 @@ const SignalingContext = createContext<SignalingContextType | undefined>(undefin
 
 const getClientId = (): string => {
   if (typeof window === "undefined") return "";
-  let cid = sessionStorage.getItem("erytmo_client_id");
+  let cid = sessionStorage.getItem("dubflow_client_id") || sessionStorage.getItem("erytmo_client_id");
   if (!cid) {
     cid = `dev_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    sessionStorage.setItem("erytmo_client_id", cid);
+    sessionStorage.setItem("dubflow_client_id", cid);
   }
   return cid;
 };

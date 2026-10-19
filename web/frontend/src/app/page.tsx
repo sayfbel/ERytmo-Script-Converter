@@ -55,7 +55,7 @@ export default function WelcomePage() {
         <div className="absolute inset-0 w-full h-full z-0">
           <Image
             src={heroCinematicImg}
-            alt="ERytmo Studio - Cinematic Post-Production & Sound Design Canvas"
+            alt="DubFlow Studio - Cinematic Post-Production & Sound Design Canvas"
             fill
             priority
             className="object-cover object-center"
@@ -498,7 +498,7 @@ export default function WelcomePage() {
               </div>
               <p className="text-xs sm:text-sm font-bold text-white tracking-tight">Poste Régie &amp; Montage Local</p>
               <p className="text-[11px] text-[#9f988b] leading-relaxed">Accès direct aux disques SSD, rendu instantané et mode cabine 100% hors-ligne.</p>
-              <a href="/Setup_ERytmo_Script_Converter.exe" download className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-300 text-black text-xs font-black transition-all mt-1">
+              <a href="/Setup_DubFlow_Studio.exe" download className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-300 text-black text-xs font-black transition-all mt-1">
                 <Download size={13} />
                 <span>Télécharger l&apos;installateur (.exe)</span>
               </a>
@@ -590,7 +590,7 @@ export default function WelcomePage() {
 
           <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full">
             <a
-              href="/Setup_ERytmo_Script_Converter.exe"
+              href="/Setup_DubFlow_Studio.exe"
               download
               className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black text-xs font-black tracking-wide transition-all shadow-[0_15px_40px_rgba(245,158,11,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
             >
@@ -710,7 +710,7 @@ export default function WelcomePage() {
                 <div className="space-y-3.5 sm:space-y-4 animate-in fade-in duration-150">
                   <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-black/40 border border-white/5 space-y-2.5 sm:space-y-3 font-mono text-[10px] sm:text-[11px]">
                     <div className="flex items-center justify-between text-white/50 text-[9.5px] sm:text-[10px] pb-2 border-b border-white/5">
-                      <span>SYNTAX VALIDATOR • ERYTMO CORE</span>
+                      <span>SYNTAX VALIDATOR • DUBFLOW CORE</span>
                       <span className="text-emerald-400 font-bold">READY</span>
                     </div>
                     <p className="text-amber-200">&gt; Détection auto timecodes et répliques comédiens...</p>
@@ -719,7 +719,7 @@ export default function WelcomePage() {
                   </div>
 
                   <p className="leading-relaxed text-xs">
-                    Le convertisseur ERytmo analyse vos scripts, détecte automatiquement les balises de respiration, les chevauchements et formate le fichier prêt à être projeté sur la bande rythmo de votre plateau.
+                    Le convertisseur DubFlow analyse vos scripts, détecte automatiquement les balises de respiration, les chevauchements et formate le fichier prêt à être projeté sur la bande rythmo de votre plateau.
                   </p>
                 </div>
               )}

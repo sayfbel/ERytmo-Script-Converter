@@ -483,6 +483,19 @@ def get_projects(
     results = []
 
     for p in owned_projects:
+        collab_list = []
+        if p.collaborators:
+            try:
+                collab_list = json.loads(p.collaborators)
+            except Exception:
+                collab_list = []
+        p_file = None
+        if p.project_file:
+            try:
+                p_file = json.loads(p.project_file)
+            except Exception:
+                p_file = None
+
         results.append({
             "id": p.id,
             "user_id": p.user_id,
@@ -495,8 +508,12 @@ def get_projects(
             "deadline": p.deadline.isoformat() if p.deadline else None,
             "total_time": p.total_time,
             "status": p.status,
+            "description": p.description,
+            "collaborators": collab_list,
+            "project_file": p_file,
             "is_owner": True,
             "access_level": "full_access",
+            "can_update_project_file": True,
             "owner_id": current_user.id,
             "owner_name": f"{current_user.first_name} {current_user.last_name}".strip(),
             "created_at": p.created_at.isoformat() if p.created_at else None
@@ -509,6 +526,29 @@ def get_projects(
             for sp in shared_list:
                 if sp.id not in seen_ids:
                     seen_ids.add(sp.id)
+                    collab_list = []
+                    if sp.collaborators:
+                        try:
+                            collab_list = json.loads(sp.collaborators)
+                        except Exception:
+                            collab_list = []
+                    p_file = None
+                    if sp.project_file:
+                        try:
+                            p_file = json.loads(sp.project_file)
+                        except Exception:
+                            p_file = None
+
+                    my_collab = next(
+                        (c for c in collab_list if (c.get("staff_email") and c.get("staff_email").lower() == (current_user.email or "").lower()) or c.get("staff_user_id") == current_user.id or str(c.get("staff_id")) == str(collab.id)),
+                        None
+                    )
+                    can_up = False
+                    if my_collab and my_collab.get("can_update_project_file"):
+                        can_up = True
+                    elif collab.access_level == "full_access":
+                        can_up = True
+
                     results.append({
                         "id": sp.id,
                         "user_id": sp.user_id,
@@ -521,12 +561,62 @@ def get_projects(
                         "deadline": sp.deadline.isoformat() if sp.deadline else None,
                         "total_time": sp.total_time,
                         "status": sp.status,
+                        "description": sp.description,
+                        "collaborators": collab_list,
+                        "project_file": p_file,
+                        "my_collaboration": my_collab,
                         "is_owner": False,
                         "access_level": collab.access_level or "spectator",
+                        "can_update_project_file": can_up,
                         "owner_id": collab.user_id,
                         "owner_name": f"{owner.first_name} {owner.last_name}".strip() if owner else "Owner",
                         "created_at": sp.created_at.isoformat() if sp.created_at else None
                     })
+
+    # Also search projects where user might be directly listed in collaborators
+    all_other_projects = db.query(models.Project).filter(models.Project.user_id != current_user.id).all()
+    for op in all_other_projects:
+        if op.id not in seen_ids and op.collaborators:
+            try:
+                op_collabs = json.loads(op.collaborators)
+                matching = next(
+                    (c for c in op_collabs if (c.get("staff_email") and c.get("staff_email").lower() == (current_user.email or "").lower()) or c.get("staff_user_id") == current_user.id),
+                    None
+                )
+                if matching:
+                    seen_ids.add(op.id)
+                    owner = db.query(models.User).filter(models.User.id == op.user_id).first()
+                    p_file = None
+                    if op.project_file:
+                        try:
+                            p_file = json.loads(op.project_file)
+                        except Exception:
+                            p_file = None
+                    results.append({
+                        "id": op.id,
+                        "user_id": op.user_id,
+                        "name": op.name,
+                        "company_id": op.company_id,
+                        "company_name": op.company_name,
+                        "folder_path": op.folder_path,
+                        "target_software": op.target_software,
+                        "project_type": op.project_type,
+                        "deadline": op.deadline.isoformat() if op.deadline else None,
+                        "total_time": op.total_time,
+                        "status": op.status,
+                        "description": op.description,
+                        "collaborators": op_collabs,
+                        "project_file": p_file,
+                        "my_collaboration": matching,
+                        "is_owner": False,
+                        "access_level": "full_access" if matching.get("can_update_project_file") else "spectator",
+                        "can_update_project_file": bool(matching.get("can_update_project_file")),
+                        "owner_id": op.user_id,
+                        "owner_name": f"{owner.first_name} {owner.last_name}".strip() if owner else "Owner",
+                        "created_at": op.created_at.isoformat() if op.created_at else None
+                    })
+            except Exception:
+                pass
 
     return results
 
@@ -548,6 +638,8 @@ def create_project(
     company_id: int = None, 
     total_time: int = None,
     description: str = None,
+    collaborators: str = None,
+    project_file: str = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -581,7 +673,9 @@ def create_project(
         project_type=project_type,
         deadline=dl_dt,
         total_time=total_time,
-        description=description
+        description=description,
+        collaborators=collaborators,
+        project_file=project_file
     )
     db.add(db_project)
     db.commit()
@@ -602,6 +696,23 @@ def get_project(
     access_level = "full_access" if is_owner else None
     owner = None
 
+    collab_list = []
+    if project.collaborators:
+        try:
+            collab_list = json.loads(project.collaborators)
+        except Exception:
+            collab_list = []
+
+    p_file = None
+    if project.project_file:
+        try:
+            p_file = json.loads(project.project_file)
+        except Exception:
+            p_file = None
+
+    my_collab = None
+    can_update_project_file = is_owner
+
     if not is_owner:
         collab = db.query(models.Staff).filter(
             models.Staff.user_id == project.user_id,
@@ -610,9 +721,19 @@ def get_project(
                 models.Staff.email == current_user.email
             )
         ).first()
-        if not collab:
+
+        my_collab = next(
+            (c for c in collab_list if (c.get("staff_email") and c.get("staff_email").lower() == (current_user.email or "").lower()) or c.get("staff_user_id") == current_user.id),
+            None
+        )
+
+        if not collab and not my_collab:
             raise HTTPException(status_code=404, detail="Project not found")
-        access_level = collab.access_level or "spectator"
+
+        access_level = (collab.access_level if collab else None) or ("full_access" if (my_collab and my_collab.get("can_update_project_file")) else "spectator")
+        if (my_collab and my_collab.get("can_update_project_file")) or (collab and collab.access_level == "full_access"):
+            can_update_project_file = True
+
         owner = db.query(models.User).filter(models.User.id == project.user_id).first()
 
     return {
@@ -627,8 +748,13 @@ def get_project(
         "deadline": project.deadline.isoformat() if project.deadline else None,
         "total_time": project.total_time,
         "status": project.status,
+        "description": project.description,
+        "collaborators": collab_list,
+        "project_file": p_file,
+        "my_collaboration": my_collab,
         "is_owner": is_owner,
         "access_level": access_level,
+        "can_update_project_file": can_update_project_file,
         "owner_id": project.user_id,
         "owner_name": f"{owner.first_name} {owner.last_name}".strip() if owner else "Owner",
         "created_at": project.created_at.isoformat() if project.created_at else None
@@ -646,6 +772,8 @@ def update_project(
     company_id: int = None,
     total_time: int = None,
     description: str = None,
+    collaborators: str = None,
+    project_file: str = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -677,6 +805,8 @@ def update_project(
     if target_software is not None: project.target_software = target_software
     if project_type is not None: project.project_type = project_type
     if total_time is not None: project.total_time = total_time
+    if collaborators is not None: project.collaborators = collaborators
+    if project_file is not None: project.project_file = project_file
     if deadline is not None:
         try:
             project.deadline = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
@@ -686,6 +816,94 @@ def update_project(
     db.commit()
     db.refresh(project)
     return project
+
+class ProjectMasterFilePayload(BaseModel):
+    name: str
+    path: Optional[str] = None
+    size: Optional[int] = 0
+    type: Optional[str] = None
+
+@router.put("/projects/{project_id}/project-file")
+def set_project_master_file(
+    project_id: int,
+    payload: ProjectMasterFilePayload,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    is_owner = (project.user_id == current_user.id)
+    can_update = is_owner
+
+    if not is_owner:
+        collabs = []
+        if project.collaborators:
+            try:
+                collabs = json.loads(project.collaborators)
+            except Exception:
+                collabs = []
+        user_collab = next((c for c in collabs if (c.get("staff_email") and c.get("staff_email").lower() == (current_user.email or "").lower()) or c.get("staff_user_id") == current_user.id), None)
+        if user_collab and (user_collab.get("can_update_project_file") is True or user_collab.get("access_level") == "full_access"):
+            can_update = True
+        else:
+            staff_entry = db.query(models.Staff).filter(
+                models.Staff.user_id == project.user_id,
+                or_(models.Staff.staff_user_id == current_user.id, models.Staff.email == current_user.email)
+            ).first()
+            if staff_entry and staff_entry.access_level == "full_access":
+                can_update = True
+
+    if not can_update:
+        raise HTTPException(
+            status_code=403, 
+            detail="Permission denied. Updating the Project Master File requires authorization from the project owner."
+        )
+
+    file_metadata = {
+        "name": payload.name,
+        "path": payload.path or payload.name,
+        "size": payload.size or 0,
+        "type": payload.type or classify_file_type(payload.name),
+        "updated_at": datetime.utcnow().isoformat(),
+        "updated_by_id": current_user.id,
+        "updated_by_name": f"{current_user.first_name} {current_user.last_name}".strip() or "User"
+    }
+
+    project.project_file = json.dumps(file_metadata)
+    db.commit()
+    return file_metadata
+
+@router.delete("/projects/{project_id}/project-file")
+def remove_project_master_file(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    is_owner = (project.user_id == current_user.id)
+    can_update = is_owner
+    if not is_owner:
+        collabs = []
+        if project.collaborators:
+            try:
+                collabs = json.loads(project.collaborators)
+            except Exception:
+                collabs = []
+        user_collab = next((c for c in collabs if (c.get("staff_email") and c.get("staff_email").lower() == (current_user.email or "").lower()) or c.get("staff_user_id") == current_user.id), None)
+        if user_collab and (user_collab.get("can_update_project_file") is True or user_collab.get("access_level") == "full_access"):
+            can_update = True
+
+    if not can_update:
+        raise HTTPException(status_code=403, detail="Permission denied. Only the project owner or authorized collaborators can remove the Project File.")
+
+    project.project_file = None
+    db.commit()
+    return {"message": "Project file removed successfully"}
 
 @router.delete("/projects/{project_id}")
 def delete_project(

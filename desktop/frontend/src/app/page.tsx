@@ -55,7 +55,7 @@ export default function WelcomePage() {
         <div className="absolute inset-0 w-full h-full z-0">
           <Image
             src={heroCinematicImg}
-            alt="ERytmo Studio - Cinematic Post-Production & Sound Design Canvas"
+            alt="DubFlow Studio - Cinematic Post-Production & Sound Design Canvas"
             fill
             priority
             className="object-cover object-center"
@@ -576,7 +576,7 @@ export default function WelcomePage() {
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="/Setup_ERytmo_Script_Converter.exe"
+              href="/Setup_DubFlow_Studio.exe"
               download
               className="flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black text-xs font-black tracking-wide transition-all shadow-[0_15px_40px_rgba(245,158,11,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
             >
@@ -695,7 +695,7 @@ export default function WelcomePage() {
                 <div className="space-y-4 animate-in fade-in duration-150">
                   <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-3 font-mono text-[11px]">
                     <div className="flex items-center justify-between text-white/50 text-[10px] pb-2 border-b border-white/5">
-                      <span>SYNTAX VALIDATOR • ERYTMO CORE ENGINE</span>
+                      <span>SYNTAX VALIDATOR • DUBFLOW CORE ENGINE</span>
                       <span className="text-emerald-400">STATUS: READY</span>
                     </div>
                     <p className="text-amber-200">&gt; Détection automatique des timecodes et répliques comédiens...</p>
@@ -704,7 +704,7 @@ export default function WelcomePage() {
                   </div>
 
                   <p className="leading-relaxed">
-                    Le convertisseur ERytmo analyse vos scripts, détecte automatiquement les balises de respiration, les chevauchements et formate le fichier prêt à être projeté sur la bande rythmo de votre plateau.
+                    Le convertisseur DubFlow analyse vos scripts, détecte automatiquement les balises de respiration, les chevauchements et formate le fichier prêt à être projeté sur la bande rythmo de votre plateau.
                   </p>
                 </div>
               )}

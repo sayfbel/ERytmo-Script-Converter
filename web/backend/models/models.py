@@ -37,6 +37,8 @@ class Project(Base):
     total_time = Column(Integer, nullable=True)
     status = Column(String(50), default="active") # active, completed, etc.
     files_index = Column(Text, nullable=True) # JSON list of indexed project files metadata
+    collaborators = Column(Text, nullable=True) # JSON list of assigned collaborators with custom tasks, dates & permissions
+    project_file = Column(Text, nullable=True) # JSON metadata for designated master project file
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     user = relationship("User", back_populates="projects")

@@ -595,7 +595,7 @@ export default function StaffPage() {
                         </div>
                       )}
                       <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-1">
-                        Only registered accounts in ERytmo can be added as project collaborators.
+                        Only registered accounts in DubFlow can be added as project collaborators.
                       </p>
                     </div>
                   )}

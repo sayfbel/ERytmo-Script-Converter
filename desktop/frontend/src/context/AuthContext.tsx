@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch current user from server session (HttpOnly cookie or Bearer token)
   const refreshSession = useCallback(async () => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("erytmo_token") : null;
+      const token = typeof window !== "undefined" ? (localStorage.getItem("dubflow_token") || localStorage.getItem("erytmo_token")) : null;
       const headers: Record<string, string> = {
         "ngrok-skip-browser-warning": "true",
       };
@@ -191,7 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (json.token && typeof window !== "undefined") {
-        localStorage.setItem("erytmo_token", json.token);
+        localStorage.setItem("dubflow_token", json.token);
       }
 
       if (json.user) {
@@ -285,7 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (json.token && typeof window !== "undefined") {
-        localStorage.setItem("erytmo_token", json.token);
+        localStorage.setItem("dubflow_token", json.token);
       }
 
       if (json.user) {
@@ -325,7 +325,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (json.token && typeof window !== "undefined") {
-        localStorage.setItem("erytmo_token", json.token);
+        localStorage.setItem("dubflow_token", json.token);
       }
 
       if (json.user) {
@@ -349,7 +349,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Complete User Profile (first_name, last_name, job_type)
   const completeProfile = async (data: { first_name: string; last_name: string; job_type: string }): Promise<AuthResponse> => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("erytmo_token") : null;
+      const token = typeof window !== "undefined" ? (localStorage.getItem("dubflow_token") || localStorage.getItem("erytmo_token")) : null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
@@ -370,7 +370,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (json.token && typeof window !== "undefined") {
-        localStorage.setItem("erytmo_token", json.token);
+        localStorage.setItem("dubflow_token", json.token);
       }
 
       if (json.user) {
@@ -393,7 +393,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Logout (Calls server to revoke session and delete HttpOnly cookie)
   const logout = async () => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("erytmo_token") : null;
+      const token = typeof window !== "undefined" ? (localStorage.getItem("dubflow_token") || localStorage.getItem("erytmo_token")) : null;
       const headers: Record<string, string> = {};
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
@@ -407,6 +407,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ignore network errors on logout
     } finally {
       if (typeof window !== "undefined") {
+        localStorage.removeItem("dubflow_token");
         localStorage.removeItem("erytmo_token");
       }
       setUser(null);

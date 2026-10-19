@@ -39,12 +39,8 @@ function startPythonBackend() {
     ? path.join(backendPath, 'venv', 'Scripts', 'python.exe')
     : path.join(backendPath, 'venv', 'bin', 'python');
   
-  // Create custom environment that forces SQLite by unsetting MYSQL_HOST
+  // Pass system and project environment to backend
   const env = { ...process.env };
-  delete env.MYSQL_HOST; 
-  delete env.MYSQL_USER;
-  delete env.MYSQL_PASSWORD;
-  delete env.MYSQL_DATABASE;
   
   // Run uvicorn on port 8000
   try {

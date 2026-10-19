@@ -11,7 +11,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
   const url = getApiUrl(endpoint);
   
   // Retrieve token from localStorage if present (for cross-domain cloud hosting support)
-  const token = typeof window !== "undefined" ? localStorage.getItem("erytmo_token") : null;
+  const token = typeof window !== "undefined" ? (localStorage.getItem("dubflow_token") || localStorage.getItem("erytmo_token")) : null;
   
   const headers = new Headers(options.headers || {});
   headers.set("ngrok-skip-browser-warning", "true");

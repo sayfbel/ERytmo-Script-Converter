@@ -135,7 +135,7 @@ manager = ConnectionManager()
 
 def get_user_from_ws(websocket: WebSocket, db: Session) -> Optional[models.User]:
     # 1. Cookie
-    token = websocket.cookies.get("erytmo_token")
+    token = websocket.cookies.get("dubflow_token") or websocket.cookies.get("erytmo_token")
     # 2. Query param
     if not token:
         token = websocket.query_params.get("token")
@@ -269,7 +269,7 @@ async def handle_transfer_request(data: dict, requester: models.User, ws: WebSoc
                 "type": "TRANSFER_ERROR",
                 "file_name": file_name,
                 "code": 404,
-                "detail": "Your other PC is currently offline. Please open ERytmo on the other PC where the files are stored."
+                "detail": "Your other PC is currently offline. Please open DubFlow on the other PC where the files are stored."
             }))
             return
 
