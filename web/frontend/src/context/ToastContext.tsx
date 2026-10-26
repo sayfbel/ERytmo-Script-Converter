@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import NotificationCenter from "@/components/NotificationCenter";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -40,7 +39,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const showToast = useCallback(
-    (title: string, message: string, type: ToastType = "success", duration: number = 5000): string => {
+    (title: string, message: string, type: ToastType = "success", duration: number = 3000): string => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const newToast: ToastItem = {
         id,
@@ -61,7 +60,6 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   return (
     <ToastContext.Provider value={{ showToast, dismissToast, clearAllToasts, hideToast, toasts }}>
       {children}
-      <NotificationCenter />
     </ToastContext.Provider>
   );
 };

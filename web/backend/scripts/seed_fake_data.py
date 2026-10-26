@@ -414,7 +414,7 @@ def seed_data():
         print(f"[Seed] Successfully added/verified {len(created_appointments)} appointments.")
 
         print("\n" + "="*70)
-        print("🎉 FAKE DATA SEEDING COMPLETE FOR SAIF BELFAQUIR!")
+        print("[SUCCESS] FAKE DATA SEEDING COMPLETE FOR SAIF BELFAQUIR!")
         print(f" -> Companies: {len(created_companies)}")
         print(f" -> Staff Members: {len(created_staff)}")
         print(f" -> Projects: {len(created_projects)}")

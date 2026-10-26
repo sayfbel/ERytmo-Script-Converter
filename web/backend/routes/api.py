@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -217,11 +217,45 @@ def get_staff(
             "task": s.task,
             "access_level": s.access_level or "spectator",
             "auto_accept_transfers": bool(s.auto_accept_transfers),
+            "status": s.status or "accepted",
             "staff_user_id": s.staff_user_id,
             "is_online": is_online,
             "created_at": s.created_at.isoformat() if s.created_at else None
         })
     return result
+
+@router.get("/staff/invitations")
+def get_staff_invitations(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    invitations = db.query(models.Staff).filter(
+        (models.Staff.staff_user_id == current_user.id) | (models.Staff.email == current_user.email),
+        models.Staff.status == "pending"
+    ).order_by(models.Staff.id.desc()).all()
+
+    online_user_ids = manager.get_online_user_ids()
+    results = []
+    for inv in invitations:
+        owner = inv.owner
+        owner_name = f"{owner.first_name} {owner.last_name}".strip() if owner else "Collaborateur"
+        owner_email = owner.email if owner else ""
+        owner_avatar = owner.avatar_url if owner else None
+        is_online = inv.user_id in online_user_ids if inv.user_id else False
+
+        results.append({
+            "id": inv.id,
+            "inviter_id": inv.user_id,
+            "inviter_name": owner_name,
+            "inviter_email": owner_email,
+            "inviter_avatar": owner_avatar,
+            "task": inv.task or "pose le texte",
+            "access_level": inv.access_level or "spectator",
+            "status": inv.status,
+            "is_online": is_online,
+            "created_at": inv.created_at.isoformat() if inv.created_at else None
+        })
+    return results
 
 @router.post("/staff")
 async def create_staff(
@@ -281,6 +315,11 @@ async def create_staff(
         (models.Staff.staff_user_id == linked_user.id) | (models.Staff.email == linked_user.email)
     ).first()
     if existing_staff:
+        if existing_staff.status == "pending":
+            raise HTTPException(
+                status_code=400,
+                detail="Une invitation est déjà en attente pour cet utilisateur."
+            )
         raise HTTPException(
             status_code=400,
             detail="This user is already in your collaborators list."
@@ -290,6 +329,7 @@ async def create_staff(
     clean_email = linked_user.email
     full_name = f"{linked_user.first_name} {linked_user.last_name}".strip() or str(name).strip()
 
+    # Staff is added with status="pending" until recipient accepts
     db_staff = models.Staff(
         user_id=current_user.id,
         staff_user_id=valid_staff_user_id,
@@ -297,11 +337,66 @@ async def create_staff(
         email=clean_email,
         task=str(task).strip() if task else None,
         access_level=clean_access,
-        auto_accept_transfers=bool(auto_accept_transfers)
+        auto_accept_transfers=bool(auto_accept_transfers),
+        status="pending"
     )
     db.add(db_staff)
     db.commit()
     db.refresh(db_staff)
+
+    # Create real notification for the invited user
+    inviter_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+    notif_msg = f"{inviter_name} vous a invité à rejoindre son équipe en tant que {clean_access} (Tâche: {task or 'pose le texte'})."
+    
+    db_notif = models.Notification(
+        user_id=linked_user.id,
+        sender_id=current_user.id,
+        type="staff_invitation",
+        title="Demande de collaboration",
+        message=notif_msg,
+        data=json.dumps({
+            "staff_id": db_staff.id,
+            "inviter_id": current_user.id,
+            "inviter_name": inviter_name,
+            "inviter_email": current_user.email,
+            "inviter_avatar": current_user.avatar_url,
+            "access_level": clean_access,
+            "task": task or "pose le texte"
+        }),
+        status="pending",
+        is_read=False
+    )
+    db.add(db_notif)
+    db.commit()
+    db.refresh(db_notif)
+
+    # Real-time WebSocket event dispatch
+    try:
+        await manager.send_to_user(linked_user.id, {
+            "type": "NEW_NOTIFICATION",
+            "notification": {
+                "id": db_notif.id,
+                "type": db_notif.type,
+                "title": db_notif.title,
+                "message": db_notif.message,
+                "status": db_notif.status,
+                "data": json.loads(db_notif.data),
+                "created_at": db_notif.created_at.isoformat(),
+                "sender": {
+                    "id": current_user.id,
+                    "name": inviter_name,
+                    "email": current_user.email,
+                    "avatar_url": current_user.avatar_url
+                }
+            }
+        })
+        await manager.send_to_user(linked_user.id, {
+            "type": "STAFF_INVITATION_RECEIVED",
+            "staff_id": db_staff.id,
+            "inviter_name": inviter_name
+        })
+    except Exception as ws_err:
+        print(f"[WS Notification error]: {ws_err}")
 
     online_ids = manager.get_online_user_ids()
     is_online = valid_staff_user_id in online_ids if valid_staff_user_id else False
@@ -313,6 +408,7 @@ async def create_staff(
         "task": db_staff.task,
         "access_level": db_staff.access_level,
         "auto_accept_transfers": db_staff.auto_accept_transfers,
+        "status": db_staff.status,
         "staff_user_id": db_staff.staff_user_id,
         "is_online": is_online,
         "created_at": db_staff.created_at.isoformat() if db_staff.created_at else None
@@ -341,6 +437,7 @@ def get_staff_member(
         "task": staff_member.task,
         "access_level": staff_member.access_level or "spectator",
         "auto_accept_transfers": bool(staff_member.auto_accept_transfers),
+        "status": staff_member.status or "accepted",
         "staff_user_id": staff_member.staff_user_id,
         "is_online": is_online,
         "created_at": staff_member.created_at.isoformat() if staff_member.created_at else None
@@ -414,6 +511,7 @@ async def update_staff(
         "task": staff.task,
         "access_level": staff.access_level,
         "auto_accept_transfers": staff.auto_accept_transfers,
+        "status": staff.status or "accepted",
         "staff_user_id": staff.staff_user_id,
         "is_online": is_online,
         "created_at": staff.created_at.isoformat() if staff.created_at else None
@@ -446,6 +544,129 @@ def toggle_staff_auto_accept(
         "message": f"Auto-accept transfers {'enabled' if staff.auto_accept_transfers else 'disabled'} successfully."
     }
 
+@router.post("/staff/{staff_id}/respond")
+async def respond_to_staff_invitation(
+    staff_id: int,
+    action: str = Query(..., description="'accept' or 'decline'"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    staff = db.query(models.Staff).filter(
+        models.Staff.id == staff_id,
+        (models.Staff.staff_user_id == current_user.id) | (models.Staff.email == current_user.email)
+    ).first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="Demande de collaboration introuvable.")
+
+    clean_action = action.strip().lower()
+    responder_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+    owner_id = staff.user_id
+
+    # Update associated notification records if any
+    related_notifs = db.query(models.Notification).filter(
+        models.Notification.user_id == current_user.id,
+        models.Notification.type == "staff_invitation"
+    ).all()
+    for n in related_notifs:
+        if n.data:
+            try:
+                p = json.loads(n.data)
+                if p.get("staff_id") == staff.id:
+                    n.status = "accepted" if clean_action == "accept" else "declined"
+                    n.is_read = True
+            except Exception:
+                pass
+
+    if clean_action == "accept":
+        staff.status = "accepted"
+        staff.staff_user_id = current_user.id
+        db.commit()
+        db.refresh(staff)
+
+        # Notify inviter (owner)
+        if owner_id:
+            owner_notif = models.Notification(
+                user_id=owner_id,
+                sender_id=current_user.id,
+                type="staff_accepted",
+                title="Invitation acceptée",
+                message=f"{responder_name} a accepté votre invitation à rejoindre votre équipe !",
+                data=json.dumps({"staff_id": staff.id, "responder_name": responder_name, "responder_email": current_user.email}),
+                status="accepted",
+                is_read=False
+            )
+            db.add(owner_notif)
+            db.commit()
+
+            try:
+                await manager.send_to_user(owner_id, {
+                    "type": "NEW_NOTIFICATION",
+                    "notification": {
+                        "id": owner_notif.id,
+                        "type": owner_notif.type,
+                        "title": owner_notif.title,
+                        "message": owner_notif.message,
+                        "status": "accepted",
+                        "created_at": owner_notif.created_at.isoformat(),
+                        "sender": {"id": current_user.id, "name": responder_name, "email": current_user.email}
+                    }
+                })
+                await manager.send_to_user(owner_id, {
+                    "type": "STAFF_INVITATION_ACCEPTED",
+                    "staff_id": staff.id,
+                    "responder_id": current_user.id
+                })
+            except Exception:
+                pass
+
+        return {
+            "status": "success",
+            "message": "Invitation acceptée avec succès.",
+            "staff_id": staff.id
+        }
+
+    elif clean_action == "decline":
+        db.delete(staff)
+        db.commit()
+
+        if owner_id:
+            owner_notif = models.Notification(
+                user_id=owner_id,
+                sender_id=current_user.id,
+                type="staff_declined",
+                title="Invitation refusée",
+                message=f"{responder_name} a refusé votre invitation de collaboration.",
+                data=json.dumps({"responder_name": responder_name, "responder_email": current_user.email}),
+                status="declined",
+                is_read=False
+            )
+            db.add(owner_notif)
+            db.commit()
+
+            try:
+                await manager.send_to_user(owner_id, {
+                    "type": "NEW_NOTIFICATION",
+                    "notification": {
+                        "id": owner_notif.id,
+                        "type": owner_notif.type,
+                        "title": owner_notif.title,
+                        "message": owner_notif.message,
+                        "status": "declined",
+                        "created_at": owner_notif.created_at.isoformat(),
+                        "sender": {"id": current_user.id, "name": responder_name, "email": current_user.email}
+                    }
+                })
+            except Exception:
+                pass
+
+        return {
+            "status": "success",
+            "message": "Invitation refusée.",
+            "staff_id": staff_id
+        }
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action. Must be 'accept' or 'decline'.")
+
 @router.delete("/staff/{staff_id}")
 def delete_staff(
     staff_id: int, 
@@ -463,6 +684,110 @@ def delete_staff(
     db.commit()
     return {"message": "Staff deleted successfully"}
 
+# --- Notification Endpoints ---
+
+@router.get("/notifications")
+def get_notifications(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    notifs = db.query(models.Notification).filter(
+        models.Notification.user_id == current_user.id
+    ).order_by(models.Notification.id.desc()).limit(50).all()
+
+    results = []
+    for n in notifs:
+        sender_info = None
+        if n.sender:
+            sender_info = {
+                "id": n.sender.id,
+                "name": f"{n.sender.first_name} {n.sender.last_name}".strip() or n.sender.email,
+                "email": n.sender.email,
+                "avatar_url": n.sender.avatar_url
+            }
+        data_payload = {}
+        if n.data:
+            try:
+                data_payload = json.loads(n.data)
+            except Exception:
+                data_payload = {}
+
+        results.append({
+            "id": n.id,
+            "type": n.type,
+            "title": n.title,
+            "message": n.message,
+            "status": n.status,
+            "is_read": n.is_read,
+            "data": data_payload,
+            "sender": sender_info,
+            "created_at": n.created_at.isoformat() if n.created_at else None
+        })
+    return results
+
+@router.patch("/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    notif = db.query(models.Notification).filter(
+        models.Notification.id == notification_id,
+        models.Notification.user_id == current_user.id
+    ).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notif.is_read = True
+    db.commit()
+    return {"status": "ok", "id": notification_id}
+
+@router.post("/notifications/read-all")
+def mark_all_notifications_read(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db.query(models.Notification).filter(
+        models.Notification.user_id == current_user.id,
+        models.Notification.is_read == False
+    ).update({"is_read": True})
+    db.commit()
+    return {"status": "ok"}
+
+@router.post("/notifications/{notification_id}/respond")
+async def respond_to_notification(
+    notification_id: int,
+    action: str = Query(..., description="'accept' or 'decline'"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    notif = db.query(models.Notification).filter(
+        models.Notification.id == notification_id,
+        models.Notification.user_id == current_user.id
+    ).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    staff_id = None
+    if notif.data:
+        try:
+            p = json.loads(notif.data)
+            staff_id = p.get("staff_id")
+        except Exception:
+            pass
+
+    if not staff_id:
+        notif.status = action
+        notif.is_read = True
+        db.commit()
+        return {"status": "ok"}
+
+    return await respond_to_staff_invitation(
+        staff_id=int(staff_id),
+        action=action,
+        db=db,
+        current_user=current_user
+    )
+
 # --- Project Endpoints (User-Scoped) ---
 
 @router.get("/projects")
@@ -474,9 +799,10 @@ def get_projects(
         models.Project.user_id == current_user.id
     ).order_by(models.Project.id.desc()).all()
 
-    # Find shared projects where current user is linked as a collaborator
+    # Find shared projects where current user is linked as an accepted collaborator
     collaborations = db.query(models.Staff).filter(
-        (models.Staff.staff_user_id == current_user.id) | (models.Staff.email == current_user.email)
+        (models.Staff.staff_user_id == current_user.id) | (models.Staff.email == current_user.email),
+        models.Staff.status == "accepted"
     ).all()
 
     seen_ids = {p.id for p in owned_projects}
@@ -543,6 +869,11 @@ def get_projects(
                         (c for c in collab_list if (c.get("staff_email") and c.get("staff_email").lower() == (current_user.email or "").lower()) or c.get("staff_user_id") == current_user.id or str(c.get("staff_id")) == str(collab.id)),
                         None
                     )
+                    # Only show project if this staff member is explicitly assigned as collaborator to this project
+                    if not my_collab:
+                        continue
+
+                    seen_ids.add(sp.id)
                     can_up = False
                     if my_collab and my_collab.get("can_update_project_file"):
                         can_up = True

@@ -190,11 +190,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const hasJobType = Boolean(json.user?.job_type);
+      const requiresProfile =
+        typeof json.requires_profile_completion === "boolean"
+          ? json.requires_profile_completion
+          : !hasJobType;
 
       return {
         success: true,
         message: json.message,
-        requiresProfileCompletion: !hasJobType,
+        requiresProfileCompletion: requiresProfile,
       };
     } catch {
       return {

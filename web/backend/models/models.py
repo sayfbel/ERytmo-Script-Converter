@@ -80,10 +80,28 @@ class Staff(Base):
     task = Column(String(255), nullable=True)
     access_level = Column(String(32), default="spectator", nullable=False)
     auto_accept_transfers = Column(Boolean, default=False, nullable=False)
+    status = Column(String(32), default="pending", nullable=False) # 'pending', 'accepted', 'declined'
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     owner = relationship("User", foreign_keys=[user_id], back_populates="staff_members")
     staff_user = relationship("User", foreign_keys=[staff_user_id])
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    sender_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
+    type = Column(String(50), nullable=False, index=True) # 'staff_invitation', 'staff_accepted', 'staff_declined', 'system'
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    data = Column(Text, nullable=True) # JSON metadata
+    is_read = Column(Boolean, default=False, nullable=False)
+    status = Column(String(32), default="pending", nullable=False) # 'pending', 'accepted', 'declined', 'read'
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id], back_populates="notifications")
+    sender = relationship("User", foreign_keys=[sender_id])
 
 class ApiKey(Base):
     __tablename__ = "api_keys"
@@ -120,6 +138,7 @@ class User(Base):
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
     companies = relationship("Company", back_populates="user", cascade="all, delete-orphan")
     staff_members = relationship("Staff", foreign_keys="Staff.user_id", back_populates="owner", cascade="all, delete-orphan")
+    notifications = relationship("Notification", foreign_keys="Notification.user_id", back_populates="user", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="user", cascade="all, delete-orphan")
     api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
     verifications = relationship("EmailVerification", back_populates="user", cascade="all, delete-orphan")

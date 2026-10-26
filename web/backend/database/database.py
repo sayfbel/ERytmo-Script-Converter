@@ -250,6 +250,16 @@ def init_db():
             except Exception as e:
                 print(f"[DB Migration] staff.auto_accept_transfers: {e}")
 
+        # Migration: staff.status
+        try:
+            conn.execute(text("SELECT status FROM staff LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE staff ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'accepted'"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] staff.status: {e}")
+
         # Migration: users.job_type
         try:
             conn.execute(text("SELECT job_type FROM users LIMIT 1"))

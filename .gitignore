@@ -48,6 +48,9 @@ node_modules/
 **/.next/
 out/
 **/out/
+*.tsbuildinfo
+frontend/
 
 # PyWebView Storage
 .webview_storage/
+

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { DubFlowIcon } from "./DubFlowLogo";
-import { X, ArrowRight, Sparkles, ShieldCheck } from "lucide-react";
+import { X, ArrowRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 export interface NavItem {
@@ -19,6 +19,15 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
   { id: "comparatif", label: "Comparatif" },
   { id: "faq", label: "FAQ" }
 ];
+
+export const NAV_DESCRIPTIONS: Record<string, string> = {
+  home: "Studio Overview & Canvas",
+  about: "Notre Vision & Régies",
+  web: "Plateforme Cloud & Stream",
+  desktop: "Application Locale Electron",
+  comparatif: "Performance & Sécurité",
+  faq: "Questions Fréquentes",
+};
 
 interface FloatingNavProps {
   activeSection?: string;
@@ -316,82 +325,123 @@ export default function FloatingNav({
       </header>
 
       {/* ======================================================== */}
-      {/* 3. MOBILE FULL-SCREEN LUXURY GLASS DRAWER                */}
+      {/* 3. MOBILE FRAMED LUXURY GLASS MODAL (WELCOME PAGE MATCH)  */}
       {/* ======================================================== */}
       {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-[60] bg-[#070709]/95 backdrop-blur-3xl flex flex-col justify-between p-6 animate-in fade-in zoom-in-95 duration-200 overflow-y-auto">
-          {/* Top Bar inside Drawer */}
-          <div className="flex items-center justify-between pb-5 border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-2">
-              <DubFlowIcon className="w-6 h-6 text-amber-400 shrink-0" />
-              <span className="font-black text-xl text-[#f4efe6] tracking-tight">DubFlow</span>
-              <span className="font-editorial text-amber-300 italic text-2xl">*</span>
+        <div className="md:hidden fixed inset-0 z-[100] bg-black/85 backdrop-blur-2xl flex flex-col p-2.5 sm:p-4 animate-in fade-in duration-200 select-none">
+          <div className="relative w-full h-full max-h-[100dvh] rounded-[24px] sm:rounded-[32px] bg-gradient-to-b from-[#111116] via-[#09090c] to-[#040406] border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,0.95)] flex flex-col justify-between p-4 sm:p-6 overflow-hidden">
+            
+            {/* Cinematic background lighting & ambient glow */}
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-72 h-72 rounded-full bg-amber-500/10 blur-[80px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-72 h-72 rounded-full bg-amber-500/5 blur-[80px] pointer-events-none" />
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent pointer-events-none" />
+
+            {/* 1. Header Bar */}
+            <div className="relative z-10 flex items-center justify-between pb-3.5 border-b border-white/[0.08] shrink-0">
+              <div className="flex items-center gap-2 pl-1">
+                <DubFlowIcon className="w-5 h-5 text-amber-400 shrink-0" />
+                <span className="font-black text-lg text-[#f4efe6] tracking-tight">DubFlow</span>
+                <span className="font-editorial text-amber-300 italic text-xl -ml-0.5">*</span>
+              </div>
+
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-label="Fermer le menu"
+                className="w-9 h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 active:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
             </div>
-            <button
-              onClick={() => setIsMobileMenuOpen(false)}
-              aria-label="Fermer le menu"
-              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-          </div>
 
-          {/* Navigation Links List */}
-          <nav className="flex-1 py-8 flex flex-col justify-center space-y-4">
-            <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400 font-bold mb-1">
-              NAVIGATION DU STUDIO
-            </span>
-            {DEFAULT_NAV_ITEMS.map((item, index) => {
-              const isActive = activeSection === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={(e) => {
-                    setIsMobileMenuOpen(false);
-                    handleItemClick(e, item.id);
-                  }}
-                  className={`w-full flex items-center justify-between py-2.5 text-left transition-all ${
-                    isActive ? "text-amber-300 font-bold" : "text-[#d8d2c5] hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-white/30">0{index + 1}</span>
-                    <span className={`text-xl font-bold tracking-tight ${isActive ? "text-amber-300 font-editorial italic text-2xl" : "text-[#f4efe6]"}`}>
-                      {item.label}
-                    </span>
-                  </div>
-                  {isActive && (
-                    <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(245,158,11,1)]" />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+            {/* 2. Navigation Content */}
+            <div className="relative z-10 flex-1 py-4 flex flex-col justify-center min-h-0 overflow-y-auto">
+              <nav className="flex flex-col gap-1.5 sm:gap-2">
+                {DEFAULT_NAV_ITEMS.map((item, index) => {
+                  const isActive = activeSection === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={(e) => {
+                        setIsMobileMenuOpen(false);
+                        handleItemClick(e, item.id);
+                      }}
+                      className={`group w-full flex items-center justify-between px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-2xl text-left transition-all duration-200 cursor-pointer ${
+                        isActive
+                          ? "bg-gradient-to-r from-amber-500/15 via-white/[0.04] to-transparent border border-amber-400/30 shadow-[0_4px_25px_rgba(245,158,11,0.08)]"
+                          : "bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/10"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                        <span className={`w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center font-mono text-[10px] sm:text-[11px] font-bold shrink-0 transition-colors ${
+                          isActive
+                            ? "bg-amber-400 text-black shadow-[0_0_12px_rgba(245,158,11,0.5)]"
+                            : "bg-white/[0.05] text-white/35 group-hover:text-amber-300 group-hover:bg-amber-400/10"
+                        }`}>
+                          0{index + 1}
+                        </span>
 
-          {/* Bottom CTAs & Security Badges */}
-          <div className="pt-5 border-t border-white/10 space-y-3 shrink-0">
-            <Link
-              href="/login"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="w-full py-3.5 px-5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-black text-xs font-black tracking-wide flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(245,158,11,0.25)]"
-            >
-              <span>Accéder au Studio</span>
-              <ArrowRight size={14} />
-            </Link>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {item.id === "home" ? (
+                              <span className="flex items-center gap-1">
+                                <span className="font-extrabold tracking-tight text-sm sm:text-base text-[#f4efe6]">
+                                  DubFlow
+                                </span>
+                                <span className="font-editorial text-amber-300 italic text-sm sm:text-base">*</span>
+                              </span>
+                            ) : (
+                              <span className={`font-bold text-sm sm:text-base tracking-tight transition-colors ${
+                                isActive ? "text-amber-200" : "text-[#f4efe6] group-hover:text-white"
+                              }`}>
+                                {item.label}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] sm:text-[11px] text-[#9f988b] font-normal truncate">
+                            {NAV_DESCRIPTIONS[item.id] || "Studio Section"}
+                          </span>
+                        </div>
+                      </div>
 
-            <Link
-              href="/converter"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="w-full py-3 px-5 rounded-full bg-white/10 hover:bg-white/15 text-white text-xs font-bold flex items-center justify-center gap-2 border border-white/15"
-            >
-              <Sparkles size={14} className="text-amber-400" />
-              <span>Convertisseur Libre</span>
-            </Link>
-
-            <div className="flex items-center justify-center gap-2 pt-1 text-[10px] text-white/40">
-              <ShieldCheck size={13} className="text-emerald-400" />
-              <span>Architecture P2P &bull; 0-Cloud &bull; TPN Compliant</span>
+                      <div className="shrink-0 pl-2">
+                        {isActive ? (
+                          <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(245,158,11,1)] animate-amber-breathe block" />
+                        ) : (
+                          <ArrowRight
+                            size={14}
+                            className="text-white/20 group-hover:text-amber-300 group-hover:translate-x-0.5 transition-all"
+                          />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </nav>
             </div>
+
+            {/* 3. Bottom CTAs & Trust Badges */}
+            <div className="relative z-10 pt-3 border-t border-white/[0.08] space-y-2 shrink-0">
+              <Link
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="group w-full py-3 px-5 rounded-full bg-[#f4efe6] hover:bg-white active:bg-amber-100 text-black text-xs font-black tracking-wider uppercase flex items-center justify-center gap-3 shadow-[0_10px_35px_rgba(244,239,230,0.22)] transition-all hover:scale-[1.01] active:scale-[0.98] cursor-pointer"
+              >
+                <span>Accéder au Studio</span>
+                <span className="w-5 h-5 rounded-full bg-black/15 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
+                  <ArrowRight size={12} className="text-black" />
+                </span>
+              </Link>
+
+              <Link
+                href="/converter"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full py-2.5 px-5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] active:bg-white/[0.15] text-[#f4efe6] text-xs font-bold flex items-center justify-center gap-2 border border-white/10 hover:border-white/20 transition-all cursor-pointer backdrop-blur-md"
+              >
+                <Sparkles size={13} className="text-amber-400" />
+                <span>Convertisseur Libre</span>
+              </Link>
+            </div>
+
           </div>
         </div>
       )}

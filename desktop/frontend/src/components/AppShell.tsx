@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Sidebar from "@/components/Sidebar";
 import IncomingTransferModal from "@/components/IncomingTransferModal";
+import NotificationCenter from "@/components/NotificationCenter";
 
 const PUBLIC_AUTH_PATHS = [
   "/login",
@@ -84,6 +85,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <IncomingTransferModal />
+      <NotificationCenter />
     </>
   );
 }

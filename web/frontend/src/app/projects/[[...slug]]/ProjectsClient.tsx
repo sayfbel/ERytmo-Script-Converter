@@ -5,11 +5,12 @@ import { useParams } from "next/navigation";
 import {
   Briefcase, Search, Plus, FolderOpen, Video, FileText, Calendar, Building, X,
   Loader2, ChevronRight, ChevronLeft, Edit2, Trash2, Clock, CheckCircle2,
-  Play, Headphones, Image as ImageIcon, FileCode, Users, Lock, Unlock, UploadCloud, ShieldCheck, Star, Check
+  Play, Headphones, Image as ImageIcon, FileCode, UploadCloud, ShieldCheck, Star, Check
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
 import DateSelect from "@/components/DateSelect";
+import DateRangeSelect from "@/components/DateRangeSelect";
 import MediaViewerModal, { detectFileCategory, ProjectViewerFile } from "@/components/MediaViewerModal";
 import LargeFileRequirementModal from "@/components/LargeFileRequirementModal";
 import { useSettings } from "@/context/SettingsContext";
@@ -24,11 +25,24 @@ export interface ProjectCollaborator {
   staff_email?: string | null;
   staff_user_id?: number | null;
   task?: string;
+  role?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   can_update_project_file?: boolean;
   comment?: string;
 }
+
+export const TASK_PRESETS = [
+  { label: "Pose de texte", value: "pose le text" },
+  { label: "Détection", value: "detection" },
+  { label: "Les appuis", value: "les apois" },
+  { label: "Vérification / QA", value: "verification" },
+  { label: "Adaptation", value: "adaptation" },
+  { label: "Traduction", value: "traduction" },
+  { label: "Comédien Voix", value: "comedien" },
+  { label: "Mixage / Son", value: "mixage" },
+  { label: "Complet", value: "complet" }
+];
 
 export interface ProjectMasterFile {
   name: string;
@@ -142,6 +156,15 @@ export default function ProjectsClient() {
   // Collaboration & Team Assignment State
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [projectCollaborators, setProjectCollaborators] = useState<ProjectCollaborator[]>([]);
+  const [editingCollabIndex, setEditingCollabIndex] = useState<number | null>(null); // null: list view, -1: adding new, >=0: editing existing
+  const [collabFormData, setCollabFormData] = useState<ProjectCollaborator>({
+    staff_name: "",
+    task: "pose le text",
+    start_date: "",
+    end_date: "",
+    can_update_project_file: false,
+    comment: ""
+  });
   const [showMasterFileModal, setShowMasterFileModal] = useState(false);
   const [isUpdatingMasterFile, setIsUpdatingMasterFile] = useState(false);
   const masterFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -259,75 +282,68 @@ export default function ProjectsClient() {
     return [];
   };
 
-  const handleAddCollaborator = (currentStaffList: Staff[] = staffList) => {
-    const list = currentStaffList.length > 0 ? currentStaffList : staffList;
-    if (list.length === 0) {
-      setProjectCollaborators(prev => [
-        ...prev,
-        {
-          staff_name: "",
-          task: "pose le text",
-          start_date: "",
-          end_date: "",
-          can_update_project_file: false,
-          comment: ""
-        }
-      ]);
-      return;
-    }
-
+  const handleStartAddCollab = () => {
     const existingStaffIds = new Set(projectCollaborators.map(c => c.staff_id).filter(Boolean));
-    const availableStaff = list.find(s => !existingStaffIds.has(s.id)) || list[0];
+    const availableStaff = staffList.find(s => !existingStaffIds.has(s.id)) || staffList[0];
+    
+    setCollabFormData({
+      staff_id: availableStaff?.id,
+      staff_name: availableStaff ? availableStaff.name : "",
+      staff_email: availableStaff?.email || null,
+      staff_user_id: availableStaff?.staff_user_id || null,
+      task: availableStaff?.task || "pose le text",
+      start_date: "",
+      end_date: "",
+      can_update_project_file: false,
+      comment: ""
+    });
+    setEditingCollabIndex(-1);
+  };
 
-    setProjectCollaborators(prev => [
-      ...prev,
-      {
-        staff_id: availableStaff.id,
-        staff_name: availableStaff.name,
-        staff_email: availableStaff.email,
-        staff_user_id: availableStaff.staff_user_id,
-        // Default to staff's already assigned task, as required
-        task: availableStaff.task || "pose le text",
-        start_date: "",
-        end_date: "",
-        can_update_project_file: false,
-        comment: ""
+  const handleStartEditCollab = (idx: number) => {
+    const target = projectCollaborators[idx];
+    if (!target) return;
+    setCollabFormData({ ...target });
+    setEditingCollabIndex(idx);
+  };
+
+  const handleCancelCollabForm = () => {
+    setEditingCollabIndex(null);
+  };
+
+  const handleSaveCollabForm = () => {
+    let name = (collabFormData.staff_name || "").trim();
+    if (staffList.length > 0 && collabFormData.staff_id) {
+      const found = staffList.find(s => s.id === collabFormData.staff_id);
+      if (found) {
+        name = found.name;
       }
-    ]);
-  };
+    }
+    if (!name) return;
 
-  const handleSelectStaffForCollab = (index: number, staffId: number) => {
-    const selectedStaff = staffList.find(s => s.id === staffId);
-    if (!selectedStaff) return;
-    setProjectCollaborators(prev => {
-      const next = [...prev];
-      next[index] = {
-        ...next[index],
-        staff_id: selectedStaff.id,
-        staff_name: selectedStaff.name,
-        staff_email: selectedStaff.email,
-        staff_user_id: selectedStaff.staff_user_id,
-        // Default to the staff's configured task
-        task: selectedStaff.task || "pose le text"
-      };
-      return next;
-    });
-  };
+    const finalItem: ProjectCollaborator = {
+      ...collabFormData,
+      staff_name: name,
+      task: collabFormData.task || "pose le text"
+    };
 
-  const handleUpdateCollabField = <K extends keyof ProjectCollaborator>(
-    index: number,
-    field: K,
-    val: ProjectCollaborator[K]
-  ) => {
-    setProjectCollaborators(prev => {
-      const next = [...prev];
-      next[index] = { ...next[index], [field]: val };
-      return next;
-    });
+    if (editingCollabIndex === -1) {
+      setProjectCollaborators(prev => [...prev, finalItem]);
+    } else if (editingCollabIndex !== null && editingCollabIndex >= 0) {
+      setProjectCollaborators(prev => {
+        const next = [...prev];
+        next[editingCollabIndex] = finalItem;
+        return next;
+      });
+    }
+    setEditingCollabIndex(null);
   };
 
   const handleRemoveCollab = (index: number) => {
     setProjectCollaborators(prev => prev.filter((_, i) => i !== index));
+    if (editingCollabIndex === index) {
+      setEditingCollabIndex(null);
+    }
   };
 
   const handleSetMasterFile = async (fileObj: { name: string; path?: string; size?: number; type?: string }) => {
@@ -429,6 +445,7 @@ export default function ProjectsClient() {
     setDeadline("");
     setTotalTime("");
     setProjectCollaborators([]);
+    setEditingCollabIndex(null);
     fetchStaff();
     setShowModal(true);
   };
@@ -459,6 +476,7 @@ export default function ProjectsClient() {
       try { collabs = JSON.parse(project.collaborators); } catch { }
     }
     setProjectCollaborators(collabs);
+    setEditingCollabIndex(null);
     fetchStaff();
     setShowModal(true);
   };
@@ -1289,17 +1307,19 @@ export default function ProjectsClient() {
         {/* Project Details Panel */}
         {selectedProject && (
           <div className="w-full lg:w-[430px] xl:w-[470px] shrink-0 bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xl dark:shadow-[0_15px_40px_rgba(0,0,0,0.7)] flex flex-col h-full animate-in slide-in-from-right-4 duration-300 overflow-hidden text-slate-800 dark:text-[#f4efe6]">
-            <div className="p-4 border-b border-slate-200/80 dark:border-white/[0.08] flex justify-between items-start bg-slate-50/70 dark:bg-white/[0.02] rounded-t-2xl">
-              <div>
-                <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                  <h2 className="font-bold text-slate-900 dark:text-[#f4efe6] text-xl truncate">{selectedProject.name}</h2>
+            <div className="p-4 border-b border-slate-200/80 dark:border-white/[0.08] flex justify-between items-start gap-3 bg-slate-50/70 dark:bg-white/[0.02] rounded-t-2xl">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-0">
+                  <h2 className="font-bold text-slate-900 dark:text-[#f4efe6] text-xl truncate" title={selectedProject.name}>
+                    {selectedProject.name}
+                  </h2>
                 </div>
-                <div className="flex items-center mt-1 text-xs text-slate-500 dark:text-[#9f988b] space-x-2 rtl:space-x-reverse">
-                  <span className="flex items-center">
+                <div className="flex items-center mt-1 text-xs text-slate-500 dark:text-[#9f988b] space-x-2 rtl:space-x-reverse min-w-0">
+                  <span className="flex items-center shrink-0">
                     <FolderOpen size={13} className="mr-1 rtl:mr-0 rtl:ml-1" /> {t("project.local_files")}
                   </span>
                   {selectedProject.is_owner !== false ? (
-                    <span className={`px-2 py-0.5 rounded font-bold text-[9px] flex items-center gap-1 ${otherDevicesCount > 0
+                    <span className={`px-2 py-0.5 rounded font-bold text-[9px] flex items-center gap-1 shrink-0 ${otherDevicesCount > 0
                       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                       : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                       }`}>
@@ -1313,7 +1333,7 @@ export default function ProjectsClient() {
                       )}
                     </span>
                   ) : (
-                    <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] ${selectedProject.access_level === 'full_access'
+                    <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] shrink-0 ${selectedProject.access_level === 'full_access'
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
                       : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                       }`}>
@@ -1322,7 +1342,7 @@ export default function ProjectsClient() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center space-x-1 rtl:space-x-reverse">
+              <div className="flex items-center space-x-1 rtl:space-x-reverse shrink-0">
                 {selectedProject.is_owner !== false && (
                   <button
                     onClick={() => panelFolderInputRef.current?.click()}
@@ -1392,36 +1412,23 @@ export default function ProjectsClient() {
                 : 'bg-slate-50/50 dark:bg-black/20'
                 }`}
             >
-              {/* Active Collaborator Role Banner */}
+              {/* Active Collaborator Role Indicator (Clean, Minimal, No Loud Box) */}
               {selectedProject.my_collaboration && (
-                <div className="mb-4 rounded-xl border border-blue-500/25 bg-blue-500/10 dark:bg-blue-500/[0.08] p-3 text-xs shadow-xs animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between font-bold text-blue-800 dark:text-blue-300">
-                    <div className="flex items-center gap-1.5">
-                      <Users size={15} />
-                      <span>Your Role: {selectedProject.my_collaboration.task || "Collaborator"}</span>
-                    </div>
-                    {selectedProject.my_collaboration.can_update_project_file ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                        <Unlock size={10} /> File Update Authorized
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                        <Lock size={10} /> View-Only Master File
+                <div className="mb-4 pb-3 border-b border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between text-xs text-slate-400 dark:text-[#a1a1aa]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800 dark:text-[#f4efe6]">
+                      {selectedProject.my_collaboration.task || "Collaborateur"}
+                    </span>
+                    {(selectedProject.my_collaboration.start_date || selectedProject.my_collaboration.end_date) && (
+                      <span className="text-[11px] text-slate-500 dark:text-[#71717a]">
+                        • {selectedProject.my_collaboration.start_date || "Début"} → {selectedProject.my_collaboration.end_date || "Fin"}
                       </span>
                     )}
                   </div>
-                  {(selectedProject.my_collaboration.start_date || selectedProject.my_collaboration.end_date) && (
-                    <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-600 dark:text-[#c2bcaf] font-mono">
-                      <Calendar size={12} className="text-blue-500 shrink-0" />
-                      <span>
-                        {selectedProject.my_collaboration.start_date || "Start"} → {selectedProject.my_collaboration.end_date || "Deadline"}
-                      </span>
-                    </div>
-                  )}
-                  {selectedProject.my_collaboration.comment && (
-                    <p className="mt-1.5 text-[11px] text-slate-600 dark:text-[#9f988b] italic border-t border-blue-500/15 pt-1.5">
-                      &quot;{selectedProject.my_collaboration.comment}&quot;
-                    </p>
+                  {selectedProject.my_collaboration.can_update_project_file && (
+                    <span className="text-[11px] text-emerald-500 font-medium">
+                      Édition master autorisée
+                    </span>
                   )}
                 </div>
               )}
@@ -2059,194 +2066,257 @@ export default function ProjectsClient() {
                   </div>
                 </div>
 
-                {/* Collaboration & Staff Assignment Section (Optional) */}
-                <div className="pt-3 border-t border-slate-200/80 dark:border-white/[0.08] space-y-3">
+                {/* Collaboration & Staff Assignment Section */}
+                <div className="pt-4 border-t border-slate-200/60 dark:border-white/[0.06] space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 dark:text-amber-400 shrink-0">
-                        <Users size={16} />
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-bold text-slate-900 dark:text-[#f4efe6] flex items-center gap-1.5">
-                          <span>Team Collaboration & Staff Assignment</span>
-                          <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-[#9f988b]">
-                            Optional
-                          </span>
-                        </h3>
-                        <p className="text-[11px] text-slate-400 dark:text-[#71717a]">
-                          Assign roles, specific tasks, date ranges, and master file permissions.
-                        </p>
-                      </div>
+                    <div>
+                      <h4 className="text-xs font-semibold text-slate-800 dark:text-[#f4efe6]">
+                        Collaboration & Rôles
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-[#8e887e]">
+                        Assignez des membres d&apos;équipe à des tâches précises avec dates de début et fin.
+                      </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleAddCollaborator()}
-                      className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                    >
-                      <Plus size={14} />
-                      <span>Add Staff</span>
-                    </button>
+                    {editingCollabIndex === null && (
+                      <button
+                        type="button"
+                        onClick={handleStartAddCollab}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-amber-500/10"
+                      >
+                        <Plus size={13} />
+                        <span>Ajouter un membre</span>
+                      </button>
+                    )}
                   </div>
 
-                  {projectCollaborators.length === 0 ? (
-                    <div className="p-3.5 rounded-xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.01] text-center">
-                      <p className="text-xs text-slate-600 dark:text-[#c2bcaf] font-medium">
-                        Solo Project (No staff assigned)
-                      </p>
-                      <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-0.5">
-                        Leave this section empty to work alone, or click &quot;Add Staff&quot; above to collaborate with your team.
-                      </p>
+                  {/* Form when adding or editing a collaborator */}
+                  {editingCollabIndex !== null && (
+                    <div className="p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/[0.02] dark:bg-white/[0.02] space-y-3 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-white/5">
+                        <span className="text-xs font-bold text-slate-800 dark:text-[#f4efe6]">
+                          {editingCollabIndex === -1 ? "Nouveau membre de l'équipe" : "Modifier l'affectation"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCancelCollabForm}
+                          className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+
+                      {/* Select Staff & Select Role */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-500 dark:text-[#a1a1aa] mb-1">
+                            Membre de l&apos;équipe
+                          </label>
+                          {staffList.length > 0 ? (
+                            <CustomSelect
+                              value={
+                                staffList.find(s => 
+                                  (collabFormData.staff_id && s.id === collabFormData.staff_id) ||
+                                  (collabFormData.staff_email && s.email && s.email.toLowerCase() === (collabFormData.staff_email || "").toLowerCase()) ||
+                                  (collabFormData.staff_name && s.name.toLowerCase() === (collabFormData.staff_name || "").toLowerCase())
+                                ) 
+                                  ? String(staffList.find(s => 
+                                      (collabFormData.staff_id && s.id === collabFormData.staff_id) ||
+                                      (collabFormData.staff_email && s.email && s.email.toLowerCase() === (collabFormData.staff_email || "").toLowerCase()) ||
+                                      (collabFormData.staff_name && s.name.toLowerCase() === (collabFormData.staff_name || "").toLowerCase())
+                                    )!.id)
+                                  : (staffList[0] ? String(staffList[0].id) : "")
+                              }
+                              onChange={(val) => {
+                                const s = staffList.find(st => st.id === Number(val));
+                                if (s) {
+                                  setCollabFormData(prev => ({
+                                    ...prev,
+                                    staff_id: s.id,
+                                    staff_name: s.name,
+                                    staff_email: s.email,
+                                    staff_user_id: s.staff_user_id,
+                                    task: s.task || prev.task || "pose le text"
+                                  }));
+                                }
+                              }}
+                              options={staffList.map(s => ({
+                                value: String(s.id),
+                                label: s.name + (s.email ? ` (${s.email})` : "")
+                              }))}
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="Nom ou email du membre..."
+                              value={collabFormData.staff_name}
+                              onChange={(e) => setCollabFormData(prev => ({ ...prev, staff_name: e.target.value, staff_email: e.target.value }))}
+                              className="w-full bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-slate-800 dark:text-slate-100 placeholder:text-slate-500"
+                            />
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-500 dark:text-[#a1a1aa] mb-1">
+                            Rôle / Tâche
+                          </label>
+                          <CustomSelect
+                            value={
+                              TASK_PRESETS.some(p => p.value === collabFormData.task || p.label.toLowerCase() === (collabFormData.task || "").toLowerCase())
+                                ? (TASK_PRESETS.find(p => p.value === collabFormData.task || p.label.toLowerCase() === (collabFormData.task || "").toLowerCase())?.value || "pose le text")
+                                : (collabFormData.task ? "CUSTOM_TASK" : "pose le text")
+                            }
+                            onChange={(val) => {
+                              if (val === "CUSTOM_TASK") {
+                                setCollabFormData(prev => ({ ...prev, task: "" }));
+                              } else {
+                                setCollabFormData(prev => ({ ...prev, task: val }));
+                              }
+                            }}
+                            options={[
+                              ...TASK_PRESETS,
+                              { label: "Rôle personnalisé...", value: "CUSTOM_TASK" }
+                            ]}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Custom task input if custom selected */}
+                      {(!TASK_PRESETS.some(p => p.value === collabFormData.task || p.label.toLowerCase() === (collabFormData.task || "").toLowerCase()) || collabFormData.task === "") && (
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Précisez le rôle (ex: Lip-sync, Calligraphie...)"
+                            value={collabFormData.task || ""}
+                            onChange={(e) => setCollabFormData(prev => ({ ...prev, task: e.target.value }))}
+                            className="w-full bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-slate-800 dark:text-slate-100 placeholder:text-slate-500"
+                          />
+                        </div>
+                      )}
+
+                      {/* Date Range Select */}
+                      <div>
+                        <DateRangeSelect
+                          label="Période de la tâche (Début → Fin)"
+                          startDate={collabFormData.start_date || ""}
+                          endDate={collabFormData.end_date || ""}
+                          onChange={(start, end) => setCollabFormData(prev => ({ ...prev, start_date: start, end_date: end }))}
+                          placeholder="Sélectionner la période (Début → Fin)"
+                        />
+                      </div>
+
+                      {/* Master File Checkbox */}
+                      <div>
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(collabFormData.can_update_project_file)}
+                            onChange={(e) => setCollabFormData(prev => ({ ...prev, can_update_project_file: e.target.checked }))}
+                            className="rounded border-slate-300 dark:border-white/20 text-amber-500 focus:ring-0 bg-transparent w-3.5 h-3.5"
+                          />
+                          <span>Autoriser à modifier le fichier master du projet</span>
+                        </label>
+                      </div>
+
+                      {/* Form action buttons */}
+                      <div className="flex justify-end items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+                        <button
+                          type="button"
+                          onClick={handleCancelCollabForm}
+                          className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveCollabForm}
+                          className="px-4 py-1.5 text-xs font-semibold bg-amber-500 text-black rounded-xl hover:bg-amber-400 transition-colors cursor-pointer shadow-sm"
+                        >
+                          {editingCollabIndex === -1 ? "Confirmer l'ajout" : "Enregistrer"}
+                        </button>
+                      </div>
                     </div>
+                  )}
+
+                  {/* Confirmed Collaborators List */}
+                  {projectCollaborators.length === 0 && editingCollabIndex === null ? (
+                    <p className="text-[11px] text-slate-400 dark:text-[#71717a] py-2">
+                      Projet solo (aucun collaborateur assigné).
+                    </p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="divide-y divide-slate-100 dark:divide-white/[0.05] pt-0.5">
                       {projectCollaborators.map((collab, idx) => {
-                        const staffObj = staffList.find(s => s.id === collab.staff_id);
-                        const taskPresets = [
-                          { label: "pose de text (Pose le texte)", value: "pose le text" },
-                          { label: "les apois (Les appuis)", value: "les apois" },
-                          { label: "verification (Vérification / QA)", value: "verification" },
-                          { label: "complet (Complet)", value: "complet" },
-                          { label: "partner (Partenaire)", value: "partner" },
-                          { label: "traduction (Traduction)", value: "traduction" },
-                          { label: "mixage (Mixage / Sound)", value: "mixage" },
-                          { label: "adaptation (Adaptation)", value: "adaptation" }
-                        ];
+                        const matchingStaff = staffList.find(s => 
+                          (collab.staff_id && s.id === collab.staff_id) ||
+                          (collab.staff_email && s.email && s.email.toLowerCase() === (collab.staff_email || "").toLowerCase()) ||
+                          (collab.staff_name && s.name.toLowerCase() === (collab.staff_name || "").toLowerCase())
+                        );
+                        const displayName = matchingStaff?.name || collab.staff_name || "Collaborateur";
+                        const displayEmail = matchingStaff?.email || collab.staff_email;
+                        const rawTask = collab.task || collab.role || "pose le text";
+                        const matchedPreset = TASK_PRESETS.find(p => p.value.toLowerCase() === rawTask.toLowerCase() || p.label.toLowerCase() === rawTask.toLowerCase());
+                        const displayTask = matchedPreset?.label || rawTask;
+                        const hasDates = Boolean(collab.start_date || collab.end_date);
+                        const dateText = collab.start_date && collab.end_date
+                          ? `${collab.start_date} → ${collab.end_date}`
+                          : (collab.start_date ? `Depuis ${collab.start_date}` : "");
 
                         return (
                           <div
                             key={idx}
-                            className="p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.02] space-y-3 relative group"
+                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group"
                           >
-                            {/* Header: Staff Selector + Remove */}
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1">
-                                <label className="block text-[11px] font-bold text-slate-700 dark:text-[#c2bcaf] mb-1">
-                                  Team Member {idx + 1} *
-                                </label>
-                                {staffList.length > 0 ? (
-                                  <CustomSelect
-                                    value={String(collab.staff_id || staffList[0].id)}
-                                    onChange={(val) => handleSelectStaffForCollab(idx, Number(val))}
-                                    options={staffList.map(s => ({
-                                      value: String(s.id),
-                                      label: `${s.name} ${s.task ? `(${s.task})` : ''} - ${s.email || 'No email'}`
-                                    }))}
-                                  />
-                                ) : (
-                                  <input
-                                    type="text"
-                                    required
-                                    placeholder="Staff name or email..."
-                                    value={collab.staff_name}
-                                    onChange={(e) => {
-                                      handleUpdateCollabField(idx, "staff_name", e.target.value);
-                                      handleUpdateCollabField(idx, "staff_email", e.target.value);
-                                    }}
-                                    className="w-full bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 text-slate-900 dark:text-[#f4efe6]"
-                                  />
-                                )}
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs shrink-0">
+                                {displayName.slice(0, 2).toUpperCase()}
                               </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-semibold text-slate-800 dark:text-[#f4efe6] truncate">
+                                    {displayName}
+                                  </span>
+                                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 shrink-0">
+                                    {displayTask}
+                                  </span>
+                                  {collab.can_update_project_file && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-500 font-medium shrink-0" title="Autorisé à modifier le fichier master">
+                                      <ShieldCheck size={12} />
+                                      <span>Master</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 dark:text-[#71717a]">
+                                  {displayEmail && <span className="truncate">{displayEmail}</span>}
+                                  {hasDates && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="flex items-center gap-1 text-slate-500 dark:text-slate-300">
+                                        <Calendar size={11} className="text-amber-500" />
+                                        {dateText}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Actions: Edit and Delete */}
+                            <div className="flex items-center gap-1 shrink-0 ml-2">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditCollab(idx)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                                title="Modifier"
+                              >
+                                <Edit2 size={13} />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveCollab(idx)}
-                                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer mt-5"
-                                title="Remove collaborator"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                title="Supprimer"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={13} />
                               </button>
-                            </div>
-
-                            {/* Role / Task Assignment */}
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <label className="block text-[11px] font-bold text-slate-700 dark:text-[#c2bcaf]">
-                                  Collaboration Task / Role *
-                                </label>
-                                {staffObj?.task && (
-                                  <span className="text-[10px] text-amber-600 dark:text-amber-400/90 font-medium">
-                                    Default: {staffObj.task}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex flex-col sm:flex-row gap-2">
-                                <div className="flex-1">
-                                  <CustomSelect
-                                    value={taskPresets.some(p => p.value === collab.task) ? (collab.task || "pose le text") : "CUSTOM_TASK"}
-                                    onChange={(val) => {
-                                      if (val === "CUSTOM_TASK") {
-                                        handleUpdateCollabField(idx, "task", "");
-                                      } else {
-                                        handleUpdateCollabField(idx, "task", val);
-                                      }
-                                    }}
-                                    options={[
-                                      ...taskPresets,
-                                      { label: "Other / Custom Role...", value: "CUSTOM_TASK" }
-                                    ]}
-                                  />
-                                </div>
-                                {(!taskPresets.some(p => p.value === collab.task) || collab.task === "") && (
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. Pose de texte, Lip-sync, Verification..."
-                                    value={collab.task || ""}
-                                    onChange={(e) => handleUpdateCollabField(idx, "task", e.target.value)}
-                                    className="flex-1 bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
-                                  />
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Timeline: Start Date & End Date using DateSelect */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <DateSelect
-                                label="Start Date"
-                                value={collab.start_date || ""}
-                                onChange={(val) => handleUpdateCollabField(idx, "start_date", val)}
-                                placeholder="Assign start date"
-                              />
-                              <DateSelect
-                                label="End Date (Deadline)"
-                                value={collab.end_date || ""}
-                                onChange={(val) => handleUpdateCollabField(idx, "end_date", val)}
-                                placeholder="Assign end date"
-                              />
-                            </div>
-
-                            {/* Master File Authorization Toggle */}
-                            <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#161619] border border-slate-200/80 dark:border-white/10">
-                              <div className="pr-3">
-                                <p className="text-xs font-semibold text-slate-800 dark:text-[#f4efe6] flex items-center gap-1.5">
-                                  <ShieldCheck size={14} className="text-amber-500" />
-                                  <span>Authorize Project Master File Updates</span>
-                                </p>
-                                <p className="text-[10px] text-slate-400 dark:text-[#71717a] mt-0.5">
-                                  Allows this staff member to upload or replace the project master file
-                                </p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(collab.can_update_project_file)}
-                                  onChange={(e) => handleUpdateCollabField(idx, "can_update_project_file", e.target.checked)}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-white/10 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
-                              </label>
-                            </div>
-
-                            {/* Comment / Instruction */}
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-700 dark:text-[#c2bcaf] mb-1">
-                                Notes & Instructions <span className="font-normal text-slate-400 dark:text-[#71717a]">(optional)</span>
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="Specific instructions or scene references for this member..."
-                                value={collab.comment || ""}
-                                onChange={(e) => handleUpdateCollabField(idx, "comment", e.target.value)}
-                                className="w-full bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
-                              />
                             </div>
                           </div>
                         );

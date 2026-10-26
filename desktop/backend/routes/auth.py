@@ -506,8 +506,10 @@ def verify_email(payload: VerifyEmailPayload, response: Response, db: Session = 
             "phone_number": user.phone_number,
             "email_verified": True,
             "is_private": user.is_private,
-            "avatar_url": user.avatar_url
-        }
+            "avatar_url": user.avatar_url,
+            "requires_profile_completion": not bool(user.job_type)
+        },
+        "requires_profile_completion": not bool(user.job_type)
     }
 
 
