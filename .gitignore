@@ -49,7 +49,7 @@ node_modules/
 out/
 **/out/
 *.tsbuildinfo
-frontend/
+/frontend/
 
 # PyWebView Storage
 .webview_storage/
