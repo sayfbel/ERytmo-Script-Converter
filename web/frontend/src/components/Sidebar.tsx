@@ -5,9 +5,9 @@ import Link from "next/link";
 import { DubFlowIcon } from "./DubFlowLogo";
 import { usePathname } from "next/navigation";
 import { 
-  Calendar, Users, Building,
-  Settings, Briefcase, Film, ChevronLeft, ChevronRight, LogOut,
-  Monitor, User
+  LayoutDashboard, Calendar, Briefcase, BarChart3, Film,
+  Users, Building2, FolderArchive, Settings, LogOut,
+  ChevronRight, ChevronLeft, Sparkles
 } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
@@ -16,12 +16,11 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { t, language } = useSettings();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Check initial viewport size
     let lastWidth = window.innerWidth;
     if (window.innerWidth < 1024) {
       setIsCollapsed(true);
@@ -41,121 +40,184 @@ export default function Sidebar() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const isLinkActive = (path: string) => {
+    if (path === "/dashboard") {
+      return pathname === "/dashboard" || pathname === "/";
+    }
+    if (path === "/time") {
+      return pathname === "/time";
+    }
+    if (path === "/projects") {
+      return pathname.startsWith("/projects");
+    }
+    if (path === "/settings") {
+      return pathname.startsWith("/settings");
+    }
+    return pathname === path;
+  };
+
   const getLinkClass = (path: string) => {
-    const isActive = pathname === path || (path === '/settings' && pathname.startsWith('/settings'));
-    return `group relative flex items-center ${isCollapsed ? "justify-center px-0 h-10 w-10 mx-auto" : "px-3 py-2.5"} rounded-xl text-sm font-medium transition-all duration-200 ${
-      isActive 
-        ? "bg-amber-400/15 text-amber-600 dark:text-amber-300 font-semibold border border-amber-400/30 dark:border-amber-400/25 shadow-xs dark:shadow-[0_0_15px_rgba(245,158,11,0.12)]" 
-        : "text-slate-600 dark:text-[#9f988b] hover:text-slate-900 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-transparent"
+    const active = isLinkActive(path);
+    return `group relative flex items-center ${
+      isCollapsed ? "justify-center px-0 h-11 w-11 mx-auto" : "px-3.5 py-2.5"
+    } rounded-2xl text-[13px] font-medium transition-all duration-200 ${
+      active
+        ? "text-white font-semibold bg-white/[0.08]"
+        : "text-[#8e8e93] hover:text-white hover:bg-white/[0.05]"
     }`;
   };
 
-  const getIconClass = (path: string, activeColor: string = "text-amber-500 dark:text-amber-400") => {
-    const isActive = pathname === path || (path === '/settings' && pathname.startsWith('/settings'));
-    return `${isCollapsed ? "" : "mr-3 rtl:mr-0 rtl:ml-3"} transition-colors duration-200 ${isActive ? activeColor : "text-slate-400 dark:text-[#71717a] group-hover:text-slate-900 dark:group-hover:text-[#f4efe6]"}`;
-  };
-
   return (
-    <aside className={`${isCollapsed ? "w-16 sm:w-20" : "w-56 sm:w-64"} bg-white dark:bg-[#09090b] border-r border-slate-200/80 dark:border-white/[0.08] flex flex-col h-full overflow-y-auto select-none transition-all duration-300`}>
-      
-      {/* Header */}
-      <div className={`p-4 flex ${isCollapsed ? "flex-col items-center justify-center" : "items-center justify-between"} border-b border-slate-200/80 dark:border-white/[0.08] min-h-[64px]`}>
-        {isCollapsed ? (
-          <button 
-            onClick={() => setIsCollapsed(false)}
-            className="flex items-center justify-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-all hover:scale-105"
-            title="Expand Sidebar"
-          >
-            <DubFlowIcon className="w-6 h-6 text-amber-500 dark:text-amber-400 shrink-0" />
-          </button>
-        ) : (
-          <>
-            <div className="flex items-center space-x-2.5 rtl:space-x-reverse font-bold text-slate-900 dark:text-[#f4efe6] min-w-0">
-              <DubFlowIcon className="w-6 h-6 text-amber-500 dark:text-amber-400 shrink-0" />
-              <span className="text-base tracking-tight font-extrabold truncate text-slate-900 dark:text-[#f4efe6] flex items-baseline">
-                DubFlow
-              </span>
-            </div>
-            
-            <button 
-              onClick={() => setIsCollapsed(true)}
-              className="text-slate-400 dark:text-[#9f988b] hover:text-amber-500 dark:hover:text-amber-400 transition-colors bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] p-1.5 rounded-lg border border-slate-200 dark:border-white/10"
-              title="Collapse Sidebar"
-            >
-              {language === 'ar' ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-            </button>
-          </>
-        )}
-      </div>
-
-      <nav className="flex-1 px-3 py-4 space-y-6 overflow-x-hidden">
-        {/* Workspace */}
-        <div>
-          {!isCollapsed && <div className="text-[11px] uppercase text-slate-400 dark:text-[#71717a] font-bold mb-2 px-3 tracking-wider">Workspace</div>}
-          <div className="space-y-1">
-            <Link href="/time" className={getLinkClass("/time")} title={t("sidebar.time_management")}>
-              <Calendar size={isCollapsed ? 20 : 18} className={getIconClass("/time")} /> {!isCollapsed && <span className="truncate">{t("sidebar.time_management")}</span>}
-            </Link>
-            <Link href="/projects" className={getLinkClass("/projects")} title={t("sidebar.projects")}>
-              <Briefcase size={isCollapsed ? 20 : 18} className={getIconClass("/projects")} /> {!isCollapsed && <span className="truncate">{t("sidebar.projects")}</span>}
-            </Link>
-            <Link href="/converter" className={getLinkClass("/converter")} title={t("sidebar.converter")}>
-              <Film size={isCollapsed ? 20 : 18} className={getIconClass("/converter")} /> {!isCollapsed && <span className="truncate">{t("sidebar.converter")}</span>}
-            </Link>
-          </div>
-        </div>
-
-        {/* Company */}
-        <div>
-          {!isCollapsed && <div className="text-[11px] uppercase text-slate-400 dark:text-[#71717a] font-bold mb-2 px-3 tracking-wider">Company</div>}
-          <div className="space-y-1">
-            <Link href="/company" className={getLinkClass("/company")} title={t("sidebar.company")}>
-              <Building size={isCollapsed ? 20 : 18} className={getIconClass("/company")} /> {!isCollapsed && <span className="truncate">{t("sidebar.company")}</span>}
-            </Link>
-            <Link href="/staff" className={getLinkClass("/staff")} title={t("sidebar.staff")}>
-              <Users size={isCollapsed ? 20 : 18} className={getIconClass("/staff")} /> {!isCollapsed && <span className="truncate">{t("sidebar.staff")}</span>}
-            </Link>
-            <Link href="/profile" className={getLinkClass("/profile")} title="Profile & Security">
-              <User size={isCollapsed ? 20 : 18} className={getIconClass("/profile")} /> {!isCollapsed && <span className="truncate">Profile &amp; Security</span>}
-            </Link>
-            <Link href="/settings" className={getLinkClass("/settings")} title={t("sidebar.settings")}>
-              <Settings size={isCollapsed ? 20 : 18} className={getIconClass("/settings")} /> {!isCollapsed && <span className="truncate">{t("sidebar.settings")}</span>}
-            </Link>
-          </div>
-        </div>
-
-        {/* Desktop & Downloads */}
-        <div>
-          {!isCollapsed && <div className="text-[11px] uppercase text-slate-400 dark:text-[#71717a] font-bold mb-2 px-3 tracking-wider">Apps</div>}
-          <div className="space-y-1">
-            <Link href="/" className={getLinkClass("/")} title="Desktop App & Presentation">
-              <Monitor size={isCollapsed ? 20 : 18} className={getIconClass("/")} /> {!isCollapsed && <span className="truncate">Desktop App</span>}
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Logout Button */}
-      <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] mt-auto">
+    <aside className="relative h-full flex flex-col select-none py-1.5 pl-1.5">
+      {/* Deep Black Rounded Container */}
+      <div 
+        className={`${
+          isCollapsed ? "w-16 sm:w-20" : "w-56 sm:w-60"
+        } bg-[#111111] text-white rounded-[28px] flex flex-col h-full border border-black/40 shadow-[0_15px_40px_rgba(0,0,0,0.25)] relative transition-all duration-300`}
+      >
+        {/* Yellow Floating Toggle Button on the Edge */}
         <button
-          onClick={() => logout()}
-          title="Log Out"
-          className={`w-full flex items-center ${
-            isCollapsed ? "justify-center p-2.5" : "gap-3 px-3.5 py-2.5"
-          } rounded-xl text-xs font-semibold text-slate-600 dark:text-[#9f988b] hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-transparent hover:border-rose-200 dark:hover:border-rose-500/20 transition-all cursor-pointer`}
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="absolute -right-2.5 top-7 z-30 w-5 h-5 rounded-full bg-amber-400 hover:bg-amber-300 text-black flex items-center justify-center shadow-md transition-transform hover:scale-110 active:scale-95 cursor-pointer ring-2 ring-[#111111]"
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <LogOut size={isCollapsed ? 18 : 16} className="shrink-0" />
-          {!isCollapsed && <span className="truncate">Log Out</span>}
+          {isCollapsed ? (
+            <ChevronRight size={13} className="stroke-[3]" />
+          ) : (
+            <ChevronLeft size={13} className="stroke-[3]" />
+          )}
         </button>
 
-        {/* Footer Info */}
-        {!isCollapsed && (
-          <div className="mt-2.5 px-2 flex items-center justify-between text-[11px] text-slate-400 dark:text-[#71717a]">
-            <span className="font-semibold text-slate-500 dark:text-[#9f988b]">v2.0 Standalone</span>
-            <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" title="System Ready" />
+        {/* Brand Header */}
+        <div className={`p-4 pt-5 flex ${isCollapsed ? "flex-col items-center justify-center" : "items-center gap-3"} min-h-[64px]`}>
+          <div className="w-8 h-8 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center shrink-0">
+            <DubFlowIcon className="w-5 h-5 text-amber-400" />
           </div>
-        )}
+          {!isCollapsed && (
+            <div className="flex flex-col min-w-0">
+              <span className="text-[17px] font-extrabold tracking-tight text-white leading-tight">
+                DubFlow
+              </span>
+              <span className="text-[10px] text-[#737373] tracking-wide font-medium">
+                Studio Edition v2.0
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Navigation Menus */}
+        <nav className="flex-1 px-2.5 py-2 space-y-5 overflow-y-auto overflow-x-hidden no-scrollbar">
+          {/* General Section */}
+          <div>
+            {!isCollapsed && (
+              <div className="text-[11px] font-semibold text-[#666666] tracking-wide mb-2 px-3">
+                General
+              </div>
+            )}
+            <div className="space-y-1">
+              {/* Dashboard */}
+              <Link href="/dashboard" className={getLinkClass("/dashboard")} title="Dashboard">
+                {isLinkActive("/dashboard") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r-full" />
+                )}
+                <LayoutDashboard size={isCollapsed ? 20 : 17} className={`${isLinkActive("/dashboard") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
+                {!isCollapsed && <span className="truncate">Dashboard</span>}
+              </Link>
+
+              {/* Schedule */}
+              <Link href="/time" className={getLinkClass("/time")} title="Schedule">
+                {isLinkActive("/time") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r-full" />
+                )}
+                <Calendar size={isCollapsed ? 20 : 17} className={`${isLinkActive("/time") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
+                {!isCollapsed && <span className="truncate">Schedule</span>}
+              </Link>
+
+              {/* Projects */}
+              <Link href="/projects" className={getLinkClass("/projects")} title="Projects">
+                {isLinkActive("/projects") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r-full" />
+                )}
+                <Briefcase size={isCollapsed ? 20 : 17} className={`${isLinkActive("/projects") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
+                {!isCollapsed && <span className="truncate">Projects</span>}
+              </Link>
+
+              {/* Statistics & Reports */}
+              <Link href="/time#analytics" className={getLinkClass("/time#analytics")} title="Statistics & reports">
+                <BarChart3 size={isCollapsed ? 20 : 17} className="text-[#8e8e93] group-hover:text-white shrink-0 mr-0 lg:mr-3" />
+                {!isCollapsed && <span className="truncate">Statistics & reports</span>}
+              </Link>
+
+              {/* Script Converter */}
+              <Link href="/converter" className={getLinkClass("/converter")} title="Script Converter">
+                {isLinkActive("/converter") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r-full" />
+                )}
+                <Film size={isCollapsed ? 20 : 17} className={`${isLinkActive("/converter") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
+                {!isCollapsed && <span className="truncate">Education &amp; Scripts</span>}
+              </Link>
+            </div>
+          </div>
+
+          {/* Tools Section */}
+          <div>
+            {!isCollapsed && (
+              <div className="text-[11px] font-semibold text-[#666666] tracking-wide mb-2 px-3">
+                Tools
+              </div>
+            )}
+            <div className="space-y-1">
+              {/* Staff & Collaborators */}
+              <Link href="/staff" className={getLinkClass("/staff")} title="Staff & Collaborators">
+                {isLinkActive("/staff") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r-full" />
+                )}
+                <Users size={isCollapsed ? 20 : 17} className={`${isLinkActive("/staff") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
+                {!isCollapsed && <span className="truncate">Staff &amp; Collaborators</span>}
+              </Link>
+
+              {/* Companies */}
+              <Link href="/company" className={getLinkClass("/company")} title="Companies">
+                {isLinkActive("/company") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r-full" />
+                )}
+                <Building2 size={isCollapsed ? 20 : 17} className={`${isLinkActive("/company") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
+                {!isCollapsed && <span className="truncate">Companies</span>}
+              </Link>
+
+              {/* Documents Base */}
+              <Link href="/projects" className={getLinkClass("/documents")} title="Documents base">
+                <FolderArchive size={isCollapsed ? 20 : 17} className="text-[#8e8e93] group-hover:text-white shrink-0 mr-0 lg:mr-3" />
+                {!isCollapsed && <span className="truncate">Documents base</span>}
+              </Link>
+
+              {/* Settings */}
+              <Link href="/settings" className={getLinkClass("/settings")} title="Settings">
+                {isLinkActive("/settings") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r-full" />
+                )}
+                <Settings size={isCollapsed ? 20 : 17} className={`${isLinkActive("/settings") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
+                {!isCollapsed && <span className="truncate">Settings</span>}
+              </Link>
+            </div>
+          </div>
+        </nav>
+
+        {/* Footer / Log out */}
+        <div className="p-3 border-t border-white/[0.08] mt-auto">
+          <button
+            onClick={() => logout()}
+            title="Log Out"
+            className={`w-full flex items-center ${
+              isCollapsed ? "justify-center p-2.5" : "gap-3 px-3.5 py-2.5"
+            } rounded-2xl text-[13px] font-medium text-[#8e8e93] hover:text-rose-400 hover:bg-white/[0.06] transition-all cursor-pointer`}
+          >
+            <LogOut size={isCollapsed ? 18 : 16} className="shrink-0" />
+            {!isCollapsed && <span className="truncate">Log out</span>}
+          </button>
+        </div>
       </div>
     </aside>
   );
 }
+

@@ -142,6 +142,7 @@ class User(Base):
     appointments = relationship("Appointment", back_populates="user", cascade="all, delete-orphan")
     api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
     verifications = relationship("EmailVerification", back_populates="user", cascade="all, delete-orphan")
+    schedule_tasks = relationship("ScheduleTask", back_populates="user", cascade="all, delete-orphan")
 
 class EmailVerification(Base):
     __tablename__ = "email_verifications"
@@ -164,5 +165,28 @@ class RevokedToken(Base):
     token_hash = Column(String(191), unique=True, index=True, nullable=False)
     revoked_at = Column(DateTime, default=datetime.datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
+
+class ScheduleTask(Base):
+    __tablename__ = "schedule_tasks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    day = Column(String(10), nullable=False) # 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'
+    task_date = Column(String(20), nullable=True) # 'YYYY-MM-DD'
+    start_time = Column(String(10), nullable=False) # '07:00'
+    end_time = Column(String(10), nullable=False)   # '07:30'
+    task_name = Column(String(255), nullable=False) # 'Pose de texte', 'Détection', etc.
+    project_name = Column(String(255), nullable=True)
+    company_name = Column(String(255), nullable=True)
+    company_code = Column(String(20), nullable=True) # 'C+', 'CR', 'TF', 'DB', etc.
+    room = Column(String(100), nullable=True) # 'Studio A'
+    theme = Column(String(20), default="cream") # 'cream', 'yellow', 'blue', 'white'
+    status_badge = Column(String(50), nullable=True) # 'En cours...', 'Terminé'
+    has_join_button = Column(Boolean, default=False)
+    staff_members = Column(Text, nullable=True) # JSON array of staff objects
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    user = relationship("User", back_populates="schedule_tasks")
+
 
 

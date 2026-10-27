@@ -54,6 +54,7 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isGisInitializedRef = useRef(false);
+  const processedHashTokenRef = useRef(false);
 
   const [mounted, setMounted] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -69,10 +70,12 @@ export default function GoogleAuthButton({ mode = "login", onError, onSuccess }:
       );
 
       // Check if redirected back with id_token in hash
-      if (window.location.hash) {
+      if (window.location.hash && !processedHashTokenRef.current) {
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
         const idToken = hashParams.get("id_token");
         if (idToken) {
+          processedHashTokenRef.current = true;
+          window.history.replaceState(null, "", window.location.pathname);
           setBtnLoading(true);
           loginWithGoogle(idToken).then((res) => {
             setBtnLoading(false);

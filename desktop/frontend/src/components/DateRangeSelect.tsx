@@ -131,6 +131,7 @@ export default function DateRangeSelect({
     const newCoords = calculatePosition();
     if (newCoords) setCoords(newCoords);
     setIsOpen(true);
+    // Reset selecting step
     if (startDate && !endDate) {
       setSelectingStep("end");
     } else {
@@ -179,6 +180,7 @@ export default function DateRangeSelect({
   }, [viewYear, viewMonth]);
 
   const firstDayOfWeek = useMemo(() => {
+    // 0 = Sun, 1 = Mon ... We want Monday as 0
     const day = new Date(viewYear, viewMonth, 1).getDay();
     return day === 0 ? 6 : day - 1;
   }, [viewYear, viewMonth]);
@@ -212,13 +214,17 @@ export default function DateRangeSelect({
     const clickedStr = formatDateStr(viewYear, viewMonth, day);
 
     if (selectingStep === "start" || !startDate || (startDate && endDate)) {
+      // User is picking the start date
       onChange(clickedStr, "");
       setSelectingStep("end");
     } else {
+      // User is picking the end date
       if (clickedStr < startDate) {
+        // Clicked before start date -> make it the new start date
         onChange(clickedStr, "");
         setSelectingStep("end");
       } else {
+        // Complete the range
         onChange(startDate, clickedStr);
         setSelectingStep("start");
         setTimeout(() => handleClose(), 200);
@@ -285,13 +291,13 @@ export default function DateRangeSelect({
         onClick={handleOpen}
         className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl border transition-all text-left cursor-pointer ${
           isOpen
-            ? "border-amber-500/80 ring-1 ring-amber-500/30 bg-white dark:bg-[#161619]"
-            : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#161619] hover:border-slate-300 dark:hover:border-white/20"
+            ? "border-amber-400 ring-2 ring-amber-400/20 bg-white/95"
+            : "border-[#DDD7C5] bg-white/90 hover:border-amber-400/60"
         }`}
       >
         <div className="flex items-center gap-2 min-w-0">
           <CalendarIcon size={14} className="text-amber-500 shrink-0" />
-          <span className={displayValue ? "text-slate-900 dark:text-[#f4efe6] font-medium truncate" : "text-slate-400 dark:text-slate-500 truncate"}>
+          <span className={displayValue ? "text-[#111111] font-medium truncate" : "text-[#888375] truncate"}>
             {displayValue || placeholder}
           </span>
         </div>
@@ -299,7 +305,7 @@ export default function DateRangeSelect({
         {startDate && (
           <div
             onClick={handleClear}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
+            className="p-1 rounded-full text-[#888375] hover:text-[#111111] hover:bg-[#ECE8DD] transition-colors cursor-pointer"
             title="Effacer"
           >
             <X size={12} />
@@ -318,25 +324,25 @@ export default function DateRangeSelect({
             width: `${coords.width}px`,
             zIndex: 999999,
           }}
-          className="rounded-2xl p-3.5 bg-white/95 dark:bg-[#141417]/95 border border-slate-200/80 dark:border-white/10 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 select-none text-slate-800 dark:text-[#f4efe6]"
+          className="rounded-[24px] p-4 bg-[#ECE8DD] border border-[#DDD7C5] shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 select-none text-[#111111]"
         >
           {/* Calendar Header */}
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-white/5">
-            <span className="text-xs font-bold text-slate-900 dark:text-[#f4efe6]">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#DDD7C5]">
+            <span className="text-xs font-bold text-[#111111]">
               {MONTH_NAMES[viewMonth]} {viewYear}
             </span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={handlePrevMonth}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full text-[#666155] hover:text-[#111111] hover:bg-[#DDD7C5] transition-colors cursor-pointer"
               >
                 <ChevronLeft size={15} />
               </button>
               <button
                 type="button"
                 onClick={handleNextMonth}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full text-[#666155] hover:text-[#111111] hover:bg-[#DDD7C5] transition-colors cursor-pointer"
               >
                 <ChevronRight size={15} />
               </button>
@@ -346,7 +352,7 @@ export default function DateRangeSelect({
           {/* Weekday Names Header */}
           <div className="grid grid-cols-7 mb-1 text-center">
             {WEEKDAY_NAMES.map((name, i) => (
-              <span key={i} className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 py-1">
+              <span key={i} className="text-[10px] font-semibold text-[#888375] py-1">
                 {name}
               </span>
             ))}
@@ -358,7 +364,7 @@ export default function DateRangeSelect({
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
               <div
                 key={`prev-${i}`}
-                className="h-8 flex items-center justify-center text-[11px] text-slate-300 dark:text-white/10"
+                className="h-8 flex items-center justify-center text-[11px] text-[#BBB5A5]"
               >
                 {daysInPrevMonth - firstDayOfWeek + i + 1}
               </div>
@@ -387,18 +393,18 @@ export default function DateRangeSelect({
                     <>
                       {/* If start date: ribbon extends from center to right edge */}
                       {isStart && !isRowEnd && (
-                        <div className="absolute top-0 bottom-0 left-1/2 right-0 bg-amber-500/20 dark:bg-amber-400/20 pointer-events-none" />
+                        <div className="absolute top-0 bottom-0 left-1/2 right-0 bg-amber-400/30 pointer-events-none" />
                       )}
 
                       {/* If end date: ribbon extends from left edge to center */}
                       {isEnd && !isRowStart && (
-                        <div className="absolute top-0 bottom-0 left-0 right-1/2 bg-amber-500/20 dark:bg-amber-400/20 pointer-events-none" />
+                        <div className="absolute top-0 bottom-0 left-0 right-1/2 bg-amber-400/30 pointer-events-none" />
                       )}
 
                       {/* If inside range: ribbon covers entire width */}
                       {isInRange && (
                         <div
-                          className={`absolute top-0 bottom-0 left-0 right-0 bg-amber-500/20 dark:bg-amber-400/20 pointer-events-none ${
+                          className={`absolute top-0 bottom-0 left-0 right-0 bg-amber-400/30 pointer-events-none ${
                             isRowStart ? "rounded-l-full" : ""
                           } ${isRowEnd ? "rounded-r-full" : ""}`}
                         />
@@ -410,12 +416,12 @@ export default function DateRangeSelect({
                   <span
                     className={`relative z-10 w-7 h-7 flex items-center justify-center rounded-full transition-all ${
                       isStart || isEnd
-                        ? "bg-amber-500 text-black font-extrabold shadow-md scale-105"
+                        ? "bg-amber-400 text-black font-extrabold shadow-sm scale-105"
                         : isInRange
-                        ? "text-amber-900 dark:text-amber-200 font-semibold"
+                        ? "text-black font-semibold"
                         : isToday
-                        ? "border border-amber-500/60 text-amber-500 font-bold hover:bg-amber-500/10"
-                        : "text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/10"
+                        ? "border border-amber-500/60 text-amber-700 font-bold hover:bg-amber-400/20"
+                        : "text-[#111111] hover:bg-[#DDD7C5]"
                     }`}
                   >
                     {day}
@@ -426,12 +432,12 @@ export default function DateRangeSelect({
           </div>
 
           {/* Footer Helper Text */}
-          <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500">
+          <div className="mt-2.5 pt-2 border-t border-[#DDD7C5] flex items-center justify-between text-[10px] text-[#777265]">
             <span>
               {selectingStep === "start" ? "Cliquez pour la date de début" : "Cliquez pour la date de fin"}
             </span>
             {startDate && endDate && (
-              <span className="text-amber-500 font-semibold">
+              <span className="text-amber-600 font-semibold">
                 Période définie
               </span>
             )}

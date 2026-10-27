@@ -7,3 +7,4 @@ export function generateStaticParams() {
 export default function ProjectsPage() {
   return <ProjectsClient />;
 }
+

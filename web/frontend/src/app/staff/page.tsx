@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
+import PageHeader from "@/components/PageHeader";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { useSignaling } from "@/context/SignalingContext";
@@ -262,26 +263,22 @@ export default function StaffPage() {
   });
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden p-6 md:p-8 bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] transition-colors">
+    <div className="flex-1 flex flex-col h-full overflow-hidden p-6 md:p-8 text-[#111111] transition-colors">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-[#f4efe6] tracking-tight flex items-center gap-3">
-            <Users className="text-amber-500 dark:text-amber-400" size={28} />
-            <span>Staff &amp; Collaborators</span>
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-[#9f988b] mt-1">
-            Manage your project collaborators, granular access levels, and P2P transfer permissions.
-          </p>
-        </div>
-        <button 
-          onClick={openCreateModal}
-          className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-extrabold py-2.5 px-5 rounded-xl transition-all shadow-[0_4px_20px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_25px_rgba(245,158,11,0.4)] flex items-center justify-center text-sm shrink-0 self-start sm:self-auto transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-        >
-          <Plus size={18} className="mr-2 rtl:mr-0 rtl:ml-2" />
-          Add Collaborator
-        </button>
-      </div>
+      <PageHeader
+        title="Staff & Collaborators"
+        subtitle="Manage your project collaborators, granular access levels, and P2P transfer permissions."
+        icon={<Users size={28} />}
+        actionButton={
+          <button 
+            onClick={openCreateModal}
+            className="bg-[#111111] hover:bg-black text-white font-bold py-2.5 px-5 rounded-full shadow-xs flex items-center justify-center text-sm shrink-0 cursor-pointer transition-transform active:scale-95"
+          >
+            <Plus size={16} className="mr-2 rtl:mr-0 rtl:ml-2" />
+            Add Collaborator
+          </button>
+        }
+      />
 
       {/* Filters Bar */}
       <div className="flex gap-3 sm:gap-4 mb-5 flex-wrap shrink-0">
@@ -479,19 +476,19 @@ export default function StaffPage() {
 
       {/* Create / Edit Collaborator Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200 overflow-y-auto">
-          <div className="bg-white dark:bg-[#141417] rounded-3xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6] overflow-hidden my-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[100] flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-[#F7F4EB] rounded-[28px] shadow-2xl w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 border border-[#DDD7C5] text-[#111111] overflow-hidden my-auto">
             
             {/* Modal Header */}
-            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] flex justify-between items-center bg-slate-50/50 dark:bg-white/[0.02] shrink-0">
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-[#f4efe6] flex items-center gap-2">
-                <Users size={18} className="text-amber-500 dark:text-amber-400" />
+            <div className="px-6 py-4 border-b border-[#DDD7C5] flex justify-between items-center bg-[#ECE8DD] shrink-0">
+              <h2 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-2">
+                <Users size={18} className="text-amber-500" />
                 <span>{editingStaffId ? "Edit Collaborator" : "Add Direct Collaborator"}</span>
               </h2>
               <button 
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 rounded-xl transition-colors cursor-pointer"
+                className="text-stone-400 hover:text-[#111111] hover:bg-black/5 p-1.5 rounded-full transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -499,9 +496,9 @@ export default function StaffPage() {
             
             <form onSubmit={handleSubmitStaff} className="flex flex-col flex-1 min-h-0 overflow-hidden">
               {/* Scrollable Form Body */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 sm:space-y-4 min-h-0">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 min-h-0 bg-[#F7F4EB]">
                 {error && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 text-xs rounded-xl font-medium">
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs rounded-2xl font-medium">
                     {error}
                   </div>
                 )}
@@ -509,21 +506,21 @@ export default function StaffPage() {
                 {/* Registered User Search / Selection */}
                 {!editingStaffId ? (
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
-                      Select Registered User <span className="text-amber-500 dark:text-amber-400">*</span>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Select Registered User <span className="text-amber-500">*</span>
                     </label>
 
                     {selectedUser ? (
-                      <div className="p-3 bg-amber-400/10 border border-amber-400/25 rounded-xl flex items-center justify-between animate-in fade-in duration-200">
+                      <div className="p-3 bg-[#ECE8DD] border border-amber-400/50 rounded-2xl flex items-center justify-between animate-in fade-in duration-200">
                         <div className="flex items-center space-x-2.5 rtl:space-x-reverse min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-amber-400 text-black font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                          <div className="w-8 h-8 rounded-full bg-amber-400 text-black font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
                             <Check size={16} />
                           </div>
                           <div className="min-w-0">
-                            <p className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] truncate">
+                            <p className="font-bold text-xs text-[#111111] truncate">
                               {selectedUser.name}
                             </p>
-                            <p className="text-[11px] text-amber-700 dark:text-amber-300 truncate">
+                            <p className="text-[11px] text-amber-700 truncate">
                               {selectedUser.email}
                             </p>
                           </div>
@@ -536,7 +533,7 @@ export default function StaffPage() {
                             setEmail("");
                             setStaffUserId(null);
                           }}
-                          className="text-xs font-semibold text-slate-500 dark:text-[#9f988b] hover:text-slate-900 dark:hover:text-[#f4efe6] px-2.5 py-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                          className="text-xs font-semibold text-stone-600 hover:text-[#111111] px-3 py-1 hover:bg-black/5 rounded-full transition-colors cursor-pointer"
                         >
                           Change
                         </button>
@@ -544,25 +541,25 @@ export default function StaffPage() {
                     ) : (
                       <div className="relative">
                         <div className="relative">
-                          <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#71717a]" size={15} />
+                          <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-stone-400" size={15} />
                           <input
                             type="text"
                             value={userSearchQuery}
                             onChange={(e) => setUserSearchQuery(e.target.value)}
-                            className="w-full pl-9 rtl:pl-3 rtl:pr-9 pr-8 py-2.5 bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-colors"
+                            className="w-full pl-9 rtl:pl-3 rtl:pr-9 pr-8 py-2.5 bg-white/90 border border-[#DDD7C5] rounded-xl text-xs text-[#111111] placeholder:text-stone-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-colors shadow-xs"
                             placeholder="Search registered user by name or email..."
                             autoFocus
                           />
                           {isSearchingUsers && (
-                            <Loader2 className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-amber-500 dark:text-amber-400 animate-spin" size={15} />
+                            <Loader2 className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-amber-500 animate-spin" size={15} />
                           )}
                         </div>
 
                         {/* Search Results Dropdown */}
                         {userSearchQuery.trim().length > 0 && (
-                          <div className="mt-1.5 max-h-48 overflow-y-auto bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.8)] divide-y divide-slate-100 dark:divide-white/5 z-10">
+                          <div className="mt-1.5 max-h-48 overflow-y-auto bg-[#ECE8DD] border border-[#DDD7C5] rounded-2xl shadow-xl divide-y divide-[#DDD7C5] z-10">
                             {userSearchResults.length === 0 && !isSearchingUsers ? (
-                              <div className="p-3 text-center text-xs text-slate-400 dark:text-[#71717a]">
+                              <div className="p-3 text-center text-xs text-stone-400">
                                 No registered user found matching &quot;{userSearchQuery}&quot;
                               </div>
                             ) : (
@@ -578,17 +575,17 @@ export default function StaffPage() {
                                     setUserSearchQuery("");
                                     setUserSearchResults([]);
                                   }}
-                                  className="w-full p-2.5 text-left rtl:text-right hover:bg-amber-50 dark:hover:bg-amber-400/10 flex items-center justify-between transition-colors group cursor-pointer"
+                                  className="w-full p-2.5 text-left rtl:text-right hover:bg-amber-400/10 flex items-center justify-between transition-colors group cursor-pointer"
                                 >
                                   <div className="min-w-0 pr-2">
-                                    <p className="font-semibold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400 truncate">
+                                    <p className="font-semibold text-xs text-[#111111] group-hover:text-amber-600 truncate">
                                       {u.name}
                                     </p>
-                                    <p className="text-[11px] text-slate-500 dark:text-[#71717a] truncate">
+                                    <p className="text-[11px] text-stone-500 truncate">
                                       {u.email}
                                     </p>
                                   </div>
-                                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 shrink-0 px-2 py-0.5 rounded bg-amber-400/20 border border-amber-400/30">
+                                  <span className="text-[10px] font-bold text-[#111111] shrink-0 px-2.5 py-0.5 rounded-full bg-amber-400 border border-amber-400">
                                     Select
                                   </span>
                                 </button>
@@ -596,22 +593,22 @@ export default function StaffPage() {
                             )}
                           </div>
                         )}
-                        <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-1">
+                        <p className="text-[11px] text-stone-400 mt-1">
                           Only registered accounts in DubFlow can be added as project collaborators.
                         </p>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="p-3 bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl">
-                    <p className="font-bold text-xs text-slate-900 dark:text-[#f4efe6]">{name}</p>
-                    <p className="text-[11px] text-slate-500 dark:text-[#71717a]">{email}</p>
+                  <div className="p-3 bg-[#ECE8DD] border border-[#DDD7C5] rounded-2xl">
+                    <p className="font-bold text-xs text-[#111111]">{name}</p>
+                    <p className="text-[11px] text-stone-500">{email}</p>
                   </div>
                 )}
 
                 {/* Role / Task */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
                     Assigned Role / Task
                   </label>
                   <CustomSelect
@@ -628,8 +625,8 @@ export default function StaffPage() {
 
                 {/* Granular Access Level Control */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">
-                    Project Access Level <span className="text-amber-500 dark:text-amber-400">*</span>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                    Project Access Level <span className="text-amber-500">*</span>
                   </label>
                   <CustomSelect
                     options={[
@@ -639,7 +636,7 @@ export default function StaffPage() {
                     value={accessLevel}
                     onChange={(val) => setAccessLevel(val as "full_access" | "spectator")}
                   />
-                  <p className="text-[11px] text-slate-500 dark:text-[#71717a] mt-1.5 leading-relaxed">
+                  <p className="text-[11px] text-stone-500 mt-1.5 leading-relaxed">
                     {accessLevel === "full_access" 
                       ? "Can view shared projects, inspect files, and download via P2P." 
                       : "Read-only. Can inspect project metadata. All downloads strictly disabled."}
@@ -653,14 +650,14 @@ export default function StaffPage() {
                       type="checkbox"
                       checked={autoAcceptTransfers}
                       onChange={(e) => setAutoAcceptTransfers(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded text-amber-500 accent-amber-500 focus:ring-amber-400 border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-[#18181c] cursor-pointer"
+                      className="mt-0.5 w-4 h-4 rounded text-amber-500 accent-amber-500 focus:ring-amber-400 border-[#DDD7C5] bg-white cursor-pointer"
                     />
-                    <div className="text-xs text-slate-700 dark:text-[#c2bcaf]">
-                      <span className="font-semibold flex items-center gap-1">
-                        <Zap size={12} className="text-amber-500 dark:text-amber-400 fill-amber-400" />
+                    <div className="text-xs text-stone-700">
+                      <span className="font-semibold flex items-center gap-1 text-[#111111]">
+                        <Zap size={12} className="text-amber-500 fill-amber-400" />
                         Auto-approve P2P transfer requests
                       </span>
-                      <p className="text-[11px] text-slate-400 dark:text-[#71717a]">
+                      <p className="text-[11px] text-stone-500">
                         Files will stream immediately when this collaborator requests downloads without waiting for prompt.
                       </p>
                     </div>
@@ -669,18 +666,18 @@ export default function StaffPage() {
               </div>
 
               {/* Modal Action Buttons Footer */}
-              <div className="px-5 py-3 sm:px-6 sm:py-3.5 flex justify-end gap-2.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
+              <div className="px-6 py-4 flex justify-end gap-2.5 border-t border-[#DDD7C5] bg-[#ECE8DD] shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 sm:px-4 sm:py-2.5 text-xs text-slate-700 dark:text-[#f4efe6] font-semibold hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors cursor-pointer"
+                  className="px-5 py-2 text-xs font-semibold text-stone-700 hover:text-[#111111] bg-[#F7F4EB] hover:bg-white border border-[#DDD7C5] rounded-full transition-colors cursor-pointer shadow-xs"
                 >
                   {t("cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !name.trim()}
-                  className="px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 text-black font-black rounded-xl text-xs transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer"
+                  className="px-6 py-2 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-black font-bold rounded-full text-xs transition-all shadow-md flex items-center cursor-pointer"
                 >
                   {isSubmitting && <Loader2 size={14} className="animate-spin mr-1.5 rtl:mr-0 rtl:ml-1.5" />}
                   {editingStaffId ? "Update Collaborator" : "Add Collaborator"}

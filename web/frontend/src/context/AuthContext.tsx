@@ -297,7 +297,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Google Login (Server sets HttpOnly cookie)
-  const loginWithGoogle = async (credential: string): Promise<AuthResponse> => {
+  const loginWithGoogle = useCallback(async (credential: string): Promise<AuthResponse> => {
     try {
       const res = await fetch(`${API_BASE}/auth/google`, {
         method: "POST",
@@ -313,7 +313,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error: typeof json.detail === "string" ? json.detail : "Google authentication failed.",
         };
       }
-
 
       if (json.user) {
         setUser(json.user);
@@ -331,7 +330,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error: "Unable to connect to server for Google authentication.",
       };
     }
-  };
+  }, [refreshSession]);
 
   // Complete User Profile (first_name, last_name, job_type)
   const completeProfile = async (data: { first_name: string; last_name: string; job_type: string }): Promise<AuthResponse> => {

@@ -13,6 +13,7 @@ import DateSelect from "@/components/DateSelect";
 import DateRangeSelect from "@/components/DateRangeSelect";
 import MediaViewerModal, { detectFileCategory, ProjectViewerFile } from "@/components/MediaViewerModal";
 import LargeFileRequirementModal from "@/components/LargeFileRequirementModal";
+import PageHeader from "@/components/PageHeader";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { useSignaling } from "@/context/SignalingContext";
@@ -1099,35 +1100,33 @@ export default function ProjectsClient() {
   });
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] relative p-4 sm:p-6 lg:p-8 overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-5 shrink-0">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-[#f4efe6] flex items-center tracking-tight">
-            <Briefcase className="mr-3 rtl:mr-0 rtl:ml-3 text-amber-500 dark:text-amber-400 shrink-0" size={28} />
-            {t("project.title")}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9f988b] mt-1">{t("project.subtitle")}</p>
-        </div>
-        <button
-          onClick={openCreateModal}
-          className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-extrabold py-2.5 px-5 rounded-xl transition-all shadow-[0_4px_20px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_25px_rgba(245,158,11,0.4)] flex items-center justify-center text-sm shrink-0 self-start sm:self-auto transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-        >
-          <Plus size={18} className="mr-2 rtl:mr-0 rtl:ml-2" />
-          {t("project.add")}
-        </button>
-      </div>
+    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-hidden">
+      {/* Header with Title, Icon, Subtitle, and Top-Right Action Pills */}
+      <PageHeader
+        title={t("project.title")}
+        subtitle={t("project.subtitle") || "Manage your projects, assign companies, and track deadlines seamlessly."}
+        icon={<Briefcase size={28} />}
+        actionButton={
+          <button
+            onClick={openCreateModal}
+            className="bg-[#111111] hover:bg-black text-white font-bold py-2.5 px-5 rounded-full shadow-xs flex items-center justify-center text-sm shrink-0 cursor-pointer transition-transform active:scale-95"
+          >
+            <Plus size={16} className="mr-2 rtl:mr-0 rtl:ml-2" />
+            {t("project.add")}
+          </button>
+        }
+      />
 
       {/* Toolbar: Search and Filter */}
       <div className="flex gap-3 sm:gap-4 mb-5 flex-wrap shrink-0">
         <div className="flex-1 relative group min-w-[200px] sm:min-w-[260px]">
-          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-[#71717a] group-focus-within:text-amber-500 dark:group-focus-within:text-amber-400 transition-colors" size={17} />
+          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-[#FF7597] group-focus-within:text-[#FF7597] transition-colors" size={17} />
           <input
             type="text"
             placeholder={t("project.search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 bg-white dark:bg-[#131316] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 rounded-xl shadow-xs dark:shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)] focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all text-sm font-medium text-slate-900 dark:text-[#f4efe6] placeholder-slate-400 dark:placeholder-[#71717a]"
+            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2 bg-[#F7F4EB] border border-[#D9D3C2] hover:border-[#111111] focus:border-[#111111] rounded-full shadow-xs focus:outline-none transition-all text-sm font-medium text-[#111111] placeholder-[#8c887b]"
           />
         </div>
 
@@ -1210,9 +1209,9 @@ export default function ProjectsClient() {
                   <div
                     key={p.id}
                     onClick={() => handleProjectClick(p)}
-                    className={`group bg-white dark:bg-[#121215] hover:bg-slate-50 dark:hover:bg-[#16161a] rounded-2xl border p-4 sm:p-5 cursor-pointer transition-all duration-200 ${selectedProject?.id === p.id
-                      ? "border-amber-500/80 dark:border-amber-400/80 ring-1 ring-amber-500/50 dark:ring-amber-400/50 shadow-md dark:shadow-[0_0_25px_rgba(245,158,11,0.15)]"
-                      : "border-slate-200/80 dark:border-white/[0.08] hover:border-amber-400/40 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
+                    className={`group bg-[#ECE8DD] hover:bg-[#E4DFC0] rounded-[20px] border p-4 sm:p-5 cursor-pointer transition-all duration-200 text-[#111111] ${selectedProject?.id === p.id
+                      ? "border-2 border-[#111111] shadow-xs"
+                      : "border-[#DDD7C5] shadow-none"
                       }`}
                   >
                     <div className="flex justify-between items-start mb-2 group-hover:bg-transparent">
@@ -1306,11 +1305,11 @@ export default function ProjectsClient() {
 
         {/* Project Details Panel */}
         {selectedProject && (
-          <div className="w-full lg:w-[430px] xl:w-[470px] shrink-0 bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xl dark:shadow-[0_15px_40px_rgba(0,0,0,0.7)] flex flex-col h-full animate-in slide-in-from-right-4 duration-300 overflow-hidden text-slate-800 dark:text-[#f4efe6]">
-            <div className="p-4 border-b border-slate-200/80 dark:border-white/[0.08] flex justify-between items-start gap-3 bg-slate-50/70 dark:bg-white/[0.02] rounded-t-2xl">
+          <div className="w-full lg:w-[430px] xl:w-[470px] shrink-0 bg-[#ECE8DD] rounded-[24px] border border-[#DDD7C5] shadow-xs flex flex-col h-full animate-in slide-in-from-right-4 duration-300 overflow-hidden text-[#111111]">
+            <div className="p-4 border-b border-[#DDD7C5] flex justify-between items-start gap-3 bg-[#E4DFC0]/40 rounded-t-[24px]">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-0">
-                  <h2 className="font-bold text-slate-900 dark:text-[#f4efe6] text-xl truncate" title={selectedProject.name}>
+                  <h2 className="font-bold text-[#111111] text-xl truncate" title={selectedProject.name}>
                     {selectedProject.name}
                   </h2>
                 </div>
@@ -1409,7 +1408,7 @@ export default function ProjectsClient() {
               onDrop={handleDropPanel}
               className={`flex-1 overflow-y-auto p-4 transition-colors ${isDraggingPanel
                 ? 'bg-amber-500/10 border-2 border-dashed border-amber-500'
-                : 'bg-slate-50/50 dark:bg-black/20'
+                : 'bg-[#ECE8DD]'
                 }`}
             >
               {/* Active Collaborator Role Indicator (Clean, Minimal, No Loud Box) */}
@@ -1864,41 +1863,41 @@ export default function ProjectsClient() {
 
       {/* Create Project Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-3 sm:p-5 overflow-y-auto">
-          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-2xl max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6] overflow-hidden my-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/75 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-[#F7F4EB] rounded-[28px] shadow-2xl border border-[#DDD7C5] w-full max-w-2xl max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 relative z-10 text-[#111111] overflow-hidden my-auto">
             {/* Modal Header */}
-            <div className="flex justify-between items-center px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] shrink-0">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingProjectId ? t("project.edit") : t("project.add_new")}</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 sm:p-2 rounded-xl transition-colors cursor-pointer">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-[#DDD7C5] bg-[#ECE8DD] shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-[#111111]">{editingProjectId ? t("project.edit") : t("project.add_new")}</h2>
+              <button onClick={() => setShowModal(false)} className="text-[#777265] hover:text-[#111111] hover:bg-[#DDD7C5] p-2 rounded-full transition-colors cursor-pointer">
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleSubmitProject} className="flex flex-col flex-1 min-h-0 overflow-hidden">
               {/* Scrollable Form Body */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 sm:space-y-4 min-h-0">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-4 min-h-0 bg-[#F7F4EB]">
                 {error && (
-                  <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg border border-red-200 dark:border-red-800/50">
+                  <div className="bg-rose-50 text-rose-600 text-sm p-3.5 rounded-xl border border-rose-200">
                     {error}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.name")} *</label>
+                  <label className="block text-xs font-bold text-[#111111] mb-1.5">{t("project.form.name")} *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Episode 10 Translation"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 sm:py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                    className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 text-[#111111] placeholder-[#888375]"
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf]">Description <span className="font-normal text-slate-400 dark:text-[#71717a]">(optional)</span></label>
-                    <span className={`text-[11px] font-mono ${description.length > 700 ? "text-rose-500" : "text-slate-400 dark:text-[#71717a]"}`}>{description.length}/750</span>
+                    <label className="block text-xs font-bold text-[#111111]">Description <span className="font-normal text-[#777265]">(optional)</span></label>
+                    <span className={`text-[11px] font-mono ${description.length > 700 ? "text-rose-500" : "text-[#777265]"}`}>{description.length}/750</span>
                   </div>
                   <textarea
                     maxLength={750}
@@ -1906,7 +1905,7 @@ export default function ProjectsClient() {
                     placeholder="Describe the project scope, notes, or any relevant information..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a] resize-none leading-relaxed"
+                    className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 text-[#111111] placeholder-[#888375] resize-none leading-relaxed"
                   />
                 </div>
 
@@ -1941,12 +1940,12 @@ export default function ProjectsClient() {
                     onDragLeave={() => setIsDraggingNewProject(false)}
                     onDrop={handleDropNewProject}
                     className={`flex items-center rounded-xl border transition-all overflow-hidden ${isDraggingNewProject
-                      ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/20'
-                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#161619] hover:border-slate-300 dark:hover:border-white/20 focus-within:border-amber-500 dark:focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-500/20 dark:focus-within:ring-amber-400/20'
+                      ? 'border-amber-400 bg-amber-400/20 ring-2 ring-amber-400/30'
+                      : 'border-[#DDD7C5] bg-white/90 hover:border-amber-400/60 focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-400/30'
                       }`}
                   >
-                    <div className="pl-3.5 pr-2 text-slate-400 dark:text-[#71717a] flex items-center justify-center shrink-0">
-                      <FolderOpen size={18} className="text-amber-500 dark:text-amber-400" />
+                    <div className="pl-3.5 pr-2 text-amber-600 flex items-center justify-center shrink-0">
+                      <FolderOpen size={18} />
                     </div>
                     <input
                       type="text"
@@ -1954,13 +1953,13 @@ export default function ProjectsClient() {
                       placeholder="e.g. C:/Projects/Episode1 or browse folder..."
                       value={folderPath}
                       onChange={(e) => setFolderPath(e.target.value)}
-                      className="flex-1 bg-transparent py-2 sm:py-2.5 px-1 text-xs font-mono text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder:text-[#71717a] focus:outline-none"
+                      className="flex-1 bg-transparent py-2.5 px-1 text-xs font-mono text-[#111111] placeholder-[#888375] focus:outline-none"
                     />
                     <div className="p-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={handleBrowseFolder}
-                        className="px-3 py-1.5 bg-slate-200/70 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-[#f4efe6] rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                        className="px-3.5 py-1.5 bg-[#ECE8DD] hover:bg-[#DDD7C5] text-[#111111] rounded-full text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
                       >
                         <FolderOpen size={14} />
                         <span>{t("project.form.browse")}</span>
@@ -1969,17 +1968,17 @@ export default function ProjectsClient() {
                   </div>
 
                   {selectedFilesForNewProject.length > 0 && (
-                    <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-2 text-xs text-amber-600 dark:text-amber-400 font-medium animate-in fade-in duration-150">
+                    <div className="flex items-center space-x-1.5 rtl:space-x-reverse mt-2 text-xs text-amber-700 font-medium animate-in fade-in duration-150">
                       <CheckCircle2 size={14} className="shrink-0" />
                       <span>{selectedFilesForNewProject.length} files detected in folder</span>
                     </div>
                   )}
-                  <p className="text-[11px] text-slate-400 dark:text-[#71717a] mt-1">{t("project.form.folder_desc")}</p>
+                  <p className="text-[11px] text-[#777265] mt-1">{t("project.form.folder_desc")}</p>
                 </div>
 
                 <div className="flex gap-3 sm:gap-4">
                   <div className="flex-1">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.company")}</label>
+                    <label className="block text-xs font-bold text-[#111111] mb-1.5">{t("project.form.company")}</label>
                     {!isCustomCompany ? (
                       <CustomSelect
                         value={companyName}
@@ -2005,12 +2004,12 @@ export default function ProjectsClient() {
                           placeholder="e.g. Netflix"
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                          className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 text-[#111111] placeholder-[#888375]"
                         />
                         <button
                           type="button"
                           onClick={() => { setIsCustomCompany(false); setCompanyName(""); }}
-                          className="bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-600 dark:text-[#f4efe6] rounded-xl px-3 flex items-center justify-center transition-colors cursor-pointer"
+                          className="bg-[#ECE8DD] hover:bg-[#DDD7C5] text-[#111111] rounded-full px-3 flex items-center justify-center transition-colors cursor-pointer"
                           title={t("cancel")}
                         >
                           <X size={16} />
@@ -2019,7 +2018,7 @@ export default function ProjectsClient() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.type")}</label>
+                    <label className="block text-xs font-bold text-[#111111] mb-1.5">{t("project.form.type")}</label>
                     <CustomSelect
                       value={projectType}
                       onChange={(val) => setProjectType(val)}
@@ -2035,7 +2034,7 @@ export default function ProjectsClient() {
 
                 <div className="flex gap-3 sm:gap-4">
                   <div className="flex-1">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.software")}</label>
+                    <label className="block text-xs font-bold text-[#111111] mb-1.5">{t("project.form.software")}</label>
                     <CustomSelect
                       value={targetSoftware}
                       onChange={(val) => setTargetSoftware(val)}
@@ -2054,14 +2053,14 @@ export default function ProjectsClient() {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("project.form.time")}</label>
+                    <label className="block text-xs font-bold text-[#111111] mb-1.5">{t("project.form.time")}</label>
                     <input
                       type="number"
                       min="0"
                       placeholder="e.g. 120"
                       value={totalTime}
                       onChange={(e) => setTotalTime(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                      className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 text-[#111111] placeholder-[#888375]"
                     />
                   </div>
                 </div>
@@ -2081,7 +2080,7 @@ export default function ProjectsClient() {
                       <button
                         type="button"
                         onClick={handleStartAddCollab}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-amber-500/10"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#111111] bg-amber-400 hover:bg-amber-300 transition-colors cursor-pointer py-1.5 px-3 rounded-full shadow-xs"
                       >
                         <Plus size={13} />
                         <span>Ajouter un membre</span>
@@ -2091,17 +2090,17 @@ export default function ProjectsClient() {
 
                   {/* Form when adding or editing a collaborator */}
                   {editingCollabIndex !== null && (
-                    <div className="p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/[0.02] dark:bg-white/[0.02] space-y-3 animate-in fade-in duration-150">
-                      <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-white/5">
-                        <span className="text-xs font-bold text-slate-800 dark:text-[#f4efe6]">
+                    <div className="p-4 rounded-2xl border border-[#DDD7C5] bg-[#ECE8DD] space-y-3 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#DDD7C5]">
+                        <span className="text-xs font-bold text-[#111111]">
                           {editingCollabIndex === -1 ? "Nouveau membre de l'équipe" : "Modifier l'affectation"}
                         </span>
                         <button
                           type="button"
                           onClick={handleCancelCollabForm}
-                          className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
+                          className="p-1 rounded-full text-stone-400 hover:text-[#111111] hover:bg-black/5 transition-colors cursor-pointer"
                         >
-                          <X size={13} />
+                          <X size={14} />
                         </button>
                       </div>
 
@@ -2218,18 +2217,18 @@ export default function ProjectsClient() {
                       </div>
 
                       {/* Form action buttons */}
-                      <div className="flex justify-end items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+                      <div className="flex justify-end items-center gap-2 pt-2 border-t border-[#DDD7C5]">
                         <button
                           type="button"
                           onClick={handleCancelCollabForm}
-                          className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+                          className="px-3.5 py-1.5 text-xs font-semibold text-stone-600 hover:text-[#111111] rounded-full hover:bg-black/5 transition-colors cursor-pointer"
                         >
                           Annuler
                         </button>
                         <button
                           type="button"
                           onClick={handleSaveCollabForm}
-                          className="px-4 py-1.5 text-xs font-semibold bg-amber-500 text-black rounded-xl hover:bg-amber-400 transition-colors cursor-pointer shadow-sm"
+                          className="px-4 py-1.5 text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-full transition-colors cursor-pointer shadow-xs"
                         >
                           {editingCollabIndex === -1 ? "Confirmer l'ajout" : "Enregistrer"}
                         </button>
@@ -2327,11 +2326,19 @@ export default function ProjectsClient() {
               </div>
 
               {/* Pinned Action Buttons Footer */}
-              <div className="flex justify-end space-x-3 rtl:space-x-reverse px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
+              <div className="flex justify-end space-x-3 rtl:space-x-reverse px-5 py-3.5 sm:px-6 sm:py-4 border-t border-[#DDD7C5] bg-[#ECE8DD] shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-5 py-2 text-xs sm:text-sm font-semibold text-stone-700 hover:text-[#111111] bg-[#F7F4EB] hover:bg-white border border-[#DDD7C5] rounded-full transition-all cursor-pointer shadow-xs"
+                >
                   {t("cancel")}
                 </button>
-                <button type="submit" disabled={isSubmitting} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center disabled:opacity-50 cursor-pointer">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 text-xs sm:text-sm font-bold text-black bg-amber-400 hover:bg-amber-300 rounded-full transition-all shadow-md flex items-center disabled:opacity-50 cursor-pointer"
+                >
                   {isSubmitting && <Loader2 size={16} className="animate-spin mr-2 rtl:mr-0 rtl:ml-2" />}
                   {editingProjectId ? t("update") : t("create")}
                 </button>
@@ -2343,31 +2350,31 @@ export default function ProjectsClient() {
 
       {/* Assign / Update Film Project File Modal */}
       {showMasterFileModal && selectedProject && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#161619] rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 w-full max-w-md overflow-hidden text-slate-800 dark:text-[#f4efe6] animate-in zoom-in-95 duration-150">
-            {/* Minimal Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/[0.06]">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-[#F7F4EB] rounded-[28px] shadow-2xl border border-[#DDD7C5] w-full max-w-md overflow-hidden text-[#111111] animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#DDD7C5] bg-[#ECE8DD]">
               <div className="min-w-0 pr-2">
-                <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-[#f4efe6] truncate">
+                <h3 className="font-bold text-base text-[#111111] truncate">
                   Fichier du film
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-[#9f988b] truncate mt-0.5">
+                <p className="text-xs text-stone-600 truncate mt-0.5">
                   Sélectionnez le média principal pour {selectedProject.name}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowMasterFileModal(false)}
-                className="text-slate-400 hover:text-slate-700 dark:hover:text-[#f4efe6] p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                className="text-stone-400 hover:text-[#111111] p-1.5 rounded-full hover:bg-black/5 transition-colors cursor-pointer shrink-0"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Body */}
-            <div className="p-4 space-y-3">
+            <div className="p-5 space-y-3 bg-[#F7F4EB]">
               {projectFiles.length > 0 ? (
-                <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                   {projectFiles.map((f, i) => {
                     const isCurrent = selectedProject.project_file?.name === f.name;
                     const cat = detectFileCategory(f.name, f.type);
@@ -2388,18 +2395,18 @@ export default function ProjectsClient() {
                             });
                           }
                         }}
-                        className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors ${isCurrent
-                          ? "bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-500/30"
-                          : "hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-[#f4efe6] border border-transparent"
+                        className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all ${isCurrent
+                          ? "bg-amber-400/20 text-[#111111] border border-amber-400 font-semibold"
+                          : "bg-[#ECE8DD] hover:bg-white/90 text-[#111111] border border-[#DDD7C5]"
                           }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-                          <Icon size={15} className={isCurrent ? "text-amber-500 shrink-0" : "text-slate-400 shrink-0"} />
+                          <Icon size={16} className={isCurrent ? "text-amber-600 shrink-0" : "text-stone-500 shrink-0"} />
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium truncate" title={f.name}>
+                            <p className="text-xs font-semibold truncate" title={f.name}>
                               {f.name}
                             </p>
-                            <span className="text-[10px] text-slate-400 font-mono">
+                            <span className="text-[10px] text-stone-500 font-mono">
                               {formatFileSize(f.size || 0)}
                             </span>
                           </div>
@@ -2407,12 +2414,12 @@ export default function ProjectsClient() {
 
                         <div className="shrink-0 flex items-center">
                           {isCurrent ? (
-                            <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                              <CheckCircle2 size={14} />
+                            <span className="text-[11px] font-bold text-amber-600 flex items-center gap-1 bg-amber-400/30 px-2.5 py-1 rounded-full">
+                              <CheckCircle2 size={13} />
                               <span>Actuel</span>
                             </span>
                           ) : (
-                            <span className="text-[11px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium px-2 py-0.5 rounded-md hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors">
+                            <span className="text-[11px] text-[#111111] bg-white border border-[#DDD7C5] font-semibold px-2.5 py-1 rounded-full hover:bg-stone-100 transition-colors">
                               Choisir
                             </span>
                           )}
@@ -2422,12 +2429,12 @@ export default function ProjectsClient() {
                   })}
                 </div>
               ) : (
-                <p className="text-center text-xs text-slate-400 py-4">
+                <p className="text-center text-xs text-stone-400 py-4">
                   Aucun fichier dans le projet
                 </p>
               )}
 
-              {/* Import from disk (clean minimal button) */}
+              {/* Import from disk */}
               <input
                 type="file"
                 ref={masterFileInputRef}
@@ -2438,19 +2445,19 @@ export default function ProjectsClient() {
                 type="button"
                 onClick={() => masterFileInputRef.current?.click()}
                 disabled={isUpdatingMasterFile}
-                className="w-full py-2 px-3 rounded-xl border border-dashed border-slate-200 dark:border-white/10 hover:border-amber-400/60 dark:hover:border-amber-400/60 text-xs text-slate-500 dark:text-[#9f988b] hover:text-slate-800 dark:hover:text-[#f4efe6] hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors flex items-center justify-center gap-2 cursor-pointer font-medium"
+                className="w-full py-2.5 px-4 rounded-full border border-dashed border-[#DDD7C5] hover:border-amber-400 bg-[#ECE8DD] hover:bg-white text-xs text-[#111111] transition-all flex items-center justify-center gap-2 cursor-pointer font-semibold shadow-xs"
               >
-                <UploadCloud size={14} />
+                <UploadCloud size={15} />
                 <span>Importer un autre fichier depuis l&apos;ordinateur</span>
               </button>
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end px-5 py-3 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.01]">
+            <div className="flex justify-end px-6 py-3.5 border-t border-[#DDD7C5] bg-[#ECE8DD]">
               <button
                 type="button"
                 onClick={() => setShowMasterFileModal(false)}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="px-5 py-2 text-xs font-bold text-stone-700 hover:text-[#111111] rounded-full hover:bg-black/5 transition-colors cursor-pointer"
               >
                 Fermer
               </button>

@@ -369,4 +369,67 @@ def init_db():
             except Exception as e:
                 print(f"[DB Migration] users.password_changed_at: {e}")
 
+        # Migration: schedule_tasks table
+        try:
+            conn.execute(text("SELECT 1 FROM schedule_tasks LIMIT 1"))
+        except Exception:
+            try:
+                if is_mysql:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS schedule_tasks (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            user_id INT NULL,
+                            day VARCHAR(10) NOT NULL,
+                            start_time VARCHAR(10) NOT NULL,
+                            end_time VARCHAR(10) NOT NULL,
+                            task_name VARCHAR(255) NOT NULL,
+                            project_name VARCHAR(255) NULL,
+                            company_name VARCHAR(255) NULL,
+                            company_code VARCHAR(20) NULL,
+                            room VARCHAR(100) NULL,
+                            theme VARCHAR(20) DEFAULT 'cream',
+                            status_badge VARCHAR(50) NULL,
+                            has_join_button BOOLEAN DEFAULT 0,
+                            staff_members TEXT NULL,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            INDEX idx_schedule_tasks_user_id (user_id),
+                            CONSTRAINT fk_schedule_tasks_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    """))
+                else:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS schedule_tasks (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER REFERENCES users(id),
+                            day VARCHAR(10) NOT NULL,
+                            start_time VARCHAR(10) NOT NULL,
+                            end_time VARCHAR(10) NOT NULL,
+                            task_name VARCHAR(255) NOT NULL,
+                            project_name VARCHAR(255),
+                            company_name VARCHAR(255),
+                            company_code VARCHAR(20),
+                            room VARCHAR(100),
+                            theme VARCHAR(20) DEFAULT 'cream',
+                            status_badge VARCHAR(50),
+                            has_join_button BOOLEAN DEFAULT 0,
+                            staff_members TEXT,
+                            created_at DATETIME
+                        );
+                    """))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB Migration] schedule_tasks table creation: {e}")
+
+        # Migration: schedule_tasks.task_date column
+        try:
+            conn.execute(text("SELECT task_date FROM schedule_tasks LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE schedule_tasks ADD COLUMN task_date VARCHAR(20) NULL"))
+                conn.commit()
+                print("[DB Migration] Added task_date column to schedule_tasks")
+            except Exception as e:
+                print(f"[DB Migration] schedule_tasks.task_date: {e}")
+
+
 

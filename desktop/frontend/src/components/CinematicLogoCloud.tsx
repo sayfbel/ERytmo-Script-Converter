@@ -99,15 +99,15 @@ const STUDIOS: StudioLogo[] = [
 
 export default function CinematicLogoCloud() {
   return (
-    <div className="relative mt-14 pt-12 border-t border-white/5 overflow-hidden">
+    <div className="relative mt-8 sm:mt-14 pt-8 sm:pt-12 border-t border-white/5 overflow-hidden">
       {/* Header with curated Trusted By title */}
-      <div className="max-w-3xl mx-auto text-center space-y-2 mb-10 px-4 relative z-10">
+      <div className="max-w-3xl mx-auto text-center space-y-2 mb-6 sm:mb-10 px-4 relative z-10">
         <motion.p
           initial={{ opacity: 0, y: 15, filter: 'blur(8px)' }}
           whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           viewport={{ once: true }}
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          className="text-xs sm:text-[13px] font-bold uppercase tracking-[0.3em] text-amber-400 select-none"
+          className="text-[11px] sm:text-[13px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.3em] text-amber-400 select-none"
         >
           TRUSTED BY POST-PRODUCTION STUDIOS &amp; MAJORS
         </motion.p>
@@ -136,7 +136,7 @@ export default function CinematicLogoCloud() {
             },
             hidden: {},
           }}
-          className="flex flex-wrap items-center justify-center gap-x-12 sm:gap-x-16 gap-y-8 sm:gap-y-10"
+          className="flex flex-wrap items-center justify-center gap-x-8 sm:gap-x-16 gap-y-6 sm:gap-y-10"
         >
           {STUDIOS.map((studio) => (
             <motion.div

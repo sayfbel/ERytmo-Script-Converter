@@ -52,7 +52,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body suppressHydrationWarning className={`${plusJakartaSans.className} font-sans-display bg-[#f8fafc] dark:bg-[#08080a] text-slate-800 dark:text-[#f4efe6] overflow-hidden flex h-screen selection:bg-amber-400 selection:text-black`}>
+      <body suppressHydrationWarning className={`${plusJakartaSans.className} font-sans-display bg-[#F7F4EB] text-[#111111] overflow-hidden flex h-screen selection:bg-amber-400 selection:text-black`}>
         <SettingsProvider>
           <AuthProvider>
             <SignalingProvider>

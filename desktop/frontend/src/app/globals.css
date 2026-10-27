@@ -99,13 +99,13 @@ html {
 
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #F7F4EB;
+  --foreground: #111111;
 }
 
 .dark {
-  --background: #08080a;
-  --foreground: #f4efe6;
+  --background: #F7F4EB;
+  --foreground: #111111;
 }
 
 body {
@@ -128,20 +128,30 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
+  background: rgba(180, 175, 160, 0.4);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.6);
+  background: rgba(140, 135, 120, 0.6);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(71, 85, 105, 0.5);
+  background: rgba(180, 175, 160, 0.4);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.7);
+  background: rgba(140, 135, 120, 0.6);
+}
+
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Claymorphism 3D Graphic System */
@@ -261,3 +271,19 @@ body {
   animation: float-reverse 6s ease-in-out infinite;
 }
 
+/* Custom Timeline Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(236, 232, 221, 0.4);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #DDD7C5;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #B8B09C;
+}

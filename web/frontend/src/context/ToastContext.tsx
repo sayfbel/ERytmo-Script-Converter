@@ -19,12 +19,20 @@ interface ToastContextProps {
   clearAllToasts: () => void;
   hideToast: () => void;
   toasts: ToastItem[];
+  isNotificationTrayOpen: boolean;
+  setIsNotificationTrayOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  toggleNotificationTray: () => void;
 }
 
 const ToastContext = createContext<ToastContextProps | undefined>(undefined);
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [isNotificationTrayOpen, setIsNotificationTrayOpen] = useState(false);
+
+  const toggleNotificationTray = useCallback(() => {
+    setIsNotificationTrayOpen((prev) => !prev);
+  }, []);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -58,7 +66,18 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   );
 
   return (
-    <ToastContext.Provider value={{ showToast, dismissToast, clearAllToasts, hideToast, toasts }}>
+    <ToastContext.Provider
+      value={{
+        showToast,
+        dismissToast,
+        clearAllToasts,
+        hideToast,
+        toasts,
+        isNotificationTrayOpen,
+        setIsNotificationTrayOpen,
+        toggleNotificationTray,
+      }}
+    >
       {children}
     </ToastContext.Provider>
   );

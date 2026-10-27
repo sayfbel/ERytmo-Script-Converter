@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { UploadCloud, Play, FileDown, CheckCircle2, Loader2, X, RefreshCw, FolderOpen, ExternalLink } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { useConverter } from "@/context/ConverterContext";
+import PageHeader from "@/components/PageHeader";
 import { apiFetch, getApiUrl } from "@/lib/api";
 
 type Cue = Record<string, string>;
@@ -248,24 +249,24 @@ export default function Converter() {
   };
 
   const renderTable = (cues: Cue[], title: string, subtitle: string, color: string) => (
-    <div className="flex-1 bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex flex-col min-h-[320px] lg:min-h-[380px]">
-      <div className="bg-slate-50/70 dark:bg-white/[0.02] px-5 py-4 border-b border-slate-200/80 dark:border-white/[0.08] flex justify-between items-center shrink-0">
+    <div className="flex-1 bg-[#ECE8DD] border border-[#DDD7C5] rounded-[24px] overflow-hidden shadow-xs flex flex-col min-h-[320px] lg:min-h-[380px]">
+      <div className="bg-[#E4DFC8] px-5 py-4 border-b border-[#DDD7C5] flex justify-between items-center shrink-0">
         <div>
           <h3 className={`font-bold text-sm sm:text-base ${color}`}>{title}</h3>
-          <p className="text-xs text-slate-500 dark:text-[#9f988b] mt-0.5">{subtitle}</p>
+          <p className="text-xs text-stone-600 mt-0.5">{subtitle}</p>
         </div>
-        <span className="text-xs text-slate-600 dark:text-[#c2bcaf] font-semibold bg-slate-100 dark:bg-white/[0.04] px-2.5 py-1 rounded-full border border-slate-200 dark:border-white/[0.08]">
+        <span className="text-xs text-[#111111] font-bold bg-[#F7F4EB] px-3 py-1 rounded-full border border-[#DDD7C5]">
           {cues.length} {t("converter.cues")}
         </span>
       </div>
-      <div className="flex-1 p-0 overflow-y-auto">
+      <div className="flex-1 p-0 overflow-y-auto bg-[#F7F4EB]">
         {cues.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-slate-400 dark:text-[#71717a] text-sm p-8 text-center min-h-[200px]">
+          <div className="flex items-center justify-center h-full text-stone-400 text-sm p-8 text-center min-h-[200px]">
             {t("converter.no_data")}
           </div>
         ) : (
-          <table className="w-full text-left text-sm text-slate-700 dark:text-[#c2bcaf] border-collapse">
-            <thead className="bg-slate-50/90 dark:bg-[#161619] text-slate-500 dark:text-[#71717a] uppercase text-[11px] font-bold sticky top-0 shadow-xs z-10 border-b border-slate-200/80 dark:border-white/[0.08] backdrop-blur-sm">
+          <table className="w-full text-left text-sm text-[#111111] border-collapse">
+            <thead className="bg-[#ECE8DD] text-stone-600 uppercase text-[11px] font-bold sticky top-0 shadow-xs z-10 border-b border-[#DDD7C5] backdrop-blur-xs">
               <tr>
                 <th className="px-4 py-3 w-28">IN</th>
                 <th className="px-4 py-3 w-28">OUT</th>
@@ -273,13 +274,13 @@ export default function Converter() {
                 <th className="px-4 py-3">{t("converter.table.dialogue")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+            <tbody className="divide-y divide-[#DDD7C5]/50">
               {cues.map((cue, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors">
-                  <td className="px-4 py-2.5 whitespace-nowrap text-xs font-mono text-slate-500 dark:text-[#9f988b]">{cue.in || "-"}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap text-xs font-mono text-slate-500 dark:text-[#9f988b]">{cue.out || "-"}</td>
-                  <td className="px-4 py-2.5 font-bold text-amber-500 dark:text-amber-400 whitespace-nowrap text-xs">{cue.character}</td>
-                  <td className="px-4 py-2.5 text-xs text-slate-900 dark:text-[#f4efe6]">{cue.dialogue}</td>
+                <tr key={idx} className="hover:bg-[#ECE8DD]/60 transition-colors">
+                  <td className="px-4 py-2.5 whitespace-nowrap text-xs font-mono text-stone-600">{cue.in || "-"}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap text-xs font-mono text-stone-600">{cue.out || "-"}</td>
+                  <td className="px-4 py-2.5 font-bold text-amber-600 whitespace-nowrap text-xs">{cue.character}</td>
+                  <td className="px-4 py-2.5 text-xs text-[#111111]">{cue.dialogue}</td>
                 </tr>
               ))}
             </tbody>
@@ -290,40 +291,35 @@ export default function Converter() {
   );
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] relative overflow-y-auto">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 shrink-0 pb-5 border-b border-slate-200/80 dark:border-white/[0.08]">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-[#f4efe6] tracking-tight">{t("converter.title")}</h1>
-          {scriptFileName && (
-            <p className="text-xs text-slate-500 dark:text-[#9f988b] mt-1 flex items-center gap-1.5 font-medium">
-              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              Active File: <span className="font-semibold text-amber-600 dark:text-amber-300">{scriptFileName}</span>
-            </p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          {rawCues.length > 0 && (
-            <button
-              onClick={clearState}
-              className="bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-[#f4efe6] font-semibold py-2.5 px-4 rounded-xl flex items-center text-xs transition-colors border border-slate-200 dark:border-white/10 cursor-pointer"
-              title="Clear loaded script & start new"
+    <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full text-[#111111] relative overflow-y-auto">
+      <PageHeader
+        title={t("converter.title")}
+        subtitle={scriptFileName ? `Active Script: ${scriptFileName}` : (t("converter.subtitle") || "Convert, re-align, and export dubbing scripts for ERytmo, Mosaic, and ProTools.")}
+        icon={<UploadCloud size={28} />}
+        actionButton={
+          <div className="flex items-center gap-2.5">
+            {rawCues.length > 0 && (
+              <button
+                onClick={clearState}
+                className="bg-[#ECE8DD] hover:bg-white text-[#111111] font-semibold py-2 px-4 rounded-full flex items-center text-xs transition-colors border border-[#DDD7C5] cursor-pointer shadow-xs"
+                title="Clear loaded script & start new"
+              >
+                <RefreshCw size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-amber-500" />
+                Reset / New
+              </button>
+            )}
+            
+            <button 
+              onClick={() => setShowDownloadModal(true)}
+              className="bg-[#111111] hover:bg-black text-white font-bold py-2.5 px-5 rounded-full flex items-center text-xs shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+              disabled={rawCues.length === 0 || isDownloading}
             >
-              <RefreshCw size={14} className="mr-1.5 rtl:mr-0 rtl:ml-1.5 text-amber-500 dark:text-amber-400" />
-              Reset / New
+              {isDownloading ? <Loader2 size={15} className="mr-2 rtl:mr-0 rtl:ml-2 animate-spin" /> : <FileDown size={15} className="mr-2 rtl:mr-0 rtl:ml-2" />} 
+              {t("converter.download_btn")}
             </button>
-          )}
-          
-          <button 
-            onClick={() => setShowDownloadModal(true)}
-            className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-extrabold py-2.5 px-5 rounded-xl flex items-center text-xs shadow-[0_4px_15px_rgba(245,158,11,0.25)] transition-all disabled:opacity-50 cursor-pointer"
-            disabled={rawCues.length === 0 || isDownloading}
-          >
-            {isDownloading ? <Loader2 size={15} className="mr-2 rtl:mr-0 rtl:ml-2 animate-spin" /> : <FileDown size={15} className="mr-2 rtl:mr-0 rtl:ml-2" />} 
-            {t("converter.download_btn")}
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {error && (
         <div className="bg-rose-500/10 text-rose-600 dark:text-rose-300 p-4 rounded-2xl mb-5 text-xs border border-rose-500/20 flex justify-between items-start shrink-0">
@@ -343,23 +339,23 @@ export default function Converter() {
         />
         <div 
           onClick={() => scriptInputRef.current?.click()}
-          className={`bg-white dark:bg-[#121215] p-6 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-amber-400/50 hover:bg-slate-50 dark:hover:bg-[#16161a] shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex flex-col items-center justify-center cursor-pointer h-48 transition-all group ${isUploadingScript ? 'opacity-50 pointer-events-none' : ''}`}
+          className={`bg-[#ECE8DD] p-6 rounded-[24px] border-2 border-dashed border-[#DDD7C5] hover:border-amber-400 hover:bg-[#E4DFC8] shadow-xs flex flex-col items-center justify-center cursor-pointer h-48 transition-all group ${isUploadingScript ? 'opacity-50 pointer-events-none' : ''}`}
         >
           {isUploadingScript ? (
             <div className="flex flex-col items-center">
-              <Loader2 size={40} className="text-amber-500 dark:text-amber-400 mb-3 animate-spin" />
-              <div className="text-lg font-bold text-amber-500 dark:text-amber-400 mb-1">{scriptProgress}%</div>
-              <h3 className="font-bold text-slate-900 dark:text-[#f4efe6] text-sm">{scriptProgress === 100 ? t("converter.parsing_ai") : t("converter.uploading")}</h3>
+              <Loader2 size={40} className="text-amber-500 mb-3 animate-spin" />
+              <div className="text-lg font-bold text-amber-500 mb-1">{scriptProgress}%</div>
+              <h3 className="font-bold text-[#111111] text-sm">{scriptProgress === 100 ? t("converter.parsing_ai") : t("converter.uploading")}</h3>
             </div>
           ) : (
             <div className="flex flex-col items-center text-center">
-              <UploadCloud size={40} className="text-amber-500 dark:text-amber-400 mb-3 group-hover:scale-105 transition-transform" />
-              <h3 className="font-bold text-slate-900 dark:text-[#f4efe6] text-sm">
+              <UploadCloud size={40} className="text-amber-500 mb-3 group-hover:scale-105 transition-transform" />
+              <h3 className="font-bold text-[#111111] text-sm">
                 {rawCues.length > 0 ? "Replace Script File" : t("converter.upload_script")}
               </h3>
-              <p className="text-xs text-slate-400 dark:text-[#71717a] mt-1">{t("converter.script_types")}</p>
+              <p className="text-xs text-stone-500 mt-1">{t("converter.script_types")}</p>
               {rawCues.length > 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-300 font-bold mt-2 flex items-center gap-1">
+                <p className="text-xs text-amber-700 font-bold mt-2 flex items-center gap-1 bg-amber-400/20 px-3 py-1 rounded-full border border-amber-400/40">
                   ✓ {t("converter.script_loaded")} ({scriptFileName || `${rawCues.length} cues`})
                 </p>
               )}
@@ -375,17 +371,17 @@ export default function Converter() {
           accept="video/*,audio/*,.mkv"
           onChange={handleMediaChange}
         />
-        <div className={`bg-white dark:bg-[#121215] p-6 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex flex-col justify-between h-48 ${rawCues.length === 0 ? 'opacity-50' : ''}`}>
+        <div className={`bg-[#ECE8DD] p-6 rounded-[24px] border border-[#DDD7C5] shadow-xs flex flex-col justify-between h-48 ${rawCues.length === 0 ? 'opacity-50' : ''}`}>
           <div>
-            <h3 className="font-bold text-slate-900 dark:text-[#f4efe6] mb-1.5 flex items-center text-sm">
-              <Play size={16} className="mr-2 rtl:mr-0 rtl:ml-2 text-amber-500 dark:text-amber-400" /> {t("converter.ai_align")}
+            <h3 className="font-bold text-[#111111] mb-1.5 flex items-center text-sm">
+              <Play size={16} className="mr-2 rtl:mr-0 rtl:ml-2 text-amber-500" /> {t("converter.ai_align")}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-[#9f988b] mb-4">{t("converter.ai_align_desc")}</p>
+            <p className="text-xs text-stone-600 mb-4">{t("converter.ai_align_desc")}</p>
             <div className="flex space-x-3 rtl:space-x-reverse">
               <button 
                 disabled={rawCues.length === 0}
                 onClick={() => mediaInputRef.current?.click()}
-                className="flex-1 bg-slate-50 hover:bg-slate-100 dark:bg-[#18181c] dark:hover:bg-[#202026] text-slate-800 dark:text-[#f4efe6] py-2.5 rounded-xl text-xs font-semibold transition-colors truncate px-3 border border-slate-200 dark:border-white/10 cursor-pointer"
+                className="flex-1 bg-white/90 hover:bg-white text-[#111111] py-2 rounded-xl text-xs font-semibold transition-colors truncate px-3 border border-[#DDD7C5] cursor-pointer shadow-xs"
                 title={mediaFileName || (mediaFile ? mediaFile.name : t("converter.load_media"))}
               >
                 {mediaFileName || (mediaFile ? mediaFile.name : t("converter.load_media"))}
@@ -395,23 +391,23 @@ export default function Converter() {
                 type="text" 
                 value={startTc}
                 onChange={(e) => setStartTc(e.target.value)}
-                className="w-28 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#18181c] rounded-xl px-3 text-xs font-mono text-center focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 text-slate-900 dark:text-[#f4efe6]"
+                className="w-28 border border-[#DDD7C5] bg-white/90 rounded-xl px-3 text-xs font-mono text-center focus:outline-none focus:border-amber-400 text-[#111111] shadow-xs"
               />
             </div>
           </div>
           <button 
             disabled={(!mediaFile && !mediaFileName) || rawCues.length === 0 || isAligning}
             onClick={handleVerify}
-            className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-800 dark:text-[#f4efe6] border border-slate-200 dark:border-white/10 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center mt-3 transition-colors disabled:opacity-50 relative overflow-hidden cursor-pointer"
+            className="w-full bg-[#111111] hover:bg-black text-white font-bold py-2.5 rounded-full text-xs flex items-center justify-center mt-3 transition-colors disabled:opacity-50 relative overflow-hidden cursor-pointer shadow-xs"
           >
             {isAligning ? (
-              <div className="flex items-center relative z-10 text-amber-600 dark:text-amber-300">
+              <div className="flex items-center relative z-10 text-amber-400">
                 <Loader2 size={15} className="mr-2 rtl:mr-0 rtl:ml-2 animate-spin" />
                 {alignProgress === 100 ? t("converter.processing") : `${t("converter.uploading_media")} ${alignProgress}%`}
               </div>
             ) : (
               <div className="flex items-center relative z-10">
-                <CheckCircle2 size={15} className="mr-2 rtl:mr-0 rtl:ml-2 text-amber-500 dark:text-amber-400" />
+                <CheckCircle2 size={15} className="mr-2 rtl:mr-0 rtl:ml-2 text-amber-400" />
                 {t("converter.verify")}
               </div>
             )}
@@ -486,16 +482,16 @@ export default function Converter() {
       {/* Download Modal - Fixed Fullscreen */}
       {showDownloadModal && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-3 sm:p-5 overflow-y-auto"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto"
           onClick={(e) => e.target === e.currentTarget && setShowDownloadModal(false)}
         >
-          <div className="bg-white dark:bg-[#141417] rounded-2xl sm:rounded-3xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] border border-slate-200/80 dark:border-white/10 w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col overflow-hidden my-auto animate-in zoom-in-95 duration-200 text-slate-800 dark:text-[#f4efe6]">
+          <div className="bg-[#F7F4EB] rounded-[28px] shadow-2xl border border-[#DDD7C5] w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col overflow-hidden my-auto animate-in zoom-in-95 duration-200 text-[#111111]">
             {/* Pinned Header */}
-            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex justify-between items-center shrink-0">
-              <h3 className="text-base font-bold text-slate-900 dark:text-[#f4efe6]">{t("converter.export_format")}</h3>
+            <div className="px-6 py-4 border-b border-[#DDD7C5] bg-[#ECE8DD] flex justify-between items-center shrink-0">
+              <h3 className="text-base font-bold text-[#111111]">{t("converter.export_format")}</h3>
               <button 
                 onClick={() => setShowDownloadModal(false)} 
-                className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 sm:p-2 rounded-xl transition-colors cursor-pointer"
+                className="text-stone-400 hover:text-[#111111] hover:bg-black/5 p-1.5 rounded-full transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X size={18} />
@@ -503,42 +499,42 @@ export default function Converter() {
             </div>
             
             {/* Scrollable Body */}
-            <div className="p-5 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-3.5">
-              <p className="text-xs text-slate-500 dark:text-[#9f988b] leading-relaxed">{t("converter.export_desc")}</p>
+            <div className="p-5 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-3.5 bg-[#F7F4EB]">
+              <p className="text-xs text-stone-600 leading-relaxed">{t("converter.export_desc")}</p>
               
               <div className="space-y-3">
                 <button 
                   onClick={() => handleDownload("ERytmo")}
-                  className="w-full text-left rtl:text-right bg-slate-50 hover:bg-slate-100 dark:bg-[#18181c] dark:hover:bg-[#1f1f26] border border-slate-200 dark:border-white/10 hover:border-amber-400/40 p-4 rounded-2xl transition-all group cursor-pointer"
+                  className="w-full text-left rtl:text-right bg-[#ECE8DD] hover:bg-white border border-[#DDD7C5] hover:border-amber-400 p-4 rounded-2xl transition-all group cursor-pointer shadow-xs"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400">DubFlow Word (Standard)</span>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">DOCX</span>
+                    <span className="font-bold text-xs text-[#111111] group-hover:text-amber-600">DubFlow Word (Standard)</span>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600">DOCX</span>
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-[#71717a] mt-1">{t("converter.format.erytmo")}</div>
+                  <div className="text-xs text-stone-500 mt-1">{t("converter.format.erytmo")}</div>
                 </button>
                 
                 <button 
                   onClick={() => handleDownload("Mosaic")}
-                  className="w-full text-left rtl:text-right bg-slate-50 hover:bg-slate-100 dark:bg-[#18181c] dark:hover:bg-[#1f1f26] border border-slate-200 dark:border-white/10 hover:border-amber-400/40 p-4 rounded-2xl transition-all group cursor-pointer"
+                  className="w-full text-left rtl:text-right bg-[#ECE8DD] hover:bg-white border border-[#DDD7C5] hover:border-amber-400 p-4 rounded-2xl transition-all group cursor-pointer shadow-xs"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-slate-900 dark:text-[#f4efe6] group-hover:text-amber-600 dark:group-hover:text-amber-400">Mosaic Format</span>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">Excel (.xlsx)</span>
+                    <span className="font-bold text-xs text-[#111111] group-hover:text-amber-600">Mosaic Format</span>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600">Excel (.xlsx)</span>
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-[#71717a] mt-1">{t("converter.format.mosaic")}</div>
+                  <div className="text-xs text-stone-500 mt-1">{t("converter.format.mosaic")}</div>
                 </button>
               </div>
             </div>
 
             {/* Pinned Footer */}
-            <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 dark:text-[#c2bcaf] select-none">
+            <div className="px-6 py-4 border-t border-[#DDD7C5] bg-[#ECE8DD] shrink-0">
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-stone-700 select-none">
                 <input 
                   type="checkbox" 
                   checked={saveAs} 
                   onChange={(e) => setSaveAs(e.target.checked)} 
-                  className="rounded border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-[#18181c] text-amber-500 accent-amber-500 focus:ring-amber-400 cursor-pointer"
+                  className="rounded border-[#DDD7C5] bg-white text-amber-500 accent-amber-500 focus:ring-amber-400 cursor-pointer"
                 />
                 <span>Choose save location manually (Save As...)</span>
               </label>

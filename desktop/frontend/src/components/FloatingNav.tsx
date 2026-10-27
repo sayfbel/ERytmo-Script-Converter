@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { DubFlowIcon } from "./DubFlowLogo";
+import { X, ArrowRight, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 export interface NavItem {
   id: string;
@@ -17,6 +19,15 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
   { id: "comparatif", label: "Comparatif" },
   { id: "faq", label: "FAQ" }
 ];
+
+export const NAV_DESCRIPTIONS: Record<string, string> = {
+  home: "Studio Overview & Canvas",
+  about: "Notre Vision & Régies",
+  web: "Plateforme Cloud & Stream",
+  desktop: "Application Locale Electron",
+  comparatif: "Performance & Sécurité",
+  faq: "Questions Fréquentes",
+};
 
 interface FloatingNavProps {
   activeSection?: string;
@@ -133,102 +144,307 @@ export default function FloatingNav({
     }
   };
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+      window.addEventListener("keydown", handleKeyDown);
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileMenuOpen]);
+
   const currentActiveItem = DEFAULT_NAV_ITEMS.find((item) => item.id === activeSection) || DEFAULT_NAV_ITEMS[0];
 
   return (
-    <header className={`fixed inset-x-0 flex justify-center z-50 pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isScrolled ? "top-3.5 sm:top-5" : "top-2.5 sm:top-4 md:top-5"
-      }`}>
-      <div className="relative flex items-center justify-center pointer-events-auto">
+    <>
+      <header className={`fixed inset-x-0 flex justify-center z-50 pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isScrolled ? "top-3 sm:top-5" : "top-2 sm:top-4 md:top-5"
+        }`}>
+        
+        {/* ======================================================== */}
+        {/* 1. MOBILE COMPACT FLOATING PILL WITH CORNER WAVES (< md) */}
+        {/* ======================================================== */}
+        <div className="flex md:hidden relative items-center justify-center pointer-events-auto">
 
-        {/* Left Inverted Curve */}
-        <div className={`absolute right-full top-0 w-5 h-5 pointer-events-none select-none transition-all duration-300 ease-out origin-top-right ${!isScrolled
-          ? "opacity-100 scale-100 translate-y-0"
-          : "opacity-0 scale-75 -translate-y-1.5"
-          }`}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="w-full h-full block">
-            <path d="M 0 0 Q 20 0 20 20 L 21 20 L 21 0 Z" fill="#030303" />
-          </svg>
-        </div>
-
-        {/* Right Inverted Curve */}
-        <div className={`absolute left-full top-0 w-5 h-5 pointer-events-none select-none transition-all duration-300 ease-out origin-top-left ${!isScrolled
-          ? "opacity-100 scale-100 translate-y-0"
-          : "opacity-0 scale-75 -translate-y-1.5"
-          }`}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="w-full h-full block">
-            <path d="M 0 20 Q 0 0 20 0 L 0 0 L -1 0 L -1 20 Z" fill="#030303" />
-          </svg>
-        </div>
-
-        {/* The Fluid Morphing Navbar */}
-        <nav
-          onMouseEnter={() => setIsNavHovered(true)}
-          onMouseLeave={() => setIsNavHovered(false)}
-          className={`relative flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] bg-[#030303]/95 backdrop-blur-2xl shadow-[0_16px_45px_rgba(0,0,0,0.95)] cursor-pointer overflow-hidden border-0 ring-0 ${isScrolled && !isNavHovered
-            ? "h-9 sm:h-10 max-w-[200px] px-4 rounded-full animate-nav-morph"
-            : isScrolled && isNavHovered
-              ? "h-11 sm:h-12 max-w-[640px] px-4 sm:px-7 rounded-full"
-              : "h-11 sm:h-12 max-w-[700px] px-6 sm:px-12 rounded-b-[22px] rounded-t-none"
-            }`}
-        >
-          {/* VIEW 1: Compact Section Indicator Pill */}
-          <div
-            className={`flex items-center gap-2.5 sm:gap-3 py-1 select-none transition-all duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] ${isScrolled && !isNavHovered
-              ? "opacity-100 scale-100 translate-y-0"
-              : "opacity-0 scale-90 translate-y-2 pointer-events-none absolute inset-0 flex items-center justify-center"
-              }`}
-          >
-            <span
-              key={currentActiveItem.id}
-              className="text-xs sm:text-[13px] font-semibold text-[#f4efe6] tracking-wide animate-nav-label-swap whitespace-nowrap flex items-center"
-            >
-              {currentActiveItem.id === "home" ? (
-                <span className="flex items-center gap-1.5">
-                  <DubFlowIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>DubFlow</span>
-                </span>
-              ) : (
-                currentActiveItem.label
-              )}
-            </span>
-            <span className="w-[1px] h-3.5 bg-white/20" />
-            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)] animate-amber-breathe shrink-0" />
+          {/* Left Inverted Wave Curve */}
+          <div className={`absolute right-full top-0 w-5 h-5 pointer-events-none select-none transition-all duration-300 ease-out origin-top-right ${!isScrolled
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-75 -translate-y-1.5"
+            }`}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="w-full h-full block">
+              <path d="M 0 0 Q 20 0 20 20 L 21 20 L 21 0 Z" fill="#030303" />
+            </svg>
           </div>
 
-          {/* VIEW 2: Expanded Full Navigation Links */}
-          <div
-            className={`flex items-center text-xs sm:text-[13px] font-medium tracking-wide transition-all duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] whitespace-nowrap ${isScrolled && !isNavHovered
-              ? "opacity-0 scale-95 -translate-y-2 pointer-events-none absolute inset-0 flex items-center justify-center"
-              : "opacity-100 scale-100 translate-y-0 relative"
-              } ${isScrolled ? "gap-1.5 sm:gap-2.5" : "gap-5 sm:gap-9"
+          {/* Right Inverted Wave Curve */}
+          <div className={`absolute left-full top-0 w-5 h-5 pointer-events-none select-none transition-all duration-300 ease-out origin-top-left ${!isScrolled
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-75 -translate-y-1.5"
+            }`}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="w-full h-full block">
+              <path d="M 0 20 Q 0 0 20 0 L 0 0 L -1 0 L -1 20 Z" fill="#030303" />
+            </svg>
+          </div>
+
+          {/* Mobile Button / Pill */}
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Ouvrir la navigation"
+            className={`relative flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] bg-[#030303]/95 backdrop-blur-2xl shadow-[0_16px_45px_rgba(0,0,0,0.95)] cursor-pointer select-none active:scale-95 ${
+              isScrolled
+                ? "h-9 sm:h-10 px-4 rounded-full border border-white/15 animate-nav-morph hover:border-white/25"
+                : "h-10 px-4 sm:px-5 rounded-b-[20px] rounded-t-none border-0 ring-0"
+            }`}
+          >
+            <div className="flex items-center gap-2.5 py-1">
+              {(!isScrolled || activeSection === "home") ? (
+                <div key="mobile-home-brand" className="flex items-center gap-1.5 animate-nav-label-swap">
+                  <DubFlowIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="font-extrabold tracking-tight text-xs text-[#f4efe6]">DubFlow</span>
+                  <span className="font-editorial italic text-amber-300 text-xs ml-0.5">*</span>
+                </div>
+              ) : (
+                <span
+                  key={currentActiveItem.id}
+                  className="text-xs font-semibold text-[#f4efe6] tracking-wide animate-nav-label-swap whitespace-nowrap"
+                >
+                  {currentActiveItem.label}
+                </span>
+              )}
+              <span className="w-[1px] h-3.5 bg-white/20" />
+              <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)] animate-amber-breathe shrink-0" />
+            </div>
+          </button>
+        </div>
+
+        {/* ======================================================== */}
+        {/* 2. DESKTOP FLUID MORPHING NAVBAR (>= md)                 */}
+        {/* ======================================================== */}
+        <div className="hidden md:flex relative items-center justify-center pointer-events-auto">
+
+          {/* Left Inverted Curve */}
+          <div className={`absolute right-full top-0 w-5 h-5 pointer-events-none select-none transition-all duration-300 ease-out origin-top-right ${!isScrolled
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-75 -translate-y-1.5"
+            }`}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="w-full h-full block">
+              <path d="M 0 0 Q 20 0 20 20 L 21 20 L 21 0 Z" fill="#030303" />
+            </svg>
+          </div>
+
+          {/* Right Inverted Curve */}
+          <div className={`absolute left-full top-0 w-5 h-5 pointer-events-none select-none transition-all duration-300 ease-out origin-top-left ${!isScrolled
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-75 -translate-y-1.5"
+            }`}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="w-full h-full block">
+              <path d="M 0 20 Q 0 0 20 0 L 0 0 L -1 0 L -1 20 Z" fill="#030303" />
+            </svg>
+          </div>
+
+          {/* The Fluid Morphing Navbar */}
+          <nav
+            onMouseEnter={() => setIsNavHovered(true)}
+            onMouseLeave={() => setIsNavHovered(false)}
+            className={`relative flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] bg-[#030303]/95 backdrop-blur-2xl shadow-[0_16px_45px_rgba(0,0,0,0.95)] cursor-pointer overflow-hidden border-0 ring-0 ${isScrolled && !isNavHovered
+              ? "h-9 sm:h-10 max-w-[200px] px-4 rounded-full animate-nav-morph"
+              : isScrolled && isNavHovered
+                ? "h-11 sm:h-12 max-w-[640px] px-4 sm:px-7 rounded-full"
+                : "h-11 sm:h-12 max-w-[700px] px-6 sm:px-12 rounded-b-[22px] rounded-t-none"
               }`}
           >
-            {DEFAULT_NAV_ITEMS.map((item) => (
-              <button
-                key={item.id}
-                onClick={(e) => handleItemClick(e, item.id)}
-                className={`relative py-1 transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none ${activeSection === item.id
-                  ? "text-[#f4efe6] font-medium"
-                  : "text-[#9e988c] hover:text-[#f4efe6]"
-                  }`}
+            {/* VIEW 1: Compact Section Indicator Pill */}
+            <div
+              className={`flex items-center gap-2.5 sm:gap-3 py-1 select-none transition-all duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] ${isScrolled && !isNavHovered
+                ? "opacity-100 scale-100 translate-y-0"
+                : "opacity-0 scale-90 translate-y-2 pointer-events-none absolute inset-0 flex items-center justify-center"
+                }`}
+            >
+              <span
+                key={currentActiveItem.id}
+                className="text-xs sm:text-[13px] font-semibold text-[#f4efe6] tracking-wide animate-nav-label-swap whitespace-nowrap flex items-center"
               >
-                {item.id === "home" ? (
+                {currentActiveItem.id === "home" ? (
                   <span className="flex items-center gap-1.5">
                     <DubFlowIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="font-extrabold tracking-tight">DubFlow</span>
-                    <span className="font-editorial italic text-amber-300 text-sm ml-0.5">*</span>
+                    <span>DubFlow</span>
                   </span>
                 ) : (
-                  <span>{item.label}</span>
+                  currentActiveItem.label
                 )}
-                {activeSection === item.id && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)]" />
-                )}
+              </span>
+              <span className="w-[1px] h-3.5 bg-white/20" />
+              <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)] animate-amber-breathe shrink-0" />
+            </div>
+
+            {/* VIEW 2: Expanded Full Navigation Links */}
+            <div
+              className={`flex items-center text-xs sm:text-[13px] font-medium tracking-wide transition-all duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] whitespace-nowrap ${isScrolled && !isNavHovered
+                ? "opacity-0 scale-95 -translate-y-2 pointer-events-none absolute inset-0 flex items-center justify-center"
+                : "opacity-100 scale-100 translate-y-0 relative"
+                } ${isScrolled ? "gap-1.5 sm:gap-2.5" : "gap-5 sm:gap-9"
+                }`}
+            >
+              {DEFAULT_NAV_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={(e) => handleItemClick(e, item.id)}
+                  className={`relative py-1 transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none ${activeSection === item.id
+                    ? "text-[#f4efe6] font-medium"
+                    : "text-[#9e988c] hover:text-[#f4efe6]"
+                    }`}
+                >
+                  {item.id === "home" ? (
+                    <span className="flex items-center gap-1.5">
+                      <DubFlowIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span className="font-extrabold tracking-tight">DubFlow</span>
+                      <span className="font-editorial italic text-amber-300 text-sm ml-0.5">*</span>
+                    </span>
+                  ) : (
+                    <span>{item.label}</span>
+                  )}
+                  {activeSection === item.id && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)]" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </nav>
+        </div>
+      </header>
+
+      {/* ======================================================== */}
+      {/* 3. MOBILE FRAMED LUXURY GLASS MODAL (WELCOME PAGE MATCH)  */}
+      {/* ======================================================== */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-[100] bg-black/85 backdrop-blur-2xl flex flex-col p-2.5 sm:p-4 animate-in fade-in duration-200 select-none">
+          <div className="relative w-full h-full max-h-[100dvh] rounded-[24px] sm:rounded-[32px] bg-gradient-to-b from-[#111116] via-[#09090c] to-[#040406] border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,0.95)] flex flex-col justify-between p-4 sm:p-6 overflow-hidden">
+            
+            {/* Cinematic background lighting & ambient glow */}
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-72 h-72 rounded-full bg-amber-500/10 blur-[80px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-72 h-72 rounded-full bg-amber-500/5 blur-[80px] pointer-events-none" />
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent pointer-events-none" />
+
+            {/* 1. Header Bar */}
+            <div className="relative z-10 flex items-center justify-between pb-3.5 border-b border-white/[0.08] shrink-0">
+              <div className="flex items-center gap-2 pl-1">
+                <DubFlowIcon className="w-5 h-5 text-amber-400 shrink-0" />
+                <span className="font-black text-lg text-[#f4efe6] tracking-tight">DubFlow</span>
+                <span className="font-editorial text-amber-300 italic text-xl -ml-0.5">*</span>
+              </div>
+
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-label="Fermer le menu"
+                className="w-9 h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 active:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={20} />
               </button>
-            ))}
+            </div>
+
+            {/* 2. Navigation Content */}
+            <div className="relative z-10 flex-1 py-4 flex flex-col justify-center min-h-0 overflow-y-auto">
+              <nav className="flex flex-col gap-1.5 sm:gap-2">
+                {DEFAULT_NAV_ITEMS.map((item, index) => {
+                  const isActive = activeSection === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={(e) => {
+                        setIsMobileMenuOpen(false);
+                        handleItemClick(e, item.id);
+                      }}
+                      className={`group w-full flex items-center justify-between px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-2xl text-left transition-all duration-200 cursor-pointer ${
+                        isActive
+                          ? "bg-gradient-to-r from-amber-500/15 via-white/[0.04] to-transparent border border-amber-400/30 shadow-[0_4px_25px_rgba(245,158,11,0.08)]"
+                          : "bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/10"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                        <span className={`w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center font-mono text-[10px] sm:text-[11px] font-bold shrink-0 transition-colors ${
+                          isActive
+                            ? "bg-amber-400 text-black shadow-[0_0_12px_rgba(245,158,11,0.5)]"
+                            : "bg-white/[0.05] text-white/35 group-hover:text-amber-300 group-hover:bg-amber-400/10"
+                        }`}>
+                          0{index + 1}
+                        </span>
+
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {item.id === "home" ? (
+                              <span className="flex items-center gap-1">
+                                <span className="font-extrabold tracking-tight text-sm sm:text-base text-[#f4efe6]">
+                                  DubFlow
+                                </span>
+                                <span className="font-editorial text-amber-300 italic text-sm sm:text-base">*</span>
+                              </span>
+                            ) : (
+                              <span className={`font-bold text-sm sm:text-base tracking-tight transition-colors ${
+                                isActive ? "text-amber-200" : "text-[#f4efe6] group-hover:text-white"
+                              }`}>
+                                {item.label}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] sm:text-[11px] text-[#9f988b] font-normal truncate">
+                            {NAV_DESCRIPTIONS[item.id] || "Studio Section"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 pl-2">
+                        {isActive ? (
+                          <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(245,158,11,1)] animate-amber-breathe block" />
+                        ) : (
+                          <ArrowRight
+                            size={14}
+                            className="text-white/20 group-hover:text-amber-300 group-hover:translate-x-0.5 transition-all"
+                          />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* 3. Bottom CTAs & Trust Badges */}
+            <div className="relative z-10 pt-3 border-t border-white/[0.08] space-y-2 shrink-0">
+              <Link
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="group w-full py-3 px-5 rounded-full bg-[#f4efe6] hover:bg-white active:bg-amber-100 text-black text-xs font-black tracking-wider uppercase flex items-center justify-center gap-3 shadow-[0_10px_35px_rgba(244,239,230,0.22)] transition-all hover:scale-[1.01] active:scale-[0.98] cursor-pointer"
+              >
+                <span>Accéder au Studio</span>
+                <span className="w-5 h-5 rounded-full bg-black/15 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
+                  <ArrowRight size={12} className="text-black" />
+                </span>
+              </Link>
+
+              <Link
+                href="/converter"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full py-2.5 px-5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] active:bg-white/[0.15] text-[#f4efe6] text-xs font-bold flex items-center justify-center gap-2 border border-white/10 hover:border-white/20 transition-all cursor-pointer backdrop-blur-md"
+              >
+                <Sparkles size={13} className="text-amber-400" />
+                <span>Convertisseur Libre</span>
+              </Link>
+            </div>
+
           </div>
-        </nav>
-      </div>
-    </header>
+        </div>
+      )}
+    </>
   );
 }

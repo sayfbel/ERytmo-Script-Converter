@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import CustomSelect from "@/components/CustomSelect";
 import ConfirmModal from "@/components/ConfirmModal";
+import PageHeader from "@/components/PageHeader";
 
 const JOB_OPTIONS = [
   { value: "Poseur de texte", label: "Poseur de texte" },
@@ -224,33 +225,27 @@ export default function ProfilePage() {
 
 
   return (
-    <div className="flex-1 min-w-0 bg-[#f8fafc] overflow-y-auto px-5 py-6 md:px-10 md:py-8 font-sans selection:bg-brand-100 selection:text-brand-700">
+    <div className="flex-1 min-w-0 overflow-y-auto px-5 py-6 md:px-10 md:py-8 font-sans text-[#111111]">
       <div className="max-w-5xl mx-auto space-y-6">
         
-        {/* Header Title Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
-                <UserIcon className="w-5 h-5" />
-              </span>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Account Information</h1>
-            </div>
-            <p className="text-sm text-slate-500 mt-1">Manage your personal profile, credentials and security parameters.</p>
-          </div>
-        </div>
+        {/* Header Title Section with Top-Right Action Pills */}
+        <PageHeader
+          title="Account Information"
+          subtitle="Manage your personal profile, credentials and security parameters."
+          icon={<UserIcon size={28} />}
+        />
 
         {/* Tabs Navigation */}
-        <div className="flex items-center border-b border-slate-200 gap-8 text-sm font-medium">
+        <div className="flex items-center border-b border-[#DDD7C5] gap-8 text-sm font-medium">
           <button 
             onClick={() => setActiveTab("general")} 
-            className={`pb-3 border-b-2 transition-colors ${activeTab === "general" ? "border-amber-500 text-amber-600 font-semibold" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            className={`pb-3 border-b-2 transition-colors cursor-pointer ${activeTab === "general" ? "border-amber-400 text-black font-bold" : "border-transparent text-stone-500 hover:text-[#111111]"}`}
           >
             General Profile
           </button>
           <button 
             onClick={() => setActiveTab("security")} 
-            className={`pb-3 border-b-2 transition-colors ${activeTab === "security" ? "border-amber-500 text-amber-600 font-semibold" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            className={`pb-3 border-b-2 transition-colors cursor-pointer ${activeTab === "security" ? "border-amber-400 text-black font-bold" : "border-transparent text-stone-500 hover:text-[#111111]"}`}
           >
             Password & Security
           </button>
@@ -259,54 +254,54 @@ export default function ProfilePage() {
         {/* Tab Contents */}
         {activeTab === "general" && (
           <section className="space-y-6 animate-in fade-in duration-300">
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900 mb-1">Public Profile</h2>
-              <p className="text-xs text-slate-500 mb-6">This information is shared across team projects and audio conversion logs.</p>
+            <div className="bg-[#ECE8DD] rounded-[28px] border border-[#DDD7C5] p-6 shadow-xs">
+              <h2 className="text-base font-bold text-[#111111] mb-1">Public Profile</h2>
+              <p className="text-xs text-stone-600 mb-6">This information is shared across team projects and audio conversion logs.</p>
 
               {/* Dynamic Avatar */}
-              <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-[#DDD7C5]">
                 <div className="relative group">
                   {avatarPreview ? (
-                    <img src={avatarPreview} alt="Avatar" className="w-20 h-20 rounded-2xl object-cover ring-4 ring-slate-50 shadow-inner" />
+                    <img src={avatarPreview} alt="Avatar" className="w-20 h-20 rounded-full object-cover ring-4 ring-[#DDD7C5] shadow-inner" />
                   ) : (
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-black font-black text-3xl flex items-center justify-center shrink-0 shadow-inner uppercase">
+                    <div className="w-20 h-20 rounded-full bg-amber-400 text-black font-black text-3xl flex items-center justify-center shrink-0 shadow-inner uppercase">
                       {firstName ? firstName[0] : "U"}{lastName ? lastName[0] : ""}
                     </div>
                   )}
                   {user?.email_verified && (
-                    <span className="absolute bottom-[-4px] right-[-4px] w-5 h-5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                    <span className="absolute bottom-0 right-0 w-5 h-5 bg-emerald-500 border-2 border-[#ECE8DD] rounded-full"></span>
                   )}
                 </div>
                 <div className="space-y-1 text-center sm:text-left">
                   <div className="flex flex-wrap gap-2.5 justify-center sm:justify-start mb-2">
-                    <label className="cursor-pointer px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold transition-colors">
+                    <label className="cursor-pointer px-4 py-1.5 bg-white/90 hover:bg-white text-[#111111] border border-[#DDD7C5] rounded-full text-xs font-semibold transition-colors shadow-xs">
                       Upload new picture
                       <input type="file" accept="image/png, image/jpeg, image/webp, image/gif" className="hidden" onChange={handleAvatarChange} />
                     </label>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900">{firstName} {lastName}</h3>
-                  <p className="text-xs text-slate-500">{email}</p>
+                  <h3 className="text-lg font-bold text-[#111111]">{firstName} {lastName}</h3>
+                  <p className="text-xs text-stone-600">{email}</p>
                 </div>
               </div>
 
               {/* Form Fields Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-6">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">First Name</label>
-                  <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-sm font-medium text-slate-800 transition-all outline-none" />
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">First Name</label>
+                  <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full px-4 py-2.5 bg-white/90 focus:bg-white border border-[#DDD7C5] focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 rounded-xl text-sm font-medium text-[#111111] transition-all outline-none shadow-xs" />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Last Name</label>
-                  <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-sm font-medium text-slate-800 transition-all outline-none" />
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Last Name</label>
+                  <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full px-4 py-2.5 bg-white/90 focus:bg-white border border-[#DDD7C5] focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 rounded-xl text-sm font-medium text-[#111111] transition-all outline-none shadow-xs" />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Email Address</label>
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Email Address</label>
                   <div className="relative">
-                    <input type="email" value={email} readOnly className="w-full pl-3.5 pr-24 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none cursor-not-allowed opacity-80" />
+                    <input type="email" value={email} readOnly className="w-full pl-4 pr-24 py-2.5 bg-white/60 border border-[#DDD7C5] rounded-xl text-sm font-medium text-stone-600 outline-none cursor-not-allowed opacity-80" />
                     {user?.email_verified && (
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
                         <ShieldCheck className="w-3 h-3" /> Verified
                       </span>
                     )}
@@ -314,12 +309,12 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Phone Number</label>
-                  <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-sm font-medium text-slate-800 transition-all outline-none" />
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Phone Number</label>
+                  <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="w-full px-4 py-2.5 bg-white/90 focus:bg-white border border-[#DDD7C5] focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 rounded-xl text-sm font-medium text-[#111111] transition-all outline-none shadow-xs" />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Role / Title</label>
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Role / Title</label>
                   <CustomSelect
                     options={JOB_OPTIONS}
                     value={jobTitle}
@@ -331,20 +326,20 @@ export default function ProfilePage() {
               </div>
 
               {/* Privacy Setting */}
-              <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
+              <div className="mt-8 pt-6 border-t border-[#DDD7C5] flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Private Account</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">When enabled, your profile is hidden and you cannot be added to new projects.</p>
+                  <h3 className="text-sm font-bold text-[#111111]">Private Account</h3>
+                  <p className="text-xs text-stone-600 mt-0.5">When enabled, your profile is hidden and you cannot be added to new projects.</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsPrivate(!isPrivate)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
-                    isPrivate ? "bg-amber-500" : "bg-slate-200"
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isPrivate ? "bg-amber-400" : "bg-stone-300"
                   }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
                       isPrivate ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
@@ -356,7 +351,7 @@ export default function ProfilePage() {
                   type="button" 
                   onClick={confirmSaveProfile} 
                   disabled={isUpdatingProfile}
-                  className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 active:scale-[0.98] disabled:opacity-70 rounded-xl shadow-sm shadow-amber-500/20 transition-all"
+                  className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-black bg-amber-400 hover:bg-amber-300 active:scale-[0.98] disabled:opacity-70 rounded-full shadow-md transition-all cursor-pointer"
                 >
                   {isUpdatingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                   <span>Save Changes</span>
@@ -370,69 +365,69 @@ export default function ProfilePage() {
         {activeTab === "security" && (
           <section className="space-y-6 animate-in fade-in duration-300">
             {/* Change Password Section */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <div className="bg-[#ECE8DD] rounded-[28px] border border-[#DDD7C5] p-6 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Change Password</h2>
-                  <p className="text-xs text-slate-500">Ensure your account is utilizing a long and random password to stay secure.</p>
+                  <h2 className="text-base font-bold text-[#111111]">Change Password</h2>
+                  <p className="text-xs text-stone-600">Ensure your account is utilizing a long and random password to stay secure.</p>
                 </div>
               </div>
 
               <div className="space-y-4 max-w-lg mt-4">
                 {/* 6-Digit Verification Code */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="p-4 rounded-2xl bg-[#F7F4EB] border border-[#DDD7C5] space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-semibold text-xs text-slate-800">Email Verification Required</p>
-                      <p className="text-[11px] text-slate-500">We will send a 6-digit code to {user?.email}</p>
+                      <p className="font-bold text-xs text-[#111111]">Email Verification Required</p>
+                      <p className="text-[11px] text-stone-600">We will send a 6-digit code to {user?.email}</p>
                     </div>
                     <button
                       type="button"
                       onClick={handleRequestPasswordCode}
                       disabled={isSendingCode || cooldown > 0}
-                      className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-50 border border-amber-200 disabled:opacity-50 text-amber-700 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0"
+                      className="px-3.5 py-1.5 rounded-full bg-white hover:bg-stone-50 border border-[#DDD7C5] disabled:opacity-50 text-amber-700 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
                     >
                       {isSendingCode ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                       <span>{cooldown > 0 ? `Wait ${cooldown}s` : "Get Code"}</span>
                     </button>
                   </div>
-                  <div className="pt-2 border-t border-slate-200 mt-2">
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">6-Digit Code</label>
+                  <div className="pt-2 border-t border-[#DDD7C5] mt-2">
+                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">6-Digit Code</label>
                     <div className="relative">
-                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                      <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" size={14} />
                       <input 
                         type="text" 
                         maxLength={6} 
                         value={verificationCode} 
                         onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
                         placeholder="123456" 
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 focus:border-amber-500 rounded-lg text-sm tracking-widest font-mono outline-none transition-all" 
+                        className="w-full pl-9 pr-3 py-2 bg-white/90 border border-[#DDD7C5] focus:border-amber-400 rounded-xl text-sm tracking-widest font-mono outline-none transition-all shadow-xs text-[#111111]" 
                       />
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">New Password</label>
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">New Password</label>
                   <div className="relative">
-                    <input type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Minimum 8 characters" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 rounded-xl text-sm outline-none transition-all pr-10" />
-                    <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+                    <input type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Minimum 8 characters" className="w-full px-4 py-2.5 bg-white/90 border border-[#DDD7C5] focus:bg-white focus:border-amber-400 rounded-xl text-sm outline-none transition-all pr-10 text-[#111111] shadow-xs" />
+                    <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-[#111111] p-1 cursor-pointer">
                       {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Confirm New Password</label>
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">Confirm New Password</label>
                   <div className="relative">
-                    <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter new password" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 rounded-xl text-sm outline-none transition-all pr-10" />
-                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+                    <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter new password" className="w-full px-4 py-2.5 bg-white/90 border border-[#DDD7C5] focus:bg-white focus:border-amber-400 rounded-xl text-sm outline-none transition-all pr-10 text-[#111111] shadow-xs" />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-[#111111] p-1 cursor-pointer">
                       {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
                 </div>
 
-                <button type="button" onClick={handleChangePassword} disabled={isChangingPassword} className="mt-2 px-4 py-2 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 active:scale-95 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2">
+                <button type="button" onClick={handleChangePassword} disabled={isChangingPassword} className="mt-2 px-6 py-2.5 text-xs font-bold text-white bg-[#111111] hover:bg-black active:scale-95 rounded-full transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer">
                   {isChangingPassword && <Loader2 size={14} className="animate-spin" />}
                   Update Password
                 </button>

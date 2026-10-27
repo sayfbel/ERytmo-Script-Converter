@@ -2123,5 +2123,146 @@ def download_desktop_app():
         status_code=307
     )
 
+# -------------------------------------------------------------
+# Schedule & Time Management Endpoints
+# -------------------------------------------------------------
+class ScheduleTaskCreate(BaseModel):
+    day: str
+    startTime: str
+    endTime: str
+    taskName: str
+    projectName: Optional[str] = ""
+    companyName: Optional[str] = ""
+    companyCode: Optional[str] = ""
+    room: Optional[str] = ""
+    theme: Optional[str] = "cream"
+    statusBadge: Optional[str] = None
+    hasJoinButton: Optional[bool] = False
+    staffMembers: Optional[List[dict]] = []
+
+class ScheduleTaskUpdate(BaseModel):
+    day: Optional[str] = None
+    startTime: Optional[str] = None
+    endTime: Optional[str] = None
+    taskName: Optional[str] = None
+    projectName: Optional[str] = None
+    companyName: Optional[str] = None
+    companyCode: Optional[str] = None
+    room: Optional[str] = None
+    theme: Optional[str] = None
+    statusBadge: Optional[str] = None
+    hasJoinButton: Optional[bool] = None
+    staffMembers: Optional[List[dict]] = None
+
+def _format_schedule_task(t: models.ScheduleTask) -> dict:
+    staff = []
+    if t.staff_members:
+        try:
+            staff = json.loads(t.staff_members)
+        except Exception:
+            staff = []
+    return {
+        "id": str(t.id),
+        "day": t.day,
+        "startTime": t.start_time,
+        "endTime": t.end_time,
+        "taskName": t.task_name,
+        "projectName": t.project_name or "",
+        "companyName": t.company_name or "",
+        "companyCode": t.company_code or "",
+        "room": t.room or "",
+        "theme": t.theme or "cream",
+        "statusBadge": t.status_badge or "",
+        "hasJoinButton": bool(t.has_join_button),
+        "staffMembers": staff,
+        "createdAt": t.created_at.isoformat() if t.created_at else None
+    }
+
+@router.get("/schedule-tasks")
+def get_schedule_tasks(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    tasks = db.query(models.ScheduleTask).filter(
+        models.ScheduleTask.user_id == current_user.id
+    ).order_by(models.ScheduleTask.id.asc()).all()
+    return [_format_schedule_task(t) for t in tasks]
+
+@router.post("/schedule-tasks")
+def create_schedule_task(
+    payload: ScheduleTaskCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    staff_json = json.dumps(payload.staffMembers or [])
+    new_task = models.ScheduleTask(
+        user_id=current_user.id,
+        day=payload.day,
+        start_time=payload.startTime,
+        end_time=payload.endTime,
+        task_name=payload.taskName,
+        project_name=payload.projectName or "",
+        company_name=payload.companyName or "",
+        company_code=payload.companyCode or "",
+        room=payload.room or "",
+        theme=payload.theme or "cream",
+        status_badge=payload.statusBadge,
+        has_join_button=payload.hasJoinButton or False,
+        staff_members=staff_json
+    )
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+    return _format_schedule_task(new_task)
+
+@router.put("/schedule-tasks/{task_id}")
+def update_schedule_task(
+    task_id: int,
+    payload: ScheduleTaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    task = db.query(models.ScheduleTask).filter(
+        models.ScheduleTask.id == task_id,
+        models.ScheduleTask.user_id == current_user.id
+    ).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Schedule task not found")
+        
+    if payload.day is not None: task.day = payload.day
+    if payload.startTime is not None: task.start_time = payload.startTime
+    if payload.endTime is not None: task.end_time = payload.endTime
+    if payload.taskName is not None: task.task_name = payload.taskName
+    if payload.projectName is not None: task.project_name = payload.projectName
+    if payload.companyName is not None: task.company_name = payload.companyName
+    if payload.companyCode is not None: task.company_code = payload.companyCode
+    if payload.room is not None: task.room = payload.room
+    if payload.theme is not None: task.theme = payload.theme
+    if payload.statusBadge is not None: task.status_badge = payload.statusBadge
+    if payload.hasJoinButton is not None: task.has_join_button = payload.hasJoinButton
+    if payload.staffMembers is not None: task.staff_members = json.dumps(payload.staffMembers)
+    
+    db.commit()
+    db.refresh(task)
+    return _format_schedule_task(task)
+
+@router.delete("/schedule-tasks/{task_id}")
+def delete_schedule_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    task = db.query(models.ScheduleTask).filter(
+        models.ScheduleTask.id == task_id,
+        models.ScheduleTask.user_id == current_user.id
+    ).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Schedule task not found")
+        
+    db.delete(task)
+    db.commit()
+    return {"success": True, "deleted_id": task_id}
+
+
 
 

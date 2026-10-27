@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Building, Search, Plus, Mail, DollarSign, X, Loader2, Edit2, Trash2 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import CustomSelect from "@/components/CustomSelect";
+import PageHeader from "@/components/PageHeader";
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
@@ -213,24 +214,22 @@ export default function CompanyPage() {
   });
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] relative p-4 sm:p-6 lg:p-8 overflow-hidden">
+    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-5 shrink-0">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-[#f4efe6] flex items-center tracking-tight">
-            <Building className="mr-3 rtl:mr-0 rtl:ml-3 text-amber-500 dark:text-amber-400 shrink-0" size={28} />
-            {t("company.title")}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9f988b] mt-1">{t("company.subtitle")}</p>
-        </div>
-        <button 
-          onClick={openCreateModal}
-          className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-extrabold py-2.5 px-5 rounded-xl transition-all shadow-[0_4px_20px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_25px_rgba(245,158,11,0.4)] flex items-center justify-center text-sm shrink-0 self-start sm:self-auto transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-        >
-          <Plus size={18} className="mr-2 rtl:mr-0 rtl:ml-2" />
-          {t("company.add")}
-        </button>
-      </div>
+      <PageHeader
+        title={t("company.title")}
+        subtitle={t("company.subtitle") || "Manage production studios, client companies, and specialized rate tariffs."}
+        icon={<Building size={28} />}
+        actionButton={
+          <button 
+            onClick={openCreateModal}
+            className="bg-[#111111] hover:bg-black text-white font-bold py-2.5 px-5 rounded-full shadow-xs flex items-center justify-center text-sm shrink-0 cursor-pointer transition-transform active:scale-95"
+          >
+            <Plus size={16} className="mr-2 rtl:mr-0 rtl:ml-2" />
+            {t("company.add")}
+          </button>
+        }
+      />
 
       {/* Toolbar: Search and Filter */}
       <div className="flex gap-3 sm:gap-4 mb-5 flex-wrap shrink-0">
@@ -384,89 +383,89 @@ export default function CompanyPage() {
 
       {/* Create/Edit Company Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-md p-3 sm:p-5 overflow-y-auto">
-          <div className="bg-white dark:bg-[#141417] rounded-2xl shadow-2xl dark:shadow-[0_25px_70px_rgba(0,0,0,0.95)] w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-[#f4efe6] overflow-hidden my-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-[#F7F4EB] rounded-[28px] shadow-2xl w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col animate-in zoom-in-95 duration-200 relative z-10 border border-[#DDD7C5] text-[#111111] overflow-hidden my-auto">
             {/* Modal Header */}
-            <div className="flex justify-between items-center px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] shrink-0">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-[#f4efe6]">{editingCompanyId ? t("company.edit") : t("company.add_new")}</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 dark:text-[#71717a] hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/5 p-1.5 sm:p-2 rounded-xl transition-colors cursor-pointer">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-[#DDD7C5] bg-[#ECE8DD] shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-[#111111]">{editingCompanyId ? t("company.edit") : t("company.add_new")}</h2>
+              <button onClick={() => setShowModal(false)} className="text-stone-400 hover:text-[#111111] hover:bg-black/5 p-1.5 rounded-full transition-colors cursor-pointer">
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleSubmitCompany} className="flex flex-col flex-1 min-h-0 overflow-hidden">
               {/* Scrollable Form Body */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 sm:space-y-4 min-h-0">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 min-h-0 bg-[#F7F4EB]">
                 {error && (
-                  <div className="bg-rose-500/10 text-rose-500 dark:text-rose-400 text-sm p-3 rounded-xl border border-rose-500/20">
+                  <div className="bg-rose-500/10 text-rose-600 text-sm p-3 rounded-2xl border border-rose-500/20 font-medium">
                     {error}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.name")} *</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">{t("company.form.name")} *</label>
                   <input 
                     type="text"
                     required
                     placeholder="e.g. Netflix, Amazon"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 sm:py-2.5 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                    className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all text-[#111111] placeholder:text-stone-400 shadow-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.desc")}</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">{t("company.form.desc")}</label>
                   <textarea 
                     placeholder="Notes about this company..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all resize-none h-16 sm:h-20 text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                    className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all resize-none h-20 text-[#111111] placeholder:text-stone-400 shadow-xs"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.detection")}</label>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">{t("company.form.rate.detection")}</label>
                     <div className="relative">
-                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
+                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500" />
                       <input 
                         type="number" step="0.01" placeholder="e.g. 50"
                         value={rateDetection} onChange={(e) => setRateDetection(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
+                        className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all text-[#111111] shadow-xs"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.conformation")}</label>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">{t("company.form.rate.conformation")}</label>
                     <div className="relative">
-                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
+                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500" />
                       <input 
                         type="number" step="0.01" placeholder="e.g. 50"
                         value={rateConformation} onChange={(e) => setRateConformation(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
+                        className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all text-[#111111] shadow-xs"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.pose_texte")}</label>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">{t("company.form.rate.pose_texte")}</label>
                     <div className="relative">
-                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
+                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500" />
                       <input 
                         type="number" step="0.01" placeholder="e.g. 50"
                         value={ratePoseTexte} onChange={(e) => setRatePoseTexte(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
+                        className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all text-[#111111] shadow-xs"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.rate.chantant")}</label>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">{t("company.form.rate.chantant")}</label>
                     <div className="relative">
-                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500 dark:text-amber-400" />
+                      <DollarSign size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-amber-500" />
                       <input 
                         type="number" step="0.01" placeholder="e.g. 50"
                         value={rateChantant} onChange={(e) => setRateChantant(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6]"
+                        className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl pl-9 rtl:pl-4 rtl:pr-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all text-[#111111] shadow-xs"
                       />
                     </div>
                   </div>
@@ -474,7 +473,7 @@ export default function CompanyPage() {
 
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.software")}</label>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">{t("company.form.software")}</label>
                     <CustomSelect
                       value={targetSoftware}
                       onChange={(val) => setTargetSoftware(val)}
@@ -487,26 +486,34 @@ export default function CompanyPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-[#c2bcaf] mb-1.5">{t("company.form.email")}</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">{t("company.form.email")}</label>
                   <div className="relative">
-                    <Mail size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-[#71717a]" />
+                    <Mail size={16} className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 transform -translate-y-1/2 text-stone-400" />
                     <input 
                       type="email"
                       placeholder="e.g. supplier@company.com"
                       value={supplierEmail}
                       onChange={(e) => setSupplierEmail(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#18181c] border border-slate-200 dark:border-white/10 rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-1 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+                      className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all text-[#111111] placeholder:text-stone-400 shadow-xs"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Pinned Action Buttons Footer */}
-              <div className="flex justify-end space-x-3 rtl:space-x-reverse px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer">
+              <div className="flex justify-end space-x-3 rtl:space-x-reverse px-6 py-4 border-t border-[#DDD7C5] bg-[#ECE8DD] shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-5 py-2 text-xs sm:text-sm font-semibold text-stone-700 hover:text-[#111111] bg-[#F7F4EB] hover:bg-white border border-[#DDD7C5] rounded-full transition-all cursor-pointer shadow-xs"
+                >
                   {t("cancel")}
                 </button>
-                <button type="submit" disabled={isSubmitting} className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-xl transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center cursor-pointer disabled:opacity-50">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 text-xs sm:text-sm font-bold text-black bg-amber-400 hover:bg-amber-300 rounded-full transition-all shadow-md flex items-center cursor-pointer disabled:opacity-50"
+                >
                   {isSubmitting && <Loader2 size={16} className="animate-spin mr-2 rtl:mr-0 rtl:ml-2" />}
                   {editingCompanyId ? t("update") : t("create")}
                 </button>

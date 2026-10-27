@@ -42,11 +42,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 3. If profile is complete and on register or complete-profile, send to workspace
-      // NOTE: /login is deliberately excluded — the login page shows its own session gate
-      // so users can choose to continue or switch accounts (prevents cross-device auto-login)
+      // 3. If profile is complete and on register or complete-profile, send to workspace dashboard
       if (user?.job_type && (pathname.startsWith("/register") || pathname === "/complete-profile") && !pathname.startsWith("/verify-email")) {
-        router.replace("/projects");
+        router.replace("/dashboard");
         return;
       }
     }
@@ -71,14 +69,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  // Authenticated: Render full application with Sidebar
+  // Authenticated: Render full application with Sidebar in seamless canvas
   return (
-    <>
-      <div className="shrink-0 h-full">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#F7F4EB] text-[#111111]">
+      <div className="shrink-0 h-full p-2 sm:p-2.5 pr-1">
         <Sidebar />
       </div>
 
-      <main className="flex-1 h-full min-w-0 overflow-hidden relative border-l border-slate-200/80 dark:border-white/[0.08] bg-[#f8fafc] dark:bg-[#09090b] text-slate-800 dark:text-[#f4efe6] shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.1)] dark:shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.7)]">
+      <main className="flex-1 h-full min-w-0 overflow-hidden relative flex flex-col">
         <div className="h-full w-full overflow-hidden flex flex-col">
           {children}
         </div>
@@ -86,6 +84,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <IncomingTransferModal />
       <NotificationCenter />
-    </>
+    </div>
   );
+
 }
+

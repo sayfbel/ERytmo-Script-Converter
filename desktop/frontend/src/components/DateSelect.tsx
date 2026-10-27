@@ -351,27 +351,27 @@ export default function DateSelect({
           disabled ? "opacity-50 cursor-not-allowed" : ""
         } ${
           isOpen
-            ? "border-amber-500 dark:border-amber-400 ring-2 ring-amber-500/20 dark:ring-amber-400/20 bg-white dark:bg-[#131316]"
-            : "border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-white dark:bg-[#131316]"
+            ? "border-amber-400 ring-2 ring-amber-400/20 bg-white/95"
+            : "border-[#DDD7C5] hover:border-amber-400/60 bg-white/90"
         }`}
       >
         <span
           className={`truncate ${
             displayDate
-              ? "text-slate-900 dark:text-[#f4efe6] font-semibold"
-              : "text-slate-400 dark:text-[#71717a]"
+              ? "text-[#111111] font-semibold"
+              : "text-[#888375]"
           }`}
         >
           {displayDate || placeholder}
         </span>
 
-        <div className="flex items-center gap-1.5 shrink-0 text-slate-400 dark:text-[#9f988b]">
+        <div className="flex items-center gap-1.5 shrink-0 text-[#888375]">
           {value && !disabled && (
             <span
               role="button"
               tabIndex={0}
               onClick={handleClear}
-              className="p-0.5 rounded hover:text-slate-700 dark:hover:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-0.5 rounded-full hover:text-[#111111] hover:bg-[#ECE8DD] transition-colors cursor-pointer"
               aria-label="Clear date"
             >
               <X size={14} />
@@ -381,8 +381,8 @@ export default function DateSelect({
             size={16}
             className={`transition-colors ${
               isOpen
-                ? "text-amber-500 dark:text-amber-400"
-                : "text-slate-400 dark:text-[#9f988b]"
+                ? "text-amber-500"
+                : "text-[#888375]"
             }`}
           />
         </div>
@@ -412,17 +412,17 @@ export default function DateSelect({
             width: `${coords.width}px`,
             zIndex: 999999,
           }}
-          className={`p-4 bg-white dark:bg-[#161619] border border-slate-200 dark:border-white/15 rounded-2xl shadow-2xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-100 ${
+          className={`p-4 bg-[#ECE8DD] border border-[#DDD7C5] rounded-[24px] shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 text-[#111111] ${
             coords.isUp ? "origin-bottom" : "origin-top"
           }`}
         >
           {/* Calendar Header: Month + Year and Nav Controls */}
-          <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-white/[0.08]">
+          <div className="flex items-center justify-between pb-3 mb-2 border-b border-[#DDD7C5]">
             <div className="flex items-baseline gap-1.5 select-none">
-              <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-[#f4efe6] tracking-tight">
+              <span className="text-sm sm:text-base font-bold text-[#111111] tracking-tight">
                 {MONTH_NAMES[viewMonth]}
               </span>
-              <span className="text-xs sm:text-sm font-semibold text-slate-400 dark:text-[#9f988b]">
+              <span className="text-xs sm:text-sm font-semibold text-[#777265]">
                 {viewYear}
               </span>
             </div>
@@ -432,7 +432,7 @@ export default function DateSelect({
                 type="button"
                 onClick={handlePrevMonth}
                 aria-label="Previous month"
-                className="p-1.5 rounded-lg text-slate-500 dark:text-[#c2bcaf] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full text-[#666155] hover:text-[#111111] hover:bg-[#DDD7C5] transition-colors cursor-pointer"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -440,7 +440,7 @@ export default function DateSelect({
                 type="button"
                 onClick={handleNextMonth}
                 aria-label="Next month"
-                className="p-1.5 rounded-lg text-slate-500 dark:text-[#c2bcaf] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full text-[#666155] hover:text-[#111111] hover:bg-[#DDD7C5] transition-colors cursor-pointer"
               >
                 <ChevronRight size={16} />
               </button>
@@ -452,7 +452,7 @@ export default function DateSelect({
             {WEEKDAY_NAMES.map((name) => (
               <div
                 key={name}
-                className="text-[11px] font-semibold text-slate-400 dark:text-[#71717a] py-1 select-none"
+                className="text-[11px] font-semibold text-[#888375] py-1 select-none"
               >
                 {name}
               </div>
@@ -473,14 +473,14 @@ export default function DateSelect({
                   onClick={() => handleSelectDate(cell.dateString)}
                   className={`h-8 w-8 sm:h-9 sm:w-9 mx-auto rounded-full flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
                     cell.isDisabled
-                      ? "opacity-25 cursor-not-allowed text-slate-400 dark:text-[#555]"
+                      ? "opacity-25 cursor-not-allowed text-[#999]"
                       : isCellSelected
-                      ? "bg-amber-500 dark:bg-amber-400 text-slate-950 font-bold shadow-md shadow-amber-500/30 scale-105"
+                      ? "bg-amber-400 text-black font-extrabold shadow-sm scale-105"
                       : isCellToday
-                      ? "border border-amber-500/60 dark:border-amber-400/60 text-amber-600 dark:text-amber-400 font-bold hover:bg-amber-500/10 dark:hover:bg-amber-400/10"
+                      ? "border border-amber-500/60 text-amber-700 font-bold hover:bg-amber-400/20"
                       : cell.isCurrentMonth
-                      ? "text-slate-800 dark:text-[#f4efe6] hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-950 dark:hover:text-white"
-                      : "text-slate-300 dark:text-[#52525b] hover:bg-slate-50 dark:hover:bg-white/5 opacity-60"
+                      ? "text-[#111111] hover:bg-[#DDD7C5] hover:text-black"
+                      : "text-[#999487] opacity-60 hover:bg-[#DDD7C5]/50"
                   }`}
                 >
                   {cell.day}
@@ -490,11 +490,11 @@ export default function DateSelect({
           </div>
 
           {/* Quick Action Footer: Today & Clear */}
-          <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100 dark:border-white/[0.08] text-xs">
+          <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#DDD7C5] text-xs">
             <button
               type="button"
               onClick={handleQuickToday}
-              className="font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
+              className="font-bold text-amber-600 hover:text-amber-700 transition-colors cursor-pointer"
             >
               Today
             </button>
@@ -503,7 +503,7 @@ export default function DateSelect({
               <button
                 type="button"
                 onClick={handleClear}
-                className="font-medium text-slate-400 dark:text-[#71717a] hover:text-slate-600 dark:hover:text-[#c2bcaf] transition-colors cursor-pointer"
+                className="font-medium text-[#777265] hover:text-[#111111] transition-colors cursor-pointer"
               >
                 Clear
               </button>

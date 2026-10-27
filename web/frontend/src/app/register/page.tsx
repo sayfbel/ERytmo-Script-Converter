@@ -44,13 +44,17 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [toastInfo, setToastInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const processedTokenRef = React.useRef(false);
 
   // Handle Google OAuth callback from redirect hash
   React.useEffect(() => {
-    if (typeof window !== "undefined" && window.location.hash) {
+    if (typeof window !== "undefined" && window.location.hash && !processedTokenRef.current) {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
       const idToken = hashParams.get("id_token");
       if (idToken) {
+        processedTokenRef.current = true;
+        // Clean URL hash immediately to avoid re-triggering loops or sending expired tokens on re-render
+        window.history.replaceState(null, "", window.location.pathname);
         setLoading(true);
         loginWithGoogle(idToken).then((res) => {
           setLoading(false);
