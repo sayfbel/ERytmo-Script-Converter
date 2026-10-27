@@ -10,7 +10,7 @@ export default function SettingsPage() {
   const { theme, language, setTheme, setLanguage, t } = useSettings();
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-y-auto">
+    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-visible bg-transparent">
       {/* Header with Title, Icon, Subtitle, and Top-Right Action Pills */}
       <PageHeader
         title={t("settings.title") || "Settings"}
@@ -18,7 +18,7 @@ export default function SettingsPage() {
         icon={<Settings size={28} />}
       />
 
-      <div className="w-full space-y-6 pb-6">
+      <div className="flex-1 overflow-y-auto w-full space-y-6 pb-6 pr-1">
         {/* Preferences Section */}
         <div className="w-full bg-[#ECE8DD] rounded-[28px] shadow-xs border border-[#DDD7C5] overflow-hidden">
           <div className="px-6 py-4 border-b border-[#DDD7C5] bg-[#E4DFC8]">

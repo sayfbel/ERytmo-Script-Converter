@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect } from "react";
 import { 
   Users, Search, Plus, Mail, X, Loader2, Trash2, Edit2, 
@@ -263,7 +265,7 @@ export default function StaffPage() {
   });
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden p-6 md:p-8 text-[#111111] transition-colors">
+    <div className="flex-1 flex flex-col h-full overflow-visible bg-transparent p-6 md:p-8 text-[#111111] transition-colors">
       {/* Top Header */}
       <PageHeader
         title="Staff & Collaborators"

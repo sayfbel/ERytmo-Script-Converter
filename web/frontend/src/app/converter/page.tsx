@@ -1,4 +1,7 @@
 "use client";
+
+export const dynamic = "force-dynamic";
+
 import { useState, useRef } from "react";
 import { UploadCloud, Play, FileDown, CheckCircle2, Loader2, X, RefreshCw, FolderOpen, ExternalLink } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
@@ -291,7 +294,7 @@ export default function Converter() {
   );
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full text-[#111111] relative overflow-y-auto">
+    <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full text-[#111111] relative overflow-visible bg-transparent">
       <PageHeader
         title={t("converter.title")}
         subtitle={scriptFileName ? `Active Script: ${scriptFileName}` : (t("converter.subtitle") || "Convert, re-align, and export dubbing scripts for ERytmo, Mosaic, and ProTools.")}
@@ -321,7 +324,9 @@ export default function Converter() {
         }
       />
 
-      {error && (
+      {/* Scrollable Converter Body */}
+      <div className="flex-1 overflow-y-auto pr-1">
+        {error && (
         <div className="bg-rose-500/10 text-rose-600 dark:text-rose-300 p-4 rounded-2xl mb-5 text-xs border border-rose-500/20 flex justify-between items-start shrink-0">
           <div><strong>{t("error")}:</strong> {error}</div>
           <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 cursor-pointer"><X size={16} /></button>
@@ -477,6 +482,7 @@ export default function Converter() {
       <div className="flex flex-col xl:flex-row gap-6 mb-8">
         {renderTable(rawCues, "1. " + t("converter.original"), t("converter.extracted"), "text-slate-900 dark:text-[#f4efe6]")}
         {renderTable(alignedCues, "2. " + t("converter.aligned"), t("converter.adjusted"), "text-amber-500 dark:text-amber-400")}
+      </div>
       </div>
 
       {/* Download Modal - Fixed Fullscreen */}

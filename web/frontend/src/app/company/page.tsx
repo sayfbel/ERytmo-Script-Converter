@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect } from "react";
 import { Building, Search, Plus, Mail, DollarSign, X, Loader2, Edit2, Trash2 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
@@ -214,7 +216,7 @@ export default function CompanyPage() {
   });
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-hidden">
+    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-visible bg-transparent">
       {/* Header */}
       <PageHeader
         title={t("company.title")}

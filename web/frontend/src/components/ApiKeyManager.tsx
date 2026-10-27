@@ -200,12 +200,13 @@ export default function ApiKeyManager({
   const activeCount = keys.filter((k) => k.is_active).length;
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-y-auto">
+    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-visible bg-transparent">
       {/* Page Header */}
       <PageHeader
         title={title}
         subtitle={subtitle}
-        icon={
+        icon={<Key size={28} />}
+        backButton={
           <Link
             href="/settings"
             className="p-1 rounded-full hover:bg-black/5 text-[#111111] transition-colors inline-flex items-center"
@@ -226,8 +227,10 @@ export default function ApiKeyManager({
         }
       />
 
-      {/* Info Banner about Multi-Key Sequential Fallback */}
-      <div className="mb-6 bg-[#ECE8DD] border border-[#DDD7C5] rounded-[24px] p-4 flex items-start space-x-3 rtl:space-x-reverse shadow-xs">
+      {/* Scrollable Key Manager Body */}
+      <div className="flex-1 overflow-y-auto pr-1">
+        {/* Info Banner about Multi-Key Sequential Fallback */}
+        <div className="mb-6 bg-[#ECE8DD] border border-[#DDD7C5] rounded-[24px] p-4 flex items-start space-x-3 rtl:space-x-reverse shadow-xs">
         <ShieldAlert className="text-amber-500 mt-0.5 shrink-0" size={20} />
         <div className="text-xs sm:text-sm text-[#111111]">
           <span className="font-bold text-amber-700">
@@ -516,6 +519,8 @@ export default function ApiKeyManager({
             </div>
           )}
         </div>
+      </div>
+
       </div>
 
       {/* Delete Confirmation Modal */}

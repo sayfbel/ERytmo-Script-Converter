@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useState, useMemo } from "react";
 import { 
   Search, Heart, DollarSign, Clock, FileText, Send, 
@@ -154,7 +156,7 @@ export default function DashboardBillingPage() {
   };
 
   return (
-    <div className="flex-1 h-full w-full overflow-y-auto no-scrollbar text-[#111111] p-3 sm:p-5 md:p-6 select-none font-sans-display flex flex-col gap-5">
+    <div className="flex-1 h-full w-full overflow-visible bg-transparent text-[#111111] p-3 sm:p-5 md:p-6 select-none font-sans-display flex flex-col gap-5">
       
       {/* 1. Header with Title, Icon, Explanatory Subtitle, Header Action Pills */}
       <PageHeader
@@ -198,8 +200,10 @@ export default function DashboardBillingPage() {
         </div>
       </PageHeader>
 
-      {/* 2. TWO-COLUMN EXECUTIVE DASHBOARD GRID */}
-      <div className="flex flex-col lg:flex-row items-start gap-6 w-full">
+      {/* Scrollable Dashboard Body */}
+      <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-5">
+        {/* 2. TWO-COLUMN EXECUTIVE DASHBOARD GRID */}
+        <div className="flex flex-col lg:flex-row items-start gap-6 w-full">
         
         {/* ================= LEFT COLUMN: DONUT CHART & 3 COLORFUL KPI CARDS ================= */}
         <div className="w-full lg:w-[340px] xl:w-[380px] flex flex-col gap-4 shrink-0">
@@ -644,11 +648,9 @@ export default function DashboardBillingPage() {
               </div>
             </div>
           </div>
-
         </div>
-
       </div>
-
     </div>
+  </div>
   );
 }

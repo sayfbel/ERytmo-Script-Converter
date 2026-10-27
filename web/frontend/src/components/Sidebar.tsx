@@ -48,6 +48,9 @@ export default function Sidebar() {
     if (path === "/projects") {
       return pathname.startsWith("/projects");
     }
+    if (path === "/statistics") {
+      return pathname.startsWith("/statistics") || pathname.startsWith("/scripts");
+    }
     if (path === "/settings") {
       return pathname.startsWith("/settings");
     }
@@ -88,8 +91,8 @@ export default function Sidebar() {
 
         {/* Brand Header */}
         <div className={`p-4 pt-5 flex ${isCollapsed ? "flex-col items-center justify-center" : "items-center gap-3"} min-h-[64px]`}>
-          <div className="w-8 h-8 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center shrink-0">
-            <DubFlowIcon className="w-5 h-5 text-amber-400" />
+          <div className="flex items-center justify-center shrink-0">
+            <DubFlowIcon className="w-6 h-6 text-amber-400" />
           </div>
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
@@ -141,9 +144,12 @@ export default function Sidebar() {
               </Link>
 
               {/* Statistics & Reports */}
-              <Link href="/time#analytics" className={getLinkClass("/time#analytics")} title="Statistics & reports">
-                <BarChart3 size={isCollapsed ? 20 : 17} className="text-[#8e8e93] group-hover:text-white shrink-0 mr-0 lg:mr-3" />
-                {!isCollapsed && <span className="truncate">Statistics & reports</span>}
+              <Link href="/statistics" className={getLinkClass("/statistics")} title="Statistics & reports">
+                {isLinkActive("/statistics") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r-full" />
+                )}
+                <BarChart3 size={isCollapsed ? 20 : 17} className={`${isLinkActive("/statistics") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
+                {!isCollapsed && <span className="truncate">Statistics &amp; reports</span>}
               </Link>
 
               {/* Script Converter */}

@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { 
   Search, Plus, Edit3, ChevronDown,
@@ -849,7 +851,7 @@ export default function TimeManagementPage() {
   };
 
   return (
-    <div className="flex-1 h-full w-full overflow-y-auto no-scrollbar text-[#111111] p-3 sm:p-5 md:p-6 select-none font-sans-display flex flex-col gap-5">
+    <div className="flex-1 h-full w-full overflow-visible bg-transparent text-[#111111] p-3 sm:p-5 md:p-6 select-none font-sans-display flex flex-col gap-5">
       
       {/* 1. Header with Title, Icon, Explanatory Subtitle, Header Action Pills & Event Button */}
       <PageHeader
@@ -903,8 +905,10 @@ export default function TimeManagementPage() {
         </div>
       </PageHeader>
 
-      {/* 2. DATE SELECTOR & VIEW SWITCHER ROW */}
-      <div className="flex items-center justify-between gap-3 pt-1">
+      {/* Scrollable Calendar Body */}
+      <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-5">
+        {/* 2. DATE SELECTOR & VIEW SWITCHER ROW */}
+        <div className="flex items-center justify-between gap-3 pt-1">
         {/* Dynamic DateSelect with Black Pill Trigger */}
         <DateSelect
           value={toYMD(currentDate)}
@@ -1834,6 +1838,7 @@ export default function TimeManagementPage() {
           </div>
         )}
 
+      </div>
       </div>
 
       {/* 4. MODAL: ADD / SCHEDULE TASK */}

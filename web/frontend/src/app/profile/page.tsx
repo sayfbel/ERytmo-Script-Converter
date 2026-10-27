@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useState, useEffect } from "react";
 import { User as UserIcon, ShieldCheck, KeyRound, Loader2, Send, EyeOff, Eye } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -225,16 +227,17 @@ export default function ProfilePage() {
 
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto px-5 py-6 md:px-10 md:py-8 font-sans text-[#111111]">
-      <div className="max-w-5xl mx-auto space-y-6">
-        
+    <div className="flex-1 min-w-0 flex flex-col h-full overflow-visible bg-transparent px-5 py-6 md:px-10 md:py-8 font-sans text-[#111111]">
+      <div className="w-full max-w-5xl">
         {/* Header Title Section with Top-Right Action Pills */}
         <PageHeader
           title="Account Information"
           subtitle="Manage your personal profile, credentials and security parameters."
           icon={<UserIcon size={28} />}
         />
+      </div>
 
+      <div className="flex-1 overflow-y-auto w-full max-w-5xl space-y-6 pr-1">
         {/* Tabs Navigation */}
         <div className="flex items-center border-b border-[#DDD7C5] gap-8 text-sm font-medium">
           <button 

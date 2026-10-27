@@ -1100,7 +1100,7 @@ export default function ProjectsClient() {
   });
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-hidden">
+    <div className="flex flex-col h-full animate-in fade-in duration-300 text-[#111111] relative p-4 sm:p-6 lg:p-8 overflow-visible bg-transparent">
       {/* Header with Title, Icon, Subtitle, and Top-Right Action Pills */}
       <PageHeader
         title={t("project.title")}

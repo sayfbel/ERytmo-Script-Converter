@@ -1,8 +1,6 @@
 import ProjectsClient from "./ProjectsClient";
 
-export function generateStaticParams() {
-  return [{ slug: [] }];
-}
+export const dynamic = "force-dynamic";
 
 export default function ProjectsPage() {
   return <ProjectsClient />;

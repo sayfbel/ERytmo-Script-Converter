@@ -71,13 +71,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Authenticated: Render full application with Sidebar in seamless canvas
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#F7F4EB] text-[#111111]">
-      <div className="shrink-0 h-full p-2 sm:p-2.5 pr-1">
+    <div className="flex h-screen w-screen overflow-hidden bg-transparent text-[#111111] relative">
+      <div className="shrink-0 h-full p-2 sm:p-2.5 pr-1 relative z-20 bg-transparent">
         <Sidebar />
       </div>
 
-      <main className="flex-1 h-full min-w-0 overflow-hidden relative flex flex-col">
-        <div className="h-full w-full overflow-hidden flex flex-col">
+      <main className="flex-1 h-full min-w-0 overflow-visible relative flex flex-col bg-transparent">
+        <div className="h-full w-full overflow-visible flex flex-col bg-transparent">
           {children}
         </div>
       </main>
