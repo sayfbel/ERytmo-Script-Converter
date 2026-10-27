@@ -2,11 +2,10 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { 
-  Search, Plus, Edit3, ChevronDown, MoreVertical,
-  Calendar, Clock, User, Users, FileText, CheckCircle2,
+  Search, Plus, Edit3, ChevronDown,
+  Calendar, Clock, Users, FileText, CheckCircle2,
   Video, Mic, Headphones, Sparkles, X, Building2, Briefcase,
-  Play, ExternalLink, ChevronLeft, ChevronRight, Check, Trash2, Loader2,
-  Folder, File
+  Check, Trash2, Loader2
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import PageHeader from "@/components/PageHeader";
@@ -149,16 +148,6 @@ const TASK_TYPE_OPTIONS: SelectOption[] = [
   { value: "Calligraphie Bande Rythmo", label: "Calligraphie Bande Rythmo", icon: <Edit3 size={14} className="text-amber-500" /> },
 ];
 
-const DAY_OPTIONS: SelectOption[] = [
-  { value: "mon", label: "Lundi" },
-  { value: "tue", label: "Mardi" },
-  { value: "wed", label: "Mercredi" },
-  { value: "thu", label: "Jeudi" },
-  { value: "fri", label: "Vendredi" },
-  { value: "sat", label: "Samedi" },
-  { value: "sun", label: "Dimanche" },
-];
-
 export default function TimeManagementPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
@@ -170,11 +159,6 @@ export default function TimeManagementPage() {
 
   // Dynamic Real Date Anchor (defaults to today's date)
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
-
-  // Real today day key based on client system date
-  const todayDayKey = useMemo<ScheduleTask["day"]>(() => {
-    return DAY_INDEX_MAP[new Date().getDay()];
-  }, []);
 
   const [selectedDayKey, setSelectedDayKey] = useState<ScheduleTask["day"]>(() => {
     return DAY_INDEX_MAP[new Date().getDay()];
@@ -1013,7 +997,7 @@ export default function TimeManagementPage() {
                     </h2>
                   </div>
                   <p className="text-xs text-stone-600 font-medium mt-0.5">
-                    Vue focalisée par journée — sessions d'enregistrement & mixage
+                    Vue focalisée par journée — sessions d&apos;enregistrement &amp; mixage
                   </p>
                 </div>
               </div>
@@ -1961,7 +1945,7 @@ export default function TimeManagementPage() {
 
                 {currentProjectCollabs.length === 0 ? (
                   <div className="p-3 bg-[#ECE8DD] rounded-2xl border border-[#DDD7C5] text-center text-xs text-stone-500 font-medium">
-                    Aucun collaborateur spécifique sur ce projet. L'utilisateur connecté sera assigné.
+                    Aucun collaborateur spécifique sur ce projet. L&apos;utilisateur connecté sera assigné.
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-[#ECE8DD] rounded-2xl border border-[#DDD7C5]">

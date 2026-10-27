@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Clock, Check } from "lucide-react";
+import { Clock } from "lucide-react";
 
 interface TimeRangePickerProps {
   startTime: string; // "08:30"

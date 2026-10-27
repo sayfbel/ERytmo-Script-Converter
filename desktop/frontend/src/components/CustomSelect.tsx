@@ -25,7 +25,7 @@ export default function CustomSelect({
   onChange,
   placeholder = "Select an option",
   className = "",
-  variant = "default",
+  variant: _variant = "default",
   icon,
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);

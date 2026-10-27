@@ -1,12 +1,9 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import Link from "next/link";
 import { 
   Search, Heart, DollarSign, Clock, FileText, Send, 
-  Download, ArrowUpRight, ArrowDownRight, ChevronDown,
-  LayoutDashboard, MoreVertical, Check, Stethoscope, Video,
-  CheckCircle2, Sparkles, Building2, Users, Briefcase
+  ChevronDown, LayoutDashboard, Stethoscope, Video
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -113,7 +110,6 @@ const SEARCH_TAGS = [
 ];
 
 export default function DashboardBillingPage() {
-  const { user } = useAuth();
   const { showToast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState("");

@@ -7,16 +7,14 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Calendar, Briefcase, BarChart3, Film,
   Users, Building2, FolderArchive, Settings, LogOut,
-  ChevronRight, ChevronLeft, Sparkles
+  ChevronRight, ChevronLeft
 } from "lucide-react";
-import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { t, language } = useSettings();
-  const { logout, user } = useAuth();
+  const { logout } = useAuth();
 
   useEffect(() => {
     if (typeof window === "undefined") return;

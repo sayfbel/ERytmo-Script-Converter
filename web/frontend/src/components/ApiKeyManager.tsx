@@ -33,7 +33,7 @@ export default function ApiKeyManager({
   provider,
   title,
   subtitle,
-  iconColor,
+  iconColor: _iconColor,
   placeholder,
 }: ApiKeyManagerProps) {
   const { t } = useSettings();

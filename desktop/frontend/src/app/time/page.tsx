@@ -2,22 +2,23 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { 
-  Search, Plus, RotateCw, Edit3, ChevronDown, MoreVertical,
-  Calendar, Clock, User, Users, FileText, CheckCircle2,
+  Search, Plus, Edit3, ChevronDown,
+  Calendar, Clock, Users, FileText, CheckCircle2,
   Video, Mic, Headphones, Sparkles, X, Building2, Briefcase,
-  Play, ExternalLink, ChevronLeft, ChevronRight, Check, Trash2, Loader2,
-  Folder, File
+  Check, Trash2, Loader2
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import PageHeader from "@/components/PageHeader";
 import CustomSelect, { SelectOption } from "@/components/CustomSelect";
 import ConfirmModal from "@/components/ConfirmModal";
 import TimeRangePicker from "@/components/TimeRangePicker";
+import DateSelect from "@/components/DateSelect";
 import { apiFetch } from "@/lib/api";
 
 export interface ScheduleTask {
   id: string;
   day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+  taskDate?: string; // "YYYY-MM-DD" e.g. "2026-10-23"
   startTime: string; // "07:00"
   endTime: string;   // "07:30"
   taskName: string;  // "Pose de texte", "Détection", "Conformation", "Mixage"
@@ -31,15 +32,44 @@ export interface ScheduleTask {
   hasJoinButton?: boolean;
 }
 
-const DAYS_HEADER: { key: ScheduleTask["day"]; label: string; dateNum: string; isToday?: boolean }[] = [
-  { key: "mon", label: "MONDAY", dateNum: "11/05" },
-  { key: "tue", label: "TUESDAY", dateNum: "12/05" },
-  { key: "wed", label: "WEDNESDAY", dateNum: "13/05" },
-  { key: "thu", label: "THU", dateNum: "14/05", isToday: true },
-  { key: "fri", label: "FR", dateNum: "15/05" },
-  { key: "sat", label: "SA", dateNum: "16/05" },
-  { key: "sun", label: "SU", dateNum: "17/05" },
-];
+// ─── Real Dynamic Date Utilities ───
+const DAY_INDEX_MAP: ScheduleTask["day"][] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+function toYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseYMD(str: string): Date {
+  const parts = str.split("-");
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      return new Date(y, m, d);
+    }
+  }
+  return new Date();
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function getISOWeekNumber(d: Date): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
 
 const START_HOUR = 7; // 07:00
 const END_HOUR = 24;  // 24:00 (Midnight)
@@ -84,16 +114,14 @@ const getTaskPosition = (startTime: string, endTime: string) => {
 };
 
 // Check if a task is taking place at current time and current day
-const isTaskActiveNow = (task: ScheduleTask): boolean => {
-  const dayIndexMap: ScheduleTask["day"][] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const isTaskActiveNow = (task: ScheduleTask, todayKey?: ScheduleTask["day"]): boolean => {
   const now = new Date();
-  const realTodayKey = dayIndexMap[now.getDay()];
-  const headerTodayKey = DAYS_HEADER.find(d => d.isToday)?.key;
-
-  // Day match: matches real day or active calendar header day
-  const isToday = task.day === realTodayKey || task.day === headerTodayKey;
-  if (!isToday) return false;
-
+  const todayStr = toYMD(now);
+  if (task.taskDate) {
+    if (task.taskDate !== todayStr) return false;
+  } else if (todayKey && task.day !== todayKey) {
+    return false;
+  }
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const startMinutes = timeToMinutes(task.startTime);
   const endMinutes = timeToMinutes(task.endTime);
@@ -120,63 +148,6 @@ const TASK_TYPE_OPTIONS: SelectOption[] = [
   { value: "Calligraphie Bande Rythmo", label: "Calligraphie Bande Rythmo", icon: <Edit3 size={14} className="text-amber-500" /> },
 ];
 
-const DAY_OPTIONS: SelectOption[] = [
-  { value: "mon", label: "Lundi" },
-  { value: "tue", label: "Mardi" },
-  { value: "wed", label: "Mercredi" },
-  { value: "thu", label: "Jeudi" },
-  { value: "fri", label: "Vendredi" },
-  { value: "sat", label: "Samedi" },
-  { value: "sun", label: "Dimanche" },
-];
-
-const MAY_2026_DAYS = [
-  // Week 1 (Apr 27 - May 3)
-  { dateNum: 27, isCurrentMonth: false, isToday: false, dayKey: "mon" as ScheduleTask["day"] },
-  { dateNum: 28, isCurrentMonth: false, isToday: false, dayKey: "tue" as ScheduleTask["day"] },
-  { dateNum: 29, isCurrentMonth: false, isToday: false, dayKey: "wed" as ScheduleTask["day"] },
-  { dateNum: 30, isCurrentMonth: false, isToday: false, dayKey: "thu" as ScheduleTask["day"] },
-  { dateNum: 1,  isCurrentMonth: true,  isToday: false, dayKey: "fri" as ScheduleTask["day"] },
-  { dateNum: 2,  isCurrentMonth: true,  isToday: false, dayKey: "sat" as ScheduleTask["day"] },
-  { dateNum: 3,  isCurrentMonth: true,  isToday: false, dayKey: "sun" as ScheduleTask["day"] },
-
-  // Week 2 (May 4 - May 10)
-  { dateNum: 4,  isCurrentMonth: true,  isToday: false, dayKey: "mon" as ScheduleTask["day"] },
-  { dateNum: 5,  isCurrentMonth: true,  isToday: false, dayKey: "tue" as ScheduleTask["day"] },
-  { dateNum: 6,  isCurrentMonth: true,  isToday: false, dayKey: "wed" as ScheduleTask["day"] },
-  { dateNum: 7,  isCurrentMonth: true,  isToday: false, dayKey: "thu" as ScheduleTask["day"] },
-  { dateNum: 8,  isCurrentMonth: true,  isToday: false, dayKey: "fri" as ScheduleTask["day"] },
-  { dateNum: 9,  isCurrentMonth: true,  isToday: false, dayKey: "sat" as ScheduleTask["day"] },
-  { dateNum: 10, isCurrentMonth: true,  isToday: false, dayKey: "sun" as ScheduleTask["day"] },
-
-  // Week 3 (May 11 - May 17) -> Current Active Week
-  { dateNum: 11, isCurrentMonth: true,  isToday: false, dayKey: "mon" as ScheduleTask["day"] },
-  { dateNum: 12, isCurrentMonth: true,  isToday: false, dayKey: "tue" as ScheduleTask["day"] },
-  { dateNum: 13, isCurrentMonth: true,  isToday: false, dayKey: "wed" as ScheduleTask["day"] },
-  { dateNum: 14, isCurrentMonth: true,  isToday: true,  dayKey: "thu" as ScheduleTask["day"] },
-  { dateNum: 15, isCurrentMonth: true,  isToday: false, dayKey: "fri" as ScheduleTask["day"] },
-  { dateNum: 16, isCurrentMonth: true,  isToday: false, dayKey: "sat" as ScheduleTask["day"] },
-  { dateNum: 17, isCurrentMonth: true,  isToday: false, dayKey: "sun" as ScheduleTask["day"] },
-
-  // Week 4 (May 18 - May 24)
-  { dateNum: 18, isCurrentMonth: true,  isToday: false, dayKey: "mon" as ScheduleTask["day"] },
-  { dateNum: 19, isCurrentMonth: true,  isToday: false, dayKey: "tue" as ScheduleTask["day"] },
-  { dateNum: 20, isCurrentMonth: true,  isToday: false, dayKey: "wed" as ScheduleTask["day"] },
-  { dateNum: 21, isCurrentMonth: true,  isToday: false, dayKey: "thu" as ScheduleTask["day"] },
-  { dateNum: 22, isCurrentMonth: true,  isToday: false, dayKey: "fri" as ScheduleTask["day"] },
-  { dateNum: 23, isCurrentMonth: true,  isToday: false, dayKey: "sat" as ScheduleTask["day"] },
-  { dateNum: 24, isCurrentMonth: true,  isToday: false, dayKey: "sun" as ScheduleTask["day"] },
-
-  // Week 5 (May 25 - May 31)
-  { dateNum: 25, isCurrentMonth: true,  isToday: false, dayKey: "mon" as ScheduleTask["day"] },
-  { dateNum: 26, isCurrentMonth: true,  isToday: false, dayKey: "tue" as ScheduleTask["day"] },
-  { dateNum: 27, isCurrentMonth: true,  isToday: false, dayKey: "wed" as ScheduleTask["day"] },
-  { dateNum: 28, isCurrentMonth: true,  isToday: false, dayKey: "thu" as ScheduleTask["day"] },
-  { dateNum: 29, isCurrentMonth: true,  isToday: false, dayKey: "fri" as ScheduleTask["day"] },
-  { dateNum: 30, isCurrentMonth: true,  isToday: false, dayKey: "sat" as ScheduleTask["day"] },
-  { dateNum: 31, isCurrentMonth: true,  isToday: false, dayKey: "sun" as ScheduleTask["day"] },
-];
-
 export default function TimeManagementPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
@@ -185,9 +156,131 @@ export default function TimeManagementPage() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedView, setSelectedView] = useState<"day" | "week" | "month">("week");
-  const [selectedDayKey, setSelectedDayKey] = useState<ScheduleTask["day"]>("thu");
-  const [activeMonth, setActiveMonth] = useState("Mai 2026");
-  const [selectedWeek, setSelectedWeek] = useState("May 11/05–17/05");
+
+  // Dynamic Real Date Anchor (defaults to today's date)
+  const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
+
+  const [selectedDayKey, setSelectedDayKey] = useState<ScheduleTask["day"]>(() => {
+    return DAY_INDEX_MAP[new Date().getDay()];
+  });
+
+  // Calculate Real Dynamic Week (Mon - Sun) from currentDate
+  const activeWeek = useMemo(() => {
+    const dayOfWeek = (currentDate.getDay() + 6) % 7; // 0 for Mon, 6 for Sun
+    const monday = new Date(currentDate);
+    monday.setDate(currentDate.getDate() - dayOfWeek);
+    monday.setHours(0, 0, 0, 0);
+
+    const dayKeys: ScheduleTask["day"][] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+    const dayLabels = ["MONDAY", "TUESDAY", "WEDNESDAY", "THU", "FR", "SA", "SU"];
+    const dayFullNamesFr = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+    const now = new Date();
+    const days = dayKeys.map((key, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateNum = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const isToday = isSameDay(d, now);
+      return {
+        key,
+        label: dayLabels[i],
+        fullNameFr: dayFullNamesFr[i],
+        dateNum,
+        rawDate: d,
+        dateStr: toYMD(d),
+        isToday
+      };
+    });
+
+    const sunday = days[6].rawDate;
+    const weekNum = getISOWeekNumber(monday);
+    const monthShort = monday.toLocaleString("en-US", { month: "short" });
+    const weekPillLabel = `${monthShort} ${days[0].dateNum}–${days[6].dateNum}`;
+
+    return {
+      monday,
+      sunday,
+      weekNum,
+      days,
+      weekPillLabel
+    };
+  }, [currentDate]);
+
+  // Calculate Real Dynamic Month Grid from currentDate
+  const activeMonthGrid = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    const firstDay = new Date(year, month, 1);
+    const firstDayOfWeek = (firstDay.getDay() + 6) % 7; // Monday = 0
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const dayKeys: ScheduleTask["day"][] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+    const now = new Date();
+    const cells: {
+      dateNum: number;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+      dayKey: ScheduleTask["day"];
+      rawDate: Date;
+      dateStr: string;
+    }[] = [];
+
+    // Leading days from prev month
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+      const d = daysInPrevMonth - i;
+      const prevDate = new Date(year, month - 1, d);
+      const dayKey = dayKeys[(prevDate.getDay() + 6) % 7];
+      cells.push({
+        dateNum: d,
+        isCurrentMonth: false,
+        isToday: isSameDay(prevDate, now),
+        dayKey,
+        rawDate: prevDate,
+        dateStr: toYMD(prevDate)
+      });
+    }
+
+    // Days in current month
+    for (let d = 1; d <= daysInMonth; d++) {
+      const curDate = new Date(year, month, d);
+      const dayKey = dayKeys[(curDate.getDay() + 6) % 7];
+      cells.push({
+        dateNum: d,
+        isCurrentMonth: true,
+        isToday: isSameDay(curDate, now),
+        dayKey,
+        rawDate: curDate,
+        dateStr: toYMD(curDate)
+      });
+    }
+
+    // Trailing days to fill uniform grid
+    const totalCells = cells.length <= 35 ? 35 : 42;
+    const remaining = totalCells - cells.length;
+    for (let d = 1; d <= remaining; d++) {
+      const nextDate = new Date(year, month + 1, d);
+      const dayKey = dayKeys[(nextDate.getDay() + 6) % 7];
+      cells.push({
+        dateNum: d,
+        isCurrentMonth: false,
+        isToday: isSameDay(nextDate, now),
+        dayKey,
+        rawDate: nextDate,
+        dateStr: toYMD(nextDate)
+      });
+    }
+
+    const monthNameFr = currentDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    const capitalizedMonth = monthNameFr.charAt(0).toUpperCase() + monthNameFr.slice(1);
+
+    return {
+      cells,
+      monthName: capitalizedMonth,
+      daysInMonth
+    };
+  }, [currentDate]);
 
   // Projects & Staff fetched from database for the Add Modal
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
@@ -201,6 +294,7 @@ export default function TimeManagementPage() {
   const [newCompany, setNewCompany] = useState("");
   const [newTaskName, setNewTaskName] = useState("Pose de texte");
   const [newDay, setNewDay] = useState<ScheduleTask["day"]>("thu");
+  const [newTaskDate, setNewTaskDate] = useState<string>(() => toYMD(new Date()));
   const [newStartTime, setNewStartTime] = useState("08:30");
   const [newEndTime, setNewEndTime] = useState("09:30");
   const [newTheme, setNewTheme] = useState<ScheduleTask["theme"]>("cream");
@@ -412,6 +506,38 @@ export default function TimeManagementPage() {
     });
   }, [tasks, activeCategory, searchQuery]);
 
+  // Real dynamic stats for the active month (filtered specifically to the visible month)
+  const activeMonthStats = useMemo(() => {
+    const monthCellDateStrs = new Set(
+      activeMonthGrid.cells.filter(c => c.isCurrentMonth).map(c => c.dateStr)
+    );
+
+    const tasksInMonth = filteredTasks.filter(t => t.taskDate && monthCellDateStrs.has(t.taskDate));
+    const plannedDaysSet = new Set(tasksInMonth.map(t => t.taskDate));
+
+    let totalMinutes = 0;
+    const staffSet = new Set<string>();
+    tasksInMonth.forEach(t => {
+      const [sH, sM] = t.startTime.split(":").map(Number);
+      const [eH, eM] = t.endTime.split(":").map(Number);
+      const s = sH * 60 + sM;
+      const e = eH * 60 + eM;
+      if (e > s) totalMinutes += (e - s);
+      (t.staffMembers || []).forEach(m => staffSet.add(m.name));
+    });
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    const durationStr = hrs > 0 ? `${hrs}h${mins > 0 ? ` ${mins}m` : ""}` : `${mins}m`;
+
+    return {
+      taskCount: tasksInMonth.length,
+      plannedDaysCount: plannedDaysSet.size,
+      daysInMonth: activeMonthGrid.daysInMonth,
+      durationStr,
+      staffCount: staffSet.size
+    };
+  }, [activeMonthGrid, filteredTasks]);
+
   // Helper to get initials
   const getInitials = (name: string) => {
     const parts = name.trim().split(" ");
@@ -422,8 +548,8 @@ export default function TimeManagementPage() {
   };
 
   // Helper to compute stats for a single day in Day View
-  const getDayStats = (dayKey: ScheduleTask["day"]) => {
-    const dayTasks = filteredTasks.filter(t => t.day === dayKey);
+  const getDayStats = (dateStr: string) => {
+    const dayTasks = filteredTasks.filter(t => t.taskDate ? t.taskDate === dateStr : false);
     let totalMinutes = 0;
     const staffSet = new Set<string>();
     dayTasks.forEach(t => {
@@ -446,13 +572,32 @@ export default function TimeManagementPage() {
   };
 
   // Open modal in Create mode
-  const handleOpenCreateTask = (day?: ScheduleTask["day"], startTime?: string, endTime?: string) => {
+  const handleOpenCreateTask = (dateStrOrDay?: string, startTime?: string, endTime?: string) => {
     setEditingTaskId(null);
     setNewTaskName("Pose de texte");
-    if (day) setNewDay(day);
     if (startTime) setNewStartTime(startTime);
     if (endTime) setNewEndTime(endTime);
     setNewTheme("cream");
+
+    let targetDateStr = toYMD(currentDate);
+    let targetDay: ScheduleTask["day"] = DAY_INDEX_MAP[currentDate.getDay()];
+
+    if (dateStrOrDay) {
+      if (dateStrOrDay.includes("-")) {
+        targetDateStr = dateStrOrDay;
+        const parsed = parseYMD(dateStrOrDay);
+        targetDay = DAY_INDEX_MAP[parsed.getDay()];
+      } else {
+        targetDay = dateStrOrDay as ScheduleTask["day"];
+        const matchInWeek = activeWeek.days.find(d => d.key === targetDay);
+        if (matchInWeek) {
+          targetDateStr = matchInWeek.dateStr;
+        }
+      }
+    }
+
+    setNewTaskDate(targetDateStr);
+    setNewDay(targetDay);
 
     if (availableProjects.length > 0) {
       const firstP = availableProjects[0];
@@ -487,6 +632,12 @@ export default function TimeManagementPage() {
     setEditingTaskId(task.id);
     setNewTaskName(task.taskName);
     setNewDay(task.day);
+    if (task.taskDate) {
+      setNewTaskDate(task.taskDate);
+    } else {
+      const matchInWeek = activeWeek.days.find(d => d.key === task.day);
+      setNewTaskDate(matchInWeek ? matchInWeek.dateStr : toYMD(currentDate));
+    }
     setNewStartTime(task.startTime);
     setNewEndTime(task.endTime);
     setNewTheme(task.theme || "cream");
@@ -544,6 +695,7 @@ export default function TimeManagementPage() {
 
     const payload = {
       day: newDay,
+      taskDate: newTaskDate,
       startTime: newStartTime,
       endTime: newEndTime,
       taskName: newTaskName,
@@ -641,6 +793,61 @@ export default function TimeManagementPage() {
     }
   };
 
+  // Folder Paper Sheet theme styling for Month View fiches
+  const getFolderSheetTheme = (theme?: ScheduleTask["theme"]) => {
+    switch (theme) {
+      case "yellow":
+        return {
+          bg: "bg-[#F7D046]",
+          border: "border-[#E5B620]/60",
+          shadow: "shadow-[0_4px_16px_rgba(247,208,70,0.3)]",
+          badgeBg: "bg-black/10 text-stone-900",
+          iconColor: "text-amber-800",
+          dotColor: "bg-amber-600",
+          textSec: "text-stone-800",
+          textMuted: "text-stone-700",
+          borderDiv: "border-black/10"
+        };
+      case "blue":
+        return {
+          bg: "bg-[#B9D7F9]",
+          border: "border-[#93C5FD]/70",
+          shadow: "shadow-[0_4px_16px_rgba(185,215,249,0.35)]",
+          badgeBg: "bg-blue-900/10 text-blue-950",
+          iconColor: "text-blue-700",
+          dotColor: "bg-blue-600",
+          textSec: "text-stone-800",
+          textMuted: "text-stone-700",
+          borderDiv: "border-black/10"
+        };
+      case "white":
+        return {
+          bg: "bg-white",
+          border: "border-black/[0.08]",
+          shadow: "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
+          badgeBg: "bg-black/5 text-stone-700",
+          iconColor: "text-amber-500",
+          dotColor: "bg-amber-400",
+          textSec: "text-stone-500",
+          textMuted: "text-stone-400",
+          borderDiv: "border-black/5"
+        };
+      case "cream":
+      default:
+        return {
+          bg: "bg-[#ECE8DD]",
+          border: "border-[#DDD7C5]",
+          shadow: "shadow-[0_4px_14px_rgba(0,0,0,0.06)]",
+          badgeBg: "bg-black/5 text-stone-800",
+          iconColor: "text-amber-600",
+          dotColor: "bg-amber-500",
+          textSec: "text-stone-600",
+          textMuted: "text-stone-500",
+          borderDiv: "border-black/10"
+        };
+    }
+  };
+
   return (
     <div className="flex-1 h-full w-full overflow-y-auto no-scrollbar text-[#111111] p-3 sm:p-5 md:p-6 select-none font-sans-display flex flex-col gap-5">
       
@@ -650,23 +857,13 @@ export default function TimeManagementPage() {
         subtitle="Weekly post-synchronization timeline, assigned dubbing tasks, and staff synchronization."
         icon={<Calendar size={28} />}
         actionButton={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleOpenCreateTask()}
-              className="bg-[#111111] hover:bg-black text-white text-xs font-semibold px-4 py-2.5 rounded-full flex items-center gap-2 shadow-xs transition-transform active:scale-95 cursor-pointer"
-            >
-              <Plus size={15} />
-              Plan Task
-            </button>
-
-            <button
-              onClick={loadScheduleTasks}
-              className="w-9 h-9 rounded-full bg-[#ECE8DD] hover:bg-[#DDD7C5] border border-[#D9D3C2] flex items-center justify-center text-[#111111] transition-colors shadow-xs cursor-pointer"
-              title="Refresh Timeline from Database"
-            >
-              <RotateCw size={15} className={isLoading ? "animate-spin" : ""} />
-            </button>
-          </div>
+          <button
+            onClick={() => handleOpenCreateTask(toYMD(currentDate))}
+            className="bg-[#111111] hover:bg-black text-white text-xs font-semibold px-4 py-2.5 rounded-full flex items-center gap-2 shadow-xs transition-transform active:scale-95 cursor-pointer"
+          >
+            <Plus size={15} />
+            Plan Task
+          </button>
         }
       >
         {/* Full Screen Width Search Bar - Category Filters hide automatically when screen narrows */}
@@ -708,24 +905,49 @@ export default function TimeManagementPage() {
 
       {/* 2. DATE SELECTOR & VIEW SWITCHER ROW */}
       <div className="flex items-center justify-between gap-3 pt-1">
-        {/* Black Pill Date Picker */}
-        <div className="inline-flex items-center gap-2 bg-[#111111] text-white text-xs font-semibold px-4 py-2 rounded-full shadow-xs cursor-pointer hover:bg-black transition-colors">
-          <span>
-            {selectedView === "day"
-              ? `Aujourd'hui — ${DAYS_HEADER.find(d => d.key === selectedDayKey)?.label || "Jeudi"} ${DAYS_HEADER.find(d => d.key === selectedDayKey)?.dateNum || "14/05"}`
-              : selectedView === "month"
-              ? activeMonth
-              : selectedWeek}
-          </span>
-          <ChevronDown size={14} className="text-[#999999]" />
-        </div>
+        {/* Dynamic DateSelect with Black Pill Trigger */}
+        <DateSelect
+          value={toYMD(currentDate)}
+          onChange={(val) => {
+            if (val) {
+              const newD = parseYMD(val);
+              setCurrentDate(newD);
+              const dayKeys: ScheduleTask["day"][] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+              setSelectedDayKey(dayKeys[(newD.getDay() + 6) % 7]);
+            }
+          }}
+          customTrigger={({ isOpen, handleToggle }) => (
+            <button
+              type="button"
+              onClick={handleToggle}
+              className="inline-flex items-center gap-2 bg-[#111111] text-white text-xs font-semibold px-4 py-2 rounded-full shadow-xs cursor-pointer hover:bg-black transition-colors"
+              title="Cliquer pour choisir une date"
+            >
+              <Calendar size={13} className="text-amber-400" />
+              <span>
+                {selectedView === "day"
+                  ? (() => {
+                      const curDay = activeWeek.days.find(d => d.key === selectedDayKey);
+                      return `${curDay?.fullNameFr || "Aujourd'hui"} ${curDay?.dateNum || ""}`;
+                    })()
+                  : selectedView === "month"
+                  ? activeMonthGrid.monthName
+                  : activeWeek.weekPillLabel}
+              </span>
+              <ChevronDown size={14} className={`text-[#999999] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+            </button>
+          )}
+        />
 
         {/* View Switcher: Today / Week / Month */}
         <div className="flex items-center bg-[#ECE8DD] border border-[#DDD7C5] p-1 rounded-full text-xs font-medium">
           <button
             onClick={() => {
+              const now = new Date();
+              setCurrentDate(now);
+              const dayKeys: ScheduleTask["day"][] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+              setSelectedDayKey(dayKeys[(now.getDay() + 6) % 7]);
               setSelectedView("day");
-              setSelectedDayKey("thu");
             }}
             className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
               selectedView === "day" ? "bg-[#111111] text-white font-bold shadow-xs" : "text-[#736E62] hover:text-[#111111]"
@@ -766,51 +988,46 @@ export default function TimeManagementPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-base sm:text-lg font-black text-[#111111]">
-                      {selectedDayKey === "mon" ? "Lundi 11 Mai 2026"
-                        : selectedDayKey === "tue" ? "Mardi 12 Mai 2026"
-                        : selectedDayKey === "wed" ? "Mercredi 13 Mai 2026"
-                        : selectedDayKey === "thu" ? "Jeudi 14 Mai 2026"
-                        : selectedDayKey === "fri" ? "Vendredi 15 Mai 2026"
-                        : selectedDayKey === "sat" ? "Samedi 16 Mai 2026"
-                        : "Dimanche 17 Mai 2026"}
+                      {(() => {
+                        const curDay = activeWeek.days.find(d => d.key === selectedDayKey);
+                        if (!curDay) return "Aujourd'hui";
+                        const formatted = curDay.rawDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+                        return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+                      })()}
                     </h2>
-                    {selectedDayKey === "thu" && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-800 text-[10px] font-extrabold flex items-center gap-1.5 border border-emerald-500/20">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                        Aujourd'hui en direct
-                      </span>
-                    )}
                   </div>
                   <p className="text-xs text-stone-600 font-medium mt-0.5">
-                    Vue focalisée par journée — sessions d'enregistrement & mixage
+                    Vue focalisée par journée — sessions d&apos;enregistrement &amp; mixage
                   </p>
                 </div>
               </div>
 
-              {/* Day Quick Stats */}
+              {/* Day Quick Stats (Plain text without boxes) */}
               {(() => {
-                const stats = getDayStats(selectedDayKey);
+                const curDateStr = toYMD(currentDate);
+                const stats = getDayStats(curDateStr);
                 return (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="px-3 py-1 rounded-full bg-[#ECE8DD] border border-[#DDD7C5] text-xs font-bold text-[#111111] flex items-center gap-1.5 shadow-xs">
+                  <div className="flex items-center gap-3.5 text-xs font-semibold text-stone-600">
+                    <span className="flex items-center gap-1.5">
                       <span className="text-amber-600 font-black">●</span>
-                      {stats.count} session{stats.count !== 1 ? "s" : ""}
-                    </div>
-                    <div className="px-3 py-1 rounded-full bg-[#ECE8DD] border border-[#DDD7C5] text-xs font-bold text-[#111111] flex items-center gap-1.5 shadow-xs">
-                      <Clock size={12} className="text-stone-500" />
-                      {stats.durationStr}
-                    </div>
-                    <div className="px-3 py-1 rounded-full bg-[#ECE8DD] border border-[#DDD7C5] text-xs font-bold text-[#111111] flex items-center gap-1.5 shadow-xs">
-                      <Users size={12} className="text-stone-500" />
-                      {stats.staffCount} staff
-                    </div>
-                    <button
-                      onClick={() => handleOpenCreateTask(selectedDayKey, "09:00", "10:00")}
-                      className="px-3.5 py-1.5 rounded-full bg-[#111111] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer ml-1"
-                    >
-                      <Plus size={13} />
-                      Planifier
-                    </button>
+                      <strong className="text-[#111111] font-bold">{stats.count}</strong>
+                      <span>session{stats.count !== 1 ? "s" : ""}</span>
+                    </span>
+
+                    <span className="w-1 h-1 rounded-full bg-stone-300 shrink-0" />
+
+                    <span className="flex items-center gap-1.5">
+                      <Clock size={13} className="text-stone-500" />
+                      <strong className="text-[#111111] font-bold">{stats.durationStr}</strong>
+                    </span>
+
+                    <span className="w-1 h-1 rounded-full bg-stone-300 shrink-0" />
+
+                    <span className="flex items-center gap-1.5">
+                      <Users size={13} className="text-stone-500" />
+                      <strong className="text-[#111111] font-bold">{stats.staffCount}</strong>
+                      <span>staff</span>
+                    </span>
                   </div>
                 );
               })()}
@@ -818,13 +1035,16 @@ export default function TimeManagementPage() {
 
             {/* 2. Days selector tabs */}
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2.5 border-b border-[#DDD7C5]/50 shrink-0">
-              {DAYS_HEADER.map(d => {
+              {activeWeek.days.map(d => {
                 const isSelected = selectedDayKey === d.key;
-                const dayCount = filteredTasks.filter(t => t.day === d.key).length;
+                const dayCount = filteredTasks.filter(t => t.taskDate === d.dateStr).length;
                 return (
                   <button
                     key={d.key}
-                    onClick={() => setSelectedDayKey(d.key)}
+                    onClick={() => {
+                      setSelectedDayKey(d.key);
+                      setCurrentDate(d.rawDate);
+                    }}
                     className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
                       isSelected
                         ? "bg-[#111111] text-white shadow-xs"
@@ -863,7 +1083,7 @@ export default function TimeManagementPage() {
                   style={{ height: `${TOTAL_TIMELINE_HEIGHT}px` }}
                 >
                   {/* Live Pink Line for Today */}
-                  {selectedDayKey === "thu" && (() => {
+                  {activeWeek.days.find(d => d.key === selectedDayKey)?.isToday && (() => {
                     const clampedTop = Math.max(0, Math.min(TOTAL_TIMELINE_HEIGHT, currentIndicator.top));
                     return (
                       <div
@@ -911,7 +1131,7 @@ export default function TimeManagementPage() {
                           onClick={() => {
                             const [h, m] = slot.split(":").map(Number);
                             const nextH = Math.min(23, h + 1);
-                            handleOpenCreateTask(selectedDayKey, slot, `${String(nextH).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+                            handleOpenCreateTask(toYMD(currentDate), slot, `${String(nextH).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
                           }}
                           className={`absolute left-0 right-0 border-t cursor-pointer hover:bg-amber-400/5 transition-colors ${
                             isHour ? "border-[#DDD7C5]/70" : "border-dashed border-[#DDD7C5]/35"
@@ -922,7 +1142,7 @@ export default function TimeManagementPage() {
                     })}
 
                     {/* Cards in this day */}
-                    {filteredTasks.filter(t => t.day === selectedDayKey).map(task => {
+                    {filteredTasks.filter(t => t.taskDate === toYMD(currentDate)).map(task => {
                       const { top, height } = getTaskPosition(task.startTime, task.endTime);
                       const isActive = isTaskActiveNow(task);
                       const [sH, sM] = task.startTime.split(":").map(Number);
@@ -1015,12 +1235,21 @@ export default function TimeManagementPage() {
               {/* Week number */}
               <div className="text-center font-bold text-xs text-[#736E62] leading-tight">
                 W<br />
-                <span className="text-sm sm:text-base text-[#111111]">24</span>
+                <span className="text-sm sm:text-base text-[#111111]">{activeWeek.weekNum}</span>
               </div>
 
               {/* 7 Days Columns */}
-              {DAYS_HEADER.map((d) => (
-                <div key={d.key} className="text-center">
+              {activeWeek.days.map((d) => (
+                <div 
+                  key={d.key} 
+                  className="text-center cursor-pointer transition-transform active:scale-95"
+                  onClick={() => {
+                    setSelectedDayKey(d.key);
+                    setCurrentDate(d.rawDate);
+                    setSelectedView("day");
+                  }}
+                  title={`Voir la journée du ${d.fullNameFr} ${d.dateNum}`}
+                >
                   {d.isToday ? (
                     <div className="inline-block bg-[#111111] text-white rounded-full px-3 py-1 shadow-xs">
                       <div className="text-[10px] font-bold tracking-wider">{d.label}</div>
@@ -1089,8 +1318,8 @@ export default function TimeManagementPage() {
                   </div>
 
                   {/* 2. 7 Days Columns for Tasks */}
-                  {DAYS_HEADER.map((day) => {
-                    const dayTasks = filteredTasks.filter((t) => t.day === day.key);
+                  {activeWeek.days.map((day) => {
+                    const dayTasks = filteredTasks.filter((t) => t.taskDate === day.dateStr);
 
                     return (
                       <div 
@@ -1108,7 +1337,7 @@ export default function TimeManagementPage() {
                               onClick={() => {
                                 const [h, m] = slot.split(":").map(Number);
                                 const nextH = Math.min(23, h + 1);
-                                handleOpenCreateTask(day.key, slot, `${String(nextH).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+                                handleOpenCreateTask(day.dateStr, slot, `${String(nextH).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
                               }}
                               className={`absolute left-0 right-0 border-t cursor-pointer hover:bg-amber-400/5 transition-colors ${
                                 isHour ? "border-[#DDD7C5]/70" : "border-dashed border-[#DDD7C5]/35"
@@ -1246,43 +1475,41 @@ export default function TimeManagementPage() {
             {/* 1. Month Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#DDD7C5]/70 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 bg-[#ECE8DD] border border-[#DDD7C5] rounded-full p-1 shadow-xs">
-                  <button
-                    onClick={() => setActiveMonth("Avril 2026")}
-                    className="p-1 rounded-full hover:bg-black/10 text-stone-600 hover:text-black transition-colors cursor-pointer"
-                    title="Mois précédent"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span className="px-3 text-xs font-extrabold text-[#111111]">{activeMonth}</span>
-                  <button
-                    onClick={() => setActiveMonth("Juin 2026")}
-                    className="p-1 rounded-full hover:bg-black/10 text-stone-600 hover:text-black transition-colors cursor-pointer"
-                    title="Mois suivant"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
+                <div>
+                  <h2 className="text-base sm:text-lg font-black text-[#111111]">
+                    {activeMonthGrid.monthName}
+                  </h2>
+                  <p className="text-xs text-stone-600 font-medium mt-0.5">
+                    Planning général du studio & livrables
+                  </p>
                 </div>
-                <span className="text-xs text-stone-600 hidden md:inline font-medium">
-                  Planning général du studio & livrables
-                </span>
               </div>
 
-              {/* Month Metrics */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="px-3 py-1 rounded-full bg-[#ECE8DD] border border-[#DDD7C5] text-xs font-bold text-[#111111] shadow-xs">
-                  📅 31 Jours
-                </div>
-                <div className="px-3 py-1 rounded-full bg-[#ECE8DD] border border-[#DDD7C5] text-xs font-bold text-[#111111] shadow-xs">
-                  🎯 {filteredTasks.length} Tâche(s)
-                </div>
-                <button
-                  onClick={() => handleOpenCreateTask("thu", "09:00", "10:00")}
-                  className="px-3.5 py-1.5 rounded-full bg-[#111111] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer ml-1"
-                >
-                  <Plus size={13} />
-                  Planifier
-                </button>
+              {/* Month Metrics (Plain text matching Day View style) */}
+              <div className="flex items-center gap-3.5 text-xs font-semibold text-stone-600">
+                <span className="flex items-center gap-1.5" title="Jours planifiés / Total des jours du mois">
+                  <span className="text-amber-600 font-black">●</span>
+                  <strong className="text-[#111111] font-bold">{activeMonthStats.plannedDaysCount}</strong>
+                  <span>jour{activeMonthStats.plannedDaysCount > 1 ? "s" : ""}</span>
+                  <span className="text-stone-400 font-normal">/ {activeMonthStats.daysInMonth}</span>
+                </span>
+
+                <span className="w-1 h-1 rounded-full bg-stone-300 shrink-0" />
+
+                <span className="flex items-center gap-1.5" title="Nombre de tâches planifiées dans ce mois">
+                  <strong className="text-[#111111] font-bold">{activeMonthStats.taskCount}</strong>
+                  <span>tâche{activeMonthStats.taskCount !== 1 ? "s" : ""}</span>
+                </span>
+
+                {activeMonthStats.taskCount > 0 && (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-stone-300 shrink-0" />
+                    <span className="flex items-center gap-1.5" title="Volume horaire total des sessions de ce mois">
+                      <Clock size={13} className="text-stone-500" />
+                      <strong className="text-[#111111] font-bold">{activeMonthStats.durationStr}</strong>
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1295,16 +1522,19 @@ export default function TimeManagementPage() {
               ))}
             </div>
 
-            {/* 3. 5-Week Calendar Grid (Kintsugi Folder Design with Pop-out Effect) */}
+            {/* 3. Real Dynamic Month Grid (Kintsugi Folder Design with Pop-out Effect) */}
             <div className="flex-1 overflow-y-auto pt-8 pb-4 px-2 grid grid-cols-7 gap-y-7 gap-x-3.5 custom-scrollbar">
-              {MAY_2026_DAYS.map((cell, idx) => {
-                const isWeek3 = cell.dateNum >= 11 && cell.dateNum <= 17 && cell.isCurrentMonth;
-                const tasksInCell = isWeek3 ? filteredTasks.filter(t => t.day === cell.dayKey) : [];
+              {activeMonthGrid.cells.map((cell, idx) => {
+                const tasksInCell = cell.isCurrentMonth ? filteredTasks.filter(t => t.taskDate === cell.dateStr) : [];
 
                 return (
                   <div
                     key={idx}
-                    onClick={() => handleOpenCreateTask(cell.dayKey, "09:00", "10:00")}
+                    onClick={() => {
+                      setCurrentDate(cell.rawDate);
+                      setSelectedDayKey(cell.dayKey);
+                      handleOpenCreateTask(cell.dateStr, "09:00", "10:00");
+                    }}
                     className={`relative w-full h-[162px] flex flex-col justify-end group/folder cursor-pointer select-none transition-all duration-300 hover:z-40 ${
                       !cell.isCurrentMonth ? "opacity-30 pointer-events-none" : ""
                     }`}
@@ -1320,18 +1550,18 @@ export default function TimeManagementPage() {
                       }`}
                     />
 
-                    {/* 1. PAPER SHEETS PEEKING AND POPPING OUT FROM INSIDE THE FOLDER */}
+                    {/* 1. PAPER SHEETS PEEKING AND POPPING OUT FROM INSIDE THE FOLDER POCKET */}
                     {cell.isCurrentMonth && (
                       <>
                         {tasksInCell.length === 0 ? (
                           <>
                             {/* Layer 1: Background paper sheet slightly offset */}
-                            <div className={`absolute left-3.5 right-3.5 top-3.5 h-[105px] rounded-t-xl rotate-[1.5deg] shadow-xs pointer-events-none transition-colors ${
+                            <div className={`absolute left-3.5 right-3.5 top-3.5 h-[130px] rounded-t-xl rotate-[1.5deg] shadow-xs pointer-events-none transition-colors z-[8] ${
                               cell.isToday ? "bg-white/85" : "bg-white/70"
                             }`} />
 
                             {/* Layer 2: Main foreground paper sheet (empty/clean) */}
-                            <div className="absolute left-3 right-3 top-4 h-[105px] rounded-t-xl bg-white shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-black/[0.04] p-2.5 transition-all duration-300 ease-out group-hover/folder:-translate-y-4 select-none">
+                            <div className="absolute left-3 right-3 top-4 h-[130px] rounded-t-xl bg-white shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-black/[0.04] p-2.5 transition-all duration-300 ease-out group-hover/folder:-translate-y-4 select-none z-[15]">
                               <div className="w-10 h-1.5 bg-stone-200 rounded-full mb-1.5" />
                               <div className="w-16 h-1.5 bg-stone-100 rounded-full mb-2" />
                               <span className="text-[8px] text-stone-300 font-medium block">Libre</span>
@@ -1340,100 +1570,113 @@ export default function TimeManagementPage() {
                         ) : tasksInCell.length === 1 ? (
                           <>
                             {/* Background decorative offset paper */}
-                            <div className={`absolute left-3.5 right-3.5 top-3.5 h-[105px] rounded-t-xl rotate-[1.5deg] shadow-xs pointer-events-none transition-colors ${
+                            <div className={`absolute left-3.5 right-3.5 top-3.5 h-[130px] rounded-t-xl rotate-[1.5deg] shadow-xs pointer-events-none transition-colors z-[8] ${
                               cell.isToday ? "bg-white/85" : "bg-white/70"
                             }`} />
 
-                            {/* Single Task Paper Sheet (Pops out from the top of the folder on hover) */}
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEditTask(tasksInCell[0]);
-                              }}
-                              className="absolute left-3 right-3 top-4 h-[115px] rounded-t-xl bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-black/[0.05] p-2.5 transition-all duration-300 ease-out group-hover/folder:-translate-y-9 group-hover/folder:shadow-[0_16px_32px_rgba(0,0,0,0.2)] cursor-pointer z-[15] hover:!z-[35] hover:scale-105"
-                              title={`${tasksInCell[0].taskName} (${tasksInCell[0].startTime})`}
-                            >
-                              <div className="flex items-center justify-between text-[8.5px] font-bold text-stone-500 mb-1">
-                                <span className="flex items-center gap-1 font-mono text-stone-900 font-extrabold">
-                                  <FileText size={10} className="text-amber-500" />
-                                  {tasksInCell[0].startTime}
-                                </span>
-                                <span className="text-[7.5px] font-black uppercase px-1 py-0.2 rounded bg-black/5 text-stone-700">
-                                  DOC
-                                </span>
-                              </div>
-                              <div className="text-[9.5px] font-black text-[#111111] leading-tight line-clamp-1">
-                                {tasksInCell[0].taskName}
-                              </div>
-                              <div className="text-[8px] text-stone-500 font-medium truncate mt-0.5">
-                                {tasksInCell[0].projectName}
-                              </div>
-                              <div className="mt-1.5 pt-1 border-t border-black/5 flex items-center gap-1 text-[7.5px] text-stone-400 opacity-0 group-hover/folder:opacity-100 transition-opacity">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                                <span className="truncate">{tasksInCell[0].companyName || "Studio"}</span>
-                              </div>
-                            </div>
+                            {/* Single Task Paper Sheet (Styled with user's selected theme color) */}
+                            {(() => {
+                              const tTheme = getFolderSheetTheme(tasksInCell[0].theme);
+                              return (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEditTask(tasksInCell[0]);
+                                  }}
+                                  className={`absolute left-3 right-3 top-4 h-[135px] rounded-t-xl ${tTheme.bg} ${tTheme.border} ${tTheme.shadow} border p-2.5 transition-all duration-300 ease-out group-hover/folder:-translate-y-6 group-hover/folder:shadow-[0_10px_20px_rgba(0,0,0,0.14)] cursor-pointer z-[15]`}
+                                  title={`${tasksInCell[0].taskName} (${tasksInCell[0].startTime})`}
+                                >
+                                  <div className="flex items-center justify-between text-[8.5px] font-bold text-stone-500 mb-1">
+                                    <span className="flex items-center gap-1 font-mono text-stone-900 font-extrabold">
+                                      <FileText size={10} className={tTheme.iconColor} />
+                                      {tasksInCell[0].startTime}
+                                    </span>
+                                    <span className={`text-[7.5px] font-black uppercase px-1 py-0.2 rounded ${tTheme.badgeBg}`}>
+                                      DOC
+                                    </span>
+                                  </div>
+                                  <div className="text-[9.5px] font-black text-[#111111] leading-tight line-clamp-1">
+                                    {tasksInCell[0].taskName}
+                                  </div>
+                                  <div className={`text-[8px] font-medium truncate mt-0.5 ${tTheme.textSec}`}>
+                                    {tasksInCell[0].projectName}
+                                  </div>
+                                  <div className={`mt-1.5 pt-1 border-t ${tTheme.borderDiv} flex items-center gap-1 text-[7.5px] ${tTheme.textMuted} opacity-0 group-hover/folder:opacity-100 transition-opacity`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${tTheme.dotColor} shrink-0`} />
+                                    <span className="truncate">{tasksInCell[0].companyName || "Studio"}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </>
                         ) : (
                           <>
-                            {/* MULTIPLE TASKS IN SAME DAY (Both files pop out and fan out from the top on hover) */}
-                            {/* Rear Task Paper Sheet (Task 2 - Right side, pops up high) */}
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEditTask(tasksInCell[1]);
-                              }}
-                              className="absolute right-1.5 left-7 top-1.5 h-[120px] rounded-t-xl bg-[#FAF9F5] shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-black/[0.07] p-2 pt-1.5 rotate-[4deg] group-hover/folder:rotate-[7deg] group-hover/folder:-translate-y-10 group-hover/folder:translate-x-2 group-hover/folder:shadow-[0_14px_28px_rgba(0,0,0,0.18)] transition-all duration-300 ease-out z-[10] hover:!z-[35] hover:scale-105 hover:bg-white cursor-pointer"
-                              title={`${tasksInCell[1].taskName} (${tasksInCell[1].startTime})`}
-                            >
-                              <div className="flex items-center justify-between text-[7.5px] font-bold text-stone-500 mb-0.5">
-                                <span className="flex items-center gap-0.5 font-mono text-stone-900 font-extrabold">
-                                  <FileText size={8} className="text-amber-500" />
-                                  {tasksInCell[1].startTime}
-                                </span>
-                                <span className="text-[6.5px] font-black uppercase px-1 py-0.2 rounded bg-amber-100 text-amber-900">
-                                  DOC 2
-                                </span>
-                              </div>
-                              <div className="text-[8.5px] font-black text-[#111111] leading-tight truncate">
-                                {tasksInCell[1].taskName}
-                              </div>
-                              <div className="text-[7.5px] text-stone-400 font-medium truncate mt-0.5">
-                                {tasksInCell[1].projectName}
-                              </div>
-                              <div className="mt-1.5 pt-1 border-t border-black/5 text-[7px] text-stone-400 opacity-0 group-hover/folder:opacity-100 transition-opacity truncate">
-                                {tasksInCell[1].companyName || "Studio"}
-                              </div>
-                            </div>
+                            {/* MULTIPLE TASKS IN SAME DAY (Fanned out paper sheets with respective user-selected theme colors) */}
+                            {(() => {
+                              const rearTheme = getFolderSheetTheme(tasksInCell[1].theme);
+                              const frontTheme = getFolderSheetTheme(tasksInCell[0].theme);
+                              return (
+                                <>
+                                  {/* Rear Task Paper Sheet (Task 2) */}
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditTask(tasksInCell[1]);
+                                    }}
+                                    className={`absolute right-1.5 left-7 top-1.5 h-[138px] rounded-t-xl ${rearTheme.bg} ${rearTheme.border} ${rearTheme.shadow} border p-2 pt-1.5 rotate-[4deg] group-hover/folder:rotate-[6deg] group-hover/folder:-translate-y-7 group-hover/folder:translate-x-1.5 group-hover/folder:shadow-[0_12px_24px_rgba(0,0,0,0.14)] transition-all duration-300 ease-out z-[10] cursor-pointer`}
+                                    title={`${tasksInCell[1].taskName} (${tasksInCell[1].startTime})`}
+                                  >
+                                    <div className="flex items-center justify-between text-[7.5px] font-bold text-stone-500 mb-0.5">
+                                      <span className="flex items-center gap-0.5 font-mono text-stone-900 font-extrabold">
+                                        <FileText size={8} className={rearTheme.iconColor} />
+                                        {tasksInCell[1].startTime}
+                                      </span>
+                                      <span className={`text-[6.5px] font-black uppercase px-1 py-0.2 rounded ${rearTheme.badgeBg}`}>
+                                        DOC 2
+                                      </span>
+                                    </div>
+                                    <div className="text-[8.5px] font-black text-[#111111] leading-tight truncate">
+                                      {tasksInCell[1].taskName}
+                                    </div>
+                                    <div className={`text-[7.5px] font-medium truncate mt-0.5 ${rearTheme.textSec}`}>
+                                      {tasksInCell[1].projectName}
+                                    </div>
+                                    <div className={`mt-1.5 pt-1 border-t ${rearTheme.borderDiv} text-[7px] ${rearTheme.textMuted} opacity-0 group-hover/folder:opacity-100 transition-opacity truncate`}>
+                                      {tasksInCell[1].companyName || "Studio"}
+                                    </div>
+                                  </div>
 
-                            {/* Front Task Paper Sheet (Task 1 - Left side, pops up) */}
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEditTask(tasksInCell[0]);
-                              }}
-                              className="absolute left-1.5 right-7 top-4 h-[120px] rounded-t-xl bg-white shadow-[0_5px_18px_rgba(0,0,0,0.1)] border border-black/[0.05] p-2 pt-1.5 rotate-[-2deg] group-hover/folder:rotate-[-4deg] group-hover/folder:-translate-y-8 group-hover/folder:-translate-x-1.5 group-hover/folder:shadow-[0_16px_32px_rgba(0,0,0,0.22)] transition-all duration-300 ease-out z-[15] hover:!z-[35] hover:scale-105 cursor-pointer"
-                              title={`${tasksInCell[0].taskName} (${tasksInCell[0].startTime})`}
-                            >
-                              <div className="flex items-center justify-between text-[8px] font-bold text-stone-500 mb-0.5">
-                                <span className="flex items-center gap-0.5 font-mono text-stone-900 font-extrabold">
-                                  <FileText size={8} className="text-amber-500" />
-                                  {tasksInCell[0].startTime}
-                                </span>
-                                <span className="text-[6.5px] font-black uppercase px-1 py-0.2 rounded bg-black/5 text-stone-700">
-                                  DOC 1
-                                </span>
-                              </div>
-                              <div className="text-[9px] font-black text-[#111111] leading-tight truncate">
-                                {tasksInCell[0].taskName}
-                              </div>
-                              <div className="text-[7.5px] text-stone-500 font-medium truncate mt-0.5">
-                                {tasksInCell[0].projectName}
-                              </div>
-                              <div className="mt-1.5 pt-1 border-t border-black/5 text-[7px] text-stone-400 opacity-0 group-hover/folder:opacity-100 transition-opacity truncate">
-                                {tasksInCell[0].companyName || "Studio"}
-                              </div>
-                            </div>
+                                  {/* Front Task Paper Sheet (Task 1) */}
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditTask(tasksInCell[0]);
+                                    }}
+                                    className={`absolute left-1.5 right-7 top-3.5 h-[138px] rounded-t-xl ${frontTheme.bg} ${frontTheme.border} ${frontTheme.shadow} border p-2 pt-1.5 rotate-[-2deg] group-hover/folder:rotate-[-4deg] group-hover/folder:-translate-y-5 group-hover/folder:-translate-x-1 group-hover/folder:shadow-[0_12px_24px_rgba(0,0,0,0.16)] transition-all duration-300 ease-out z-[15] cursor-pointer`}
+                                    title={`${tasksInCell[0].taskName} (${tasksInCell[0].startTime})`}
+                                  >
+                                    <div className="flex items-center justify-between text-[8px] font-bold text-stone-500 mb-0.5">
+                                      <span className="flex items-center gap-0.5 font-mono text-stone-900 font-extrabold">
+                                        <FileText size={8} className={frontTheme.iconColor} />
+                                        {tasksInCell[0].startTime}
+                                      </span>
+                                      <span className={`text-[6.5px] font-black uppercase px-1 py-0.2 rounded ${frontTheme.badgeBg}`}>
+                                        DOC 1
+                                      </span>
+                                    </div>
+                                    <div className="text-[9px] font-black text-[#111111] leading-tight truncate">
+                                      {tasksInCell[0].taskName}
+                                    </div>
+                                    <div className={`text-[7.5px] font-medium truncate mt-0.5 ${frontTheme.textSec}`}>
+                                      {tasksInCell[0].projectName}
+                                    </div>
+                                    <div className={`mt-1.5 pt-1 border-t ${frontTheme.borderDiv} text-[7px] ${frontTheme.textMuted} opacity-0 group-hover/folder:opacity-100 transition-opacity truncate`}>
+                                      {tasksInCell[0].companyName || "Studio"}
+                                    </div>
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </>
                         )}
                       </>
@@ -1456,7 +1699,7 @@ export default function TimeManagementPage() {
                         {cell.isToday ? (
                           <>
                             <defs>
-                              <linearGradient id={`todayFlap-desk-${idx}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                              <linearGradient id={`todayFlap-${idx}`} x1="0%" y1="0%" x2="0%" y2="100%">
                                 <stop offset="0%" stopColor="#FDE047" />
                                 <stop offset="50%" stopColor="#F7D046" />
                                 <stop offset="100%" stopColor="#EAB308" />
@@ -1464,7 +1707,7 @@ export default function TimeManagementPage() {
                             </defs>
                             <path
                               d="M 0,0 L 46,0 C 54,0 58,15 68,15 L 100,15 L 100,100 L 0,100 Z"
-                              fill={`url(#todayFlap-desk-${idx})`}
+                              fill={`url(#todayFlap-${idx})`}
                             />
                           </>
                         ) : (
@@ -1493,9 +1736,22 @@ export default function TimeManagementPage() {
                             Today
                           </span>
                         ) : tasksInCell.length > 0 ? (
-                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                          <span className={`w-2 h-2 rounded-full animate-pulse shrink-0 ${
+                            tasksInCell[0].theme === "blue" ? "bg-sky-500 shadow-[0_0_8px_rgba(56,189,248,0.6)]" :
+                            tasksInCell[0].theme === "yellow" ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" :
+                            tasksInCell[0].theme === "cream" ? "bg-stone-500" :
+                            "bg-stone-800"
+                          }`} />
                         ) : (
-                          <span className="opacity-0 group-hover/folder:opacity-100 text-stone-400 hover:text-black transition-opacity">
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentDate(cell.rawDate);
+                              setSelectedDayKey(cell.dayKey);
+                              handleOpenCreateTask(cell.dateStr, "09:00", "10:00");
+                            }}
+                            className="opacity-0 group-hover/folder:opacity-100 text-stone-400 hover:text-black transition-opacity cursor-pointer p-0.5"
+                          >
                             <Plus size={11} />
                           </span>
                         )}
@@ -1505,7 +1761,13 @@ export default function TimeManagementPage() {
                       <div className="my-0.5 min-w-0 flex-1 flex flex-col justify-center">
                         {tasksInCell.length > 0 ? (
                           <>
-                            <h4 className="text-[11.5px] font-black leading-tight truncate">
+                            <h4
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditTask(tasksInCell[0]);
+                              }}
+                              className="text-[11.5px] font-black leading-tight truncate hover:underline cursor-pointer"
+                            >
                               {tasksInCell[0].taskName}
                               {tasksInCell.length > 1 && (
                                 <span className="text-amber-600 font-bold ml-1">+{tasksInCell.length - 1}</span>
@@ -1540,14 +1802,26 @@ export default function TimeManagementPage() {
                               : tasksInCell[0].startTime}
                           </span>
                           <span className={`text-[8px] font-black px-1.5 py-0.2 rounded-full ${
-                            cell.isToday ? "bg-black/15 text-black" : "bg-stone-100 text-stone-700"
+                            cell.isToday ? "bg-black/15 text-black" :
+                            tasksInCell[0].theme === "blue" ? "bg-sky-100 text-sky-900 border border-sky-200/60" :
+                            tasksInCell[0].theme === "yellow" ? "bg-amber-100 text-amber-900 border border-amber-200/60" :
+                            tasksInCell[0].theme === "cream" ? "bg-stone-200 text-stone-800 border border-stone-300/60" :
+                            "bg-stone-100 text-stone-700"
                           }`}>
                             {tasksInCell.length} {tasksInCell.length > 1 ? "fiches" : "fiche"}
                           </span>
                         </div>
                       ) : (
                         <div className="flex items-center justify-between pt-0.5 text-[8.5px] font-semibold text-stone-400">
-                          <span className="opacity-0 group-hover/folder:opacity-100 transition-opacity text-black font-bold flex items-center gap-0.5">
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentDate(cell.rawDate);
+                              setSelectedDayKey(cell.dayKey);
+                              handleOpenCreateTask(cell.dateStr, "09:00", "10:00");
+                            }}
+                            className="opacity-0 group-hover/folder:opacity-100 transition-opacity text-black font-bold flex items-center gap-0.5 cursor-pointer"
+                          >
                             <Plus size={9} /> Planifier
                           </span>
                         </div>
@@ -1627,15 +1901,20 @@ export default function TimeManagementPage() {
                 </div>
               </div>
 
-              {/* Jour (CustomSelect) & Horaires Début - Fin (Unified Input with Clock Icon) */}
+              {/* Date de la tâche (DateSelect) & Horaires Début - Fin (Unified Input with Clock Icon) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">Jour</label>
-                  <CustomSelect
-                    options={DAY_OPTIONS}
-                    value={newDay}
-                    onChange={(val) => setNewDay(val as ScheduleTask["day"])}
-                    placeholder="Sélectionner un jour"
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                    Date de la tâche (Jour / Mois / Année)
+                  </label>
+                  <DateSelect
+                    value={newTaskDate}
+                    onChange={(val) => {
+                      setNewTaskDate(val);
+                      const parsed = parseYMD(val);
+                      setNewDay(DAY_INDEX_MAP[parsed.getDay()]);
+                    }}
+                    placeholder="Sélectionner une date"
                   />
                 </div>
                 <div>
@@ -1666,7 +1945,7 @@ export default function TimeManagementPage() {
 
                 {currentProjectCollabs.length === 0 ? (
                   <div className="p-3 bg-[#ECE8DD] rounded-2xl border border-[#DDD7C5] text-center text-xs text-stone-500 font-medium">
-                    Aucun collaborateur spécifique sur ce projet. L'utilisateur connecté sera assigné.
+                    Aucun collaborateur spécifique sur ce projet. L&apos;utilisateur connecté sera assigné.
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-[#ECE8DD] rounded-2xl border border-[#DDD7C5]">
