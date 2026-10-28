@@ -1259,6 +1259,11 @@ export default function TimeManagementPage() {
                       <div className="text-[10px] font-bold tracking-wider">{d.label}</div>
                       <div className="text-xs font-bold">{d.dateNum}</div>
                     </div>
+                  ) : d.key === selectedDayKey ? (
+                    <div className="inline-block bg-amber-400 text-stone-950 rounded-full px-3 py-1 shadow-xs font-bold">
+                      <div className="text-[10px] font-extrabold tracking-wider">{d.label}</div>
+                      <div className="text-xs font-black">{d.dateNum}</div>
+                    </div>
                   ) : (
                     <div className="text-[#111111]">
                       <div className={`text-[10px] font-semibold tracking-wider ${d.key === "sun" ? "text-rose-500 font-bold" : "text-[#736E62]"}`}>
@@ -1328,7 +1333,9 @@ export default function TimeManagementPage() {
                     return (
                       <div 
                         key={day.key} 
-                        className="relative h-full border-r border-[#DDD7C5]/30 last:border-r-0 group/col"
+                        className={`relative h-full border-r border-[#DDD7C5]/30 last:border-r-0 group/col transition-colors ${
+                          day.key === selectedDayKey && !day.isToday ? "bg-amber-400/[0.04]" : ""
+                        }`}
                       >
                         {/* Background guidelines for each half-hour slot */}
                         {TIME_SLOTS.map((slot, idx) => {
@@ -1537,8 +1544,9 @@ export default function TimeManagementPage() {
                     onClick={() => {
                       setCurrentDate(cell.rawDate);
                       setSelectedDayKey(cell.dayKey);
-                      handleOpenCreateTask(cell.dateStr, "09:00", "10:00");
+                      setSelectedView("week");
                     }}
+                    title={`Ouvrir la semaine du ${cell.dayKey} ${cell.dateNum}`}
                     className={`relative w-full h-[162px] flex flex-col justify-end group/folder cursor-pointer select-none transition-all duration-300 hover:z-40 ${
                       !cell.isCurrentMonth ? "opacity-30 pointer-events-none" : ""
                     }`}
@@ -1765,13 +1773,7 @@ export default function TimeManagementPage() {
                       <div className="my-0.5 min-w-0 flex-1 flex flex-col justify-center">
                         {tasksInCell.length > 0 ? (
                           <>
-                            <h4
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEditTask(tasksInCell[0]);
-                              }}
-                              className="text-[11.5px] font-black leading-tight truncate hover:underline cursor-pointer"
-                            >
+                            <h4 className="text-[11.5px] font-black leading-tight truncate">
                               {tasksInCell[0].taskName}
                               {tasksInCell.length > 1 && (
                                 <span className="text-amber-600 font-bold ml-1">+{tasksInCell.length - 1}</span>

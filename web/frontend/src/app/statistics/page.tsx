@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -149,6 +149,13 @@ export default function StatisticsPage() {
   const [newStaffStr, setNewStaffStr] = useState<string>("Tyler Y., Amy B., Noah R.");
   const [hoveredChartIdx, setHoveredChartIdx] = useState<number>(4); // default 12:30 peak
 
+  // Studio Time Day (Yellow Card) Interactive State
+  const [hoveredDayBar, setHoveredDayBar] = useState<{
+    label: string;
+    details: string;
+    minutes: number;
+  } | null>(null);
+
   // Fetch real data from backend
   const fetchData = async () => {
     setIsLoading(true);
@@ -287,7 +294,7 @@ export default function StatisticsPage() {
     });
   }, [tasks, todayActualYMD, todayActualDayKey]);
 
-  // Studio time metrics for the actual day
+  // Studio time metrics for the actual day (handles time spent per project & hourly distribution)
   const actualDayMetrics = useMemo(() => {
     const totalMinutes = actualDayTasks.reduce((acc, t) => {
       const s = timeToMinutes(t.startTime);
@@ -333,26 +340,36 @@ export default function StatisticsPage() {
       }
     }
 
-    // Dynamic 7-slot breakdown across studio operating hours
+    // Dynamic 7-slot breakdown across studio operating hours (08:00 to 20:00)
+    // 08:00 (07:00-09:00), 10:00 (09:00-11:00), 12:00 (11:00-13:00),
+    // 14:00 (13:00-15:00), 16:00 (15:00-17:00), 18:00 (17:00-19:00), 20:00 (19:00-21:00)
     const slotTimes = ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00"];
     const slotData = slotTimes.map((slotStr) => {
-      const slotMin = timeToMinutes(slotStr);
-      const matchingTasks = actualDayTasks.filter((t) => {
-        const s = timeToMinutes(t.startTime);
-        const e = timeToMinutes(t.endTime);
-        return (slotMin >= s && slotMin <= e) || Math.abs(s - slotMin) <= 60;
-      });
+      const [hStr] = slotStr.split(":");
+      const h = parseInt(hStr, 10);
+      const winStart = (h - 1) * 60;
+      const winEnd = (h + 1) * 60;
 
-      const slotMinutes = matchingTasks.reduce((sum, t) => {
+      let minutes = 0;
+      const taskDescriptions: string[] = [];
+      const projectNamesSet = new Set<string>();
+
+      actualDayTasks.forEach((t) => {
         const s = timeToMinutes(t.startTime);
         const e = timeToMinutes(t.endTime);
-        return sum + (e > s ? e - s : 60);
-      }, 0);
+        const overlap = Math.max(0, Math.min(e, winEnd) - Math.max(s, winStart));
+        if (overlap > 0) {
+          minutes += overlap;
+          if (t.projectName) projectNamesSet.add(t.projectName);
+          taskDescriptions.push(`${t.projectName ? `${t.projectName}: ` : ""}${t.taskName} (${overlap}m)`);
+        }
+      });
 
       return {
         slot: slotStr,
-        minutes: slotMinutes,
-        tasks: matchingTasks.map((t) => t.taskName).join(", "),
+        minutes,
+        projectNames: Array.from(projectNamesSet).join(", "),
+        tasks: taskDescriptions.join(", "),
       };
     });
 
@@ -367,7 +384,7 @@ export default function StatisticsPage() {
       latestTime,
       slotBars: slotData.map((d) => ({
         ...d,
-        heightPct: actualDayTasks.length === 0 ? "20%" : `${Math.max(16, Math.round((d.minutes / maxSlotMin) * 92))}%`,
+        heightPct: d.minutes > 0 ? Math.max(22, Math.round((d.minutes / maxSlotMin) * 94)) : 8,
       })),
     };
   }, [actualDayTasks]);
@@ -464,6 +481,96 @@ export default function StatisticsPage() {
     });
   }, [analyzedProjects]);
 
+  // The single project that must be ended (priority to deadline passed / must end, then lowest time remaining)
+  const mustEndProject = useMemo(() => {
+    const foundMustEnd = projectsEndingSoon.find((p) => p.hasToBeEnded);
+    if (foundMustEnd) return foundMustEnd;
+    return projectsEndingSoon[0] || null;
+  }, [projectsEndingSoon]);
+
+  // Calculations for the 3-segment timeline of the project that must be ended:
+  // 1. rgb(17 17 17): Count of time of tasks we already worked
+  // 2. rgb(87 83 78): Time of the next task
+  // 3. rgb(146 64 14): Time of rest to deadline
+  const mustEndTimeline = useMemo(() => {
+    if (!mustEndProject) {
+      return {
+        workedHours: "0.0",
+        nextTaskHours: "0.0",
+        restHours: "0.0",
+        restText: "No deadline",
+        workedPct: 34,
+        nextPct: 33,
+        restPct: 33,
+        nextTaskName: "No task",
+      };
+    }
+
+    // 1. Time tasks already worked (in minutes & hours)
+    const workedMin = Math.max(30, mustEndProject.totalTaskMinutes);
+    const workedHours = mustEndProject.totalTaskHours.toFixed(1);
+
+    // 2. Time of the next task
+    const pName = (mustEndProject.project.name || "").trim().toLowerCase();
+    const projTasks = tasks.filter((t) => {
+      const tProj = (t.projectName || "").trim().toLowerCase();
+      return tProj && (tProj === pName || pName.includes(tProj) || tProj.includes(pName));
+    });
+
+    let nextTaskMin = 120; // fallback 2.0h
+    let nextTaskName = "Next Session";
+    if (projTasks.length > 0) {
+      const nextT = projTasks[projTasks.length - 1];
+      const s = timeToMinutes(nextT.startTime);
+      const e = timeToMinutes(nextT.endTime);
+      nextTaskMin = e > s ? e - s : 120;
+      nextTaskName = nextT.taskName || "Next Task";
+    }
+    const nextTaskHours = (nextTaskMin / 60).toFixed(1);
+
+    // 3. Time of rest to deadline
+    let restMin = 60;
+    let restHours = "0.0";
+    let restText = "Deadline passed";
+    if (mustEndProject.hasToBeEnded || mustEndProject.isPastDeadline) {
+      const overdueAmount = mustEndProject.hoursRemaining < 0
+        ? Math.min(24, Math.abs(mustEndProject.hoursRemaining))
+        : 4;
+      restMin = Math.round(overdueAmount * 60);
+      restHours = overdueAmount.toFixed(1);
+      restText = `Overdue (${restHours}h passed)`;
+    } else if (mustEndProject.hoursRemaining > 0 && mustEndProject.hoursRemaining !== Infinity) {
+      restMin = Math.round(mustEndProject.hoursRemaining * 60);
+      restHours = mustEndProject.hoursRemaining.toFixed(1);
+      restText = `${restHours}h remaining`;
+    }
+
+    const total = workedMin + nextTaskMin + restMin;
+    let workedPct = Math.round((workedMin / total) * 100);
+    let nextPct = Math.round((nextTaskMin / total) * 100);
+    let restPct = 100 - workedPct - nextPct;
+
+    // Ensure all 3 segments remain visually distinguished
+    if (workedPct < 15) workedPct = 15;
+    if (nextPct < 15) nextPct = 15;
+    if (restPct < 15) restPct = 15;
+
+    const remaining = 100 - nextPct - restPct;
+    workedPct = remaining;
+
+    return {
+      workedHours,
+      nextTaskHours,
+      restHours,
+      restText,
+      workedPct,
+      nextPct,
+      restPct,
+      nextTaskName,
+      isOverdue: mustEndProject.hasToBeEnded || mustEndProject.isPastDeadline,
+    };
+  }, [mustEndProject, tasks]);
+
   // Dynamic Condition & Workflow statistics from deadline analysis
   const workflowStats = useMemo(() => {
     const inProgress = analyzedProjects.filter((p) => p.isInProgress).length;
@@ -521,13 +628,13 @@ export default function StatisticsPage() {
     });
   }, [tasks, selectedYMD, selectedDayKey]);
 
-  // Real task metrics for the current day
+  // Real task metrics for the current day (no fake fallback data when no tasks exist)
   const currentDayStats = useMemo(() => {
     if (currentDayTasks.length === 0) {
       return {
-        avgMinutes: 76,
-        minMinutes: 28,
-        maxHours: "2.3",
+        avgMinutes: 0,
+        minMinutes: 0,
+        maxHours: "0.0",
         hasRealTasks: false,
       };
     }
@@ -552,29 +659,38 @@ export default function StatisticsPage() {
     };
   }, [currentDayTasks]);
 
-  // Dynamic Studio Time Summary Chart Curve Points representing current day's tasks
-  const studioChartPoints = useMemo(() => {
+  // Target Studio Time Summary Chart points for the selected day
+  const targetChartPoints = useMemo(() => {
     const slots = [
-      { time: "10:30", fallbackMin: 28 },
-      { time: "11:00", fallbackMin: 32 },
-      { time: "11:30", fallbackMin: 30 },
-      { time: "12:00", fallbackMin: 56 },
-      { time: "12:30", fallbackMin: 119 }, // peak reference: 12:30 • 119 min
-      { time: "13:00", fallbackMin: 48 },
-      { time: "13:30", fallbackMin: 35 },
+      { time: "10:30" },
+      { time: "11:00" },
+      { time: "11:30" },
+      { time: "12:00" },
+      { time: "12:30" },
+      { time: "13:00" },
+      { time: "13:30" },
     ];
+
+    if (currentDayTasks.length === 0) {
+      return slots.map((s) => ({
+        time: s.time,
+        value: 0,
+        taskName: "",
+        targetY: 72, // flat baseline when no data
+      }));
+    }
 
     const rawData = slots.map((s) => {
       const slotMin = timeToMinutes(s.time);
 
-      // Find any task of the current day that is active around this time slot
+      // Find any task of the selected day that is active during this slot window
       const matchedTask = currentDayTasks.find((t) => {
         const startMin = timeToMinutes(t.startTime);
         const endMin = timeToMinutes(t.endTime);
         return (slotMin >= startMin && slotMin <= endMin) || Math.abs(startMin - slotMin) <= 30;
       });
 
-      let value = s.fallbackMin;
+      let value = 0;
       let taskName = "";
 
       if (matchedTask) {
@@ -582,10 +698,7 @@ export default function StatisticsPage() {
         const endMin = timeToMinutes(matchedTask.endTime);
         const dur = endMin > startMin ? endMin - startMin : 60;
         value = dur;
-        taskName = matchedTask.taskName;
-      } else if (currentDayTasks.length > 0) {
-        // If there are real tasks today but none at this slot, keep baseline gentle
-        value = Math.max(16, Math.round(s.fallbackMin * 0.45));
+        taskName = `${matchedTask.projectName ? `${matchedTask.projectName}: ` : ""}${matchedTask.taskName}`;
       }
 
       return {
@@ -596,24 +709,79 @@ export default function StatisticsPage() {
     });
 
     const values = rawData.map((d) => d.value);
-    const minVal = Math.min(...values);
-    const maxVal = Math.max(...values);
-    const range = maxVal - minVal || 1;
+    const maxVal = Math.max(...values, 60);
 
-    const startX = 20;
-    const endX = 340;
-    const stepX = (endX - startX) / (rawData.length - 1);
-
-    const points = rawData.map((d, i) => {
-      const x = Math.round(startX + i * stepX);
-      const normalized = (d.value - minVal) / range;
-      const y = Math.round(68 - normalized * 52); // range from 68 down to 16
+    return rawData.map((d) => {
+      let targetY = 72;
+      if (d.value > 0) {
+        const normalized = d.value / maxVal;
+        targetY = Math.round(72 - normalized * 50); // peaks between 22 and 72
+      }
       return {
         ...d,
-        x,
-        y,
+        targetY,
       };
     });
+  }, [currentDayTasks]);
+
+  // Smooth animated spline curve coordinates for day-switching
+  const [animatedYs, setAnimatedYs] = useState<number[]>([72, 72, 72, 72, 72, 72, 72]);
+  const animationRef = useRef<number | null>(null);
+  const currentYsRef = useRef<number[]>([72, 72, 72, 72, 72, 72, 72]);
+
+  useEffect(() => {
+    const startYs = [...currentYsRef.current];
+    const endYs = targetChartPoints.map((p) => p.targetY);
+
+    const hasChanged = endYs.some((ey, i) => Math.abs(ey - startYs[i]) > 0.5);
+    if (!hasChanged) return;
+
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+
+    const duration = 450; // 450ms smooth fluid glide
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Smooth cubic ease-out curve
+      const ease = 1 - Math.pow(1 - progress, 3);
+
+      const nextYs = startYs.map((sy, i) => sy + (endYs[i] - sy) * ease);
+      currentYsRef.current = nextYs;
+      setAnimatedYs(nextYs);
+
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate);
+      } else {
+        currentYsRef.current = endYs;
+        setAnimatedYs(endYs);
+        animationRef.current = null;
+      }
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [targetChartPoints]);
+
+  // Dynamic Studio Time Summary Chart Curve Points animated smoothly across day changes
+  const studioChartPoints = useMemo(() => {
+    const startX = 20;
+    const endX = 340;
+    const stepX = (endX - startX) / (targetChartPoints.length - 1);
+
+    const points = targetChartPoints.map((tp, i) => ({
+      ...tp,
+      x: Math.round(startX + i * stepX),
+      y: Number((animatedYs[i] ?? 72).toFixed(2)),
+    }));
 
     let pathD = "";
     if (points.length > 0) {
@@ -640,7 +808,7 @@ export default function StatisticsPage() {
       pathD,
       areaD,
     };
-  }, [currentDayTasks]);
+  }, [targetChartPoints, animatedYs]);
 
   // Default to the peak index of the day (highest workload task of today)
   const defaultPeakIdx = useMemo(() => {
@@ -663,6 +831,70 @@ export default function StatisticsPage() {
     }
     return studioChartPoints.points[defaultPeakIdx] || studioChartPoints.points[0];
   }, [studioChartPoints, hoveredChartIdx, defaultPeakIdx]);
+
+  // Session Timeline (Mini-Gantt) data for the Periwinkle Blue Card
+  const sessionTimelineData = useMemo(() => {
+    // Operating Window: 08:00 to 20:00 (12 hours = 720 minutes)
+    const windowStart = 8 * 60; // 480
+    const windowEnd = 20 * 60; // 1200
+    const windowTotal = windowEnd - windowStart; // 720
+
+    const now = new Date();
+    const currentNowMin = now.getHours() * 60 + now.getMinutes();
+    const isToday = isSameDay(selectedDate, now);
+    const nowPct = Math.max(0, Math.min(100, ((currentNowMin - windowStart) / windowTotal) * 100));
+    const isNowVisible = isToday && currentNowMin >= windowStart && currentNowMin <= windowEnd;
+    const nowTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    const tasksToUse = currentDayTasks.length > 0 ? currentDayTasks : [];
+
+    const totalScheduledMinutes = tasksToUse.reduce((acc, t) => {
+      const s = timeToMinutes(t.startTime);
+      const e = timeToMinutes(t.endTime) || s + 60;
+      return acc + Math.max(15, e > s ? e - s : 60);
+    }, 0);
+
+    const scheduledDisplay = totalScheduledMinutes >= 60 
+      ? `${(totalScheduledMinutes / 60).toFixed(1)} h`
+      : `${totalScheduledMinutes} min`;
+
+    const sessions = tasksToUse.map((t, idx) => {
+      const s = timeToMinutes(t.startTime) || 9 * 60 + idx * 120;
+      const e = timeToMinutes(t.endTime) || s + 90;
+      const startClamped = Math.max(windowStart, Math.min(windowEnd, s));
+      const endClamped = Math.max(windowStart, Math.min(windowEnd, e > s ? e : s + 60));
+      const leftPct = ((startClamped - windowStart) / windowTotal) * 100;
+      const widthPct = Math.max(7, Math.min(100 - leftPct, ((endClamped - startClamped) / windowTotal) * 100));
+      
+      const isCurrent = isToday && currentNowMin >= s && currentNowMin <= e;
+
+      return {
+        id: t.id,
+        name: t.projectName || t.taskName || `Session ${idx + 1}`,
+        startTime: t.startTime || "09:00",
+        endTime: t.endTime || "10:30",
+        room: t.room || (idx % 2 === 0 ? "Booth A" : "Studio 1"),
+        leftPct,
+        widthPct,
+        isCurrent,
+        staffCount: t.staffMembers?.length || 2,
+      };
+    });
+
+    // Active or next upcoming session
+    const activeSession = sessions.find((s) => s.isCurrent) || sessions[0] || null;
+
+    return {
+      sessions,
+      nowPct,
+      isNowVisible,
+      nowTimeStr,
+      totalScheduledMinutes,
+      scheduledDisplay,
+      activeSession,
+      hasSessions: sessions.length > 0,
+    };
+  }, [currentDayTasks, selectedDate]);
 
   // Calendar Month helpers
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -906,8 +1138,8 @@ export default function StatisticsPage() {
           <div className="flex-1 min-w-0 w-full flex flex-col gap-6">
             {/* Top 4 Bento Colorful Analytics Cards (Matching Exact Image Colors) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
-              {/* 1. YELLOW BENTO CARD: Studio time day (Dynamic actual day schedule tasks) */}
-              <div className="rounded-[28px] bg-[#FFE485] p-5 sm:p-6 text-[#111111] border border-amber-300/80 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[260px]">
+              {/* 1. YELLOW BENTO CARD: Studio time day (Dynamic actual day bar chart) */}
+              <div className="rounded-[28px] bg-[#FFE485] p-5 sm:p-6 text-[#111111] border border-amber-300/80 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[280px]">
                 {/* Background Geometric Watermark */}
                 <div className="absolute -right-4 -top-4 w-28 h-28 opacity-25 pointer-events-none select-none text-amber-600">
                   <svg viewBox="0 0 100 100" fill="currentColor">
@@ -916,17 +1148,18 @@ export default function StatisticsPage() {
                   </svg>
                 </div>
 
-                {/* Card Title & Stats Breakdown */}
-                <div>
+                {/* Card Header */}
+                <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-base sm:text-lg font-extrabold text-[#111111] tracking-tight">
                       Studio time day:
                     </h3>
-                    <span className="text-[10px] font-bold text-amber-950/80 bg-white/50 px-2.5 py-0.5 rounded-full border border-amber-400/60 shadow-2xs">
+                    <span className="text-[10px] font-bold text-amber-950/80 bg-white/50 px-2.5 py-0.5 rounded-full border border-amber-400/60 shadow-2xs whitespace-nowrap">
                       Today • {todayFormattedDate}
                     </span>
                   </div>
 
+                  {/* Summary Metrics */}
                   <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold text-stone-800 flex-wrap">
                     <div>
                       <span className="font-extrabold text-[#111111]">{actualDayMetrics.tasksCount} tasks</span>{" "}
@@ -945,24 +1178,99 @@ export default function StatisticsPage() {
                   </div>
                 </div>
 
-                {/* Dynamic Vertical Bar Chart of Today's Hours */}
-                <div className="pt-4">
-                  <div className="flex items-end justify-between h-24 gap-2 border-b border-stone-800/20 pb-1">
-                    {actualDayMetrics.slotBars.map((col, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative">
-                        <div
-                          style={{ height: col.heightPct }}
-                          className="w-full max-w-[14px] bg-[#111111] rounded-full transition-all group-hover:bg-black group-hover:scale-110 cursor-pointer"
-                          title={`${col.slot} — ${col.minutes > 0 ? `${col.minutes} min (${col.tasks})` : "Available studio slot"}`}
-                        />
-                        <span className="text-[9px] font-bold text-stone-700 group-hover:text-black opacity-75 group-hover:opacity-100 transition-opacity">
-                          {col.slot}
-                        </span>
+                {/* Dynamic Vertical Bar Chart Container */}
+                <div className="pt-3 flex flex-col justify-end flex-1 relative z-10">
+                  {/* Tooltip & Info Banner */}
+                  <div className="h-6 mb-1.5 flex items-center justify-between px-1">
+                    {hoveredDayBar ? (
+                      <div className="bg-[#111111] text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md flex items-center gap-1.5 transition-all">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="font-extrabold">{hoveredDayBar.label}</span>
+                        <span className="text-amber-300">•</span>
+                        <span>{hoveredDayBar.details}</span>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-stone-800/70">
+                        <Clock size={11} className="text-stone-800" />
+                        <span>Project time distribution in actual day</span>
+                      </div>
+                    )}
+
+                    {hoveredDayBar && (
+                      <span className="text-[9px] font-extrabold text-stone-800 bg-white/60 px-2 py-0.5 rounded-full border border-amber-400/50">
+                        {hoveredDayBar.minutes >= 60 ? `${(hoveredDayBar.minutes / 60).toFixed(1)} hrs` : `${hoveredDayBar.minutes} mins`}
+                      </span>
+                    )}
                   </div>
+
+                  {/* The Bar Track */}
+                  <div className="h-28 flex items-end justify-between gap-2 border-b border-stone-800/20 pb-1.5 px-1 relative">
+                    {/* Subtle 50% guideline */}
+                    <div className="absolute left-0 right-0 top-1/2 border-b border-dashed border-stone-800/10 pointer-events-none" />
+
+                    {actualDayMetrics.slotBars.map((col, idx) => {
+                      const isHovered = hoveredDayBar?.label === col.slot;
+                      const durHours = (col.minutes / 60).toFixed(1);
+                      return (
+                        <div
+                          key={idx}
+                          className="flex-1 h-full flex flex-col justify-end items-center group cursor-pointer relative z-10"
+                          onMouseEnter={() =>
+                            setHoveredDayBar({
+                              label: col.slot,
+                              details:
+                                col.minutes > 0
+                                  ? `${col.projectNames ? `${col.projectNames} • ` : ""}${col.minutes} min (${col.tasks})`
+                                  : "No project work scheduled",
+                              minutes: col.minutes,
+                            })
+                          }
+                          onMouseLeave={() => setHoveredDayBar(null)}
+                        >
+                          {/* Value label above bar */}
+                          {col.minutes > 0 && (
+                            <span
+                              className={`text-[9px] font-black mb-1 transition-all ${
+                                isHovered ? "text-black scale-110" : "text-stone-800/80"
+                              }`}
+                            >
+                              {col.minutes >= 60 ? `${durHours}h` : `${col.minutes}m`}
+                            </span>
+                          )}
+
+                          {/* Bar Track & Filled Bar */}
+                          <div className="w-full h-20 flex items-end justify-center">
+                            <div
+                              style={{ height: `${col.heightPct}%` }}
+                              className={`w-full max-w-[16px] sm:max-w-[20px] rounded-t-md transition-all duration-300 ${
+                                col.minutes > 0
+                                  ? isHovered
+                                    ? "bg-black shadow-md scale-x-115"
+                                    : "bg-[#111111] hover:bg-black"
+                                  : "bg-stone-800/10 rounded-xs"
+                              }`}
+                            />
+                          </div>
+
+                          {/* Timeline Slot Label */}
+                          <span
+                            className={`text-[9px] font-bold mt-1.5 transition-colors ${
+                              isHovered ? "text-black font-extrabold" : "text-stone-700"
+                            }`}
+                          >
+                            {col.slot}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Card Bottom: Earliest & Latest Timestamps */}
                   <div className="flex justify-between items-center text-[10px] font-bold text-stone-700 mt-2 px-1">
                     <span>{actualDayMetrics.earliestTime}</span>
+                    <span className="text-[10px] font-semibold text-stone-600">
+                      {actualDayTasks.length} session{actualDayTasks.length !== 1 ? "s" : ""} in actual day
+                    </span>
                     <span>{actualDayMetrics.latestTime}</span>
                   </div>
                 </div>
@@ -1009,12 +1317,21 @@ export default function StatisticsPage() {
                   {/* Floating tooltip above active point */}
                   {activeChartPoint && (
                     <div
-                      className="absolute -top-7 transform -translate-x-1/2 bg-[#111111] text-white text-[10px] font-extrabold px-3 py-1 rounded-full shadow-lg pointer-events-none transition-all duration-150 z-20 whitespace-nowrap flex items-center gap-1.5"
-                      style={{ left: `${(activeChartPoint.x / 360) * 100}%` }}
+                      className="absolute transform -translate-x-1/2 bg-[#111111] text-white text-[10px] font-extrabold px-3 py-1 rounded-full shadow-lg pointer-events-none transition-all duration-150 z-20 whitespace-nowrap flex items-center gap-1.5"
+                      style={{
+                        left: `${(activeChartPoint.x / 360) * 100}%`,
+                        top: `${Math.max(-14, (activeChartPoint.y / 85) * 100 - 34)}%`,
+                      }}
                     >
-                      <span>
-                        {activeChartPoint.time} • {activeChartPoint.taskName ? `${activeChartPoint.taskName}: ` : ""}{activeChartPoint.value} min
-                      </span>
+                      {activeChartPoint.value > 0 ? (
+                        <span>
+                          {activeChartPoint.time} • {activeChartPoint.taskName ? `${activeChartPoint.taskName}: ` : ""}{activeChartPoint.value} min
+                        </span>
+                      ) : (
+                        <span>
+                          {activeChartPoint.time} • {currentDayStats.hasRealTasks ? "No session" : "No data"}
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -1059,30 +1376,32 @@ export default function StatisticsPage() {
                           stroke="#111111"
                           strokeWidth="1.75"
                           strokeDasharray="4 4"
-                          className="transition-all duration-200"
+                          className="transition-all duration-75"
                         />
                       )}
 
                       {/* Active Point Circle with concentric ring matching design */}
                       {activeChartPoint && (
-                        <g className="transition-all duration-200 cursor-pointer">
+                        <g className="transition-all duration-75 cursor-pointer">
                           <circle
                             cx={activeChartPoint.x}
                             cy={activeChartPoint.y}
-                            r="5.5"
+                            r={activeChartPoint.value > 0 ? "5.5" : "4"}
                             fill="#111111"
                             stroke="#FFFFFF"
                             strokeWidth="2.5"
                           />
-                          <circle
-                            cx={activeChartPoint.x}
-                            cy={activeChartPoint.y}
-                            r="9"
-                            fill="none"
-                            stroke="#111111"
-                            strokeWidth="1"
-                            opacity="0.3"
-                          />
+                          {activeChartPoint.value > 0 && (
+                            <circle
+                              cx={activeChartPoint.x}
+                              cy={activeChartPoint.y}
+                              r="9"
+                              fill="none"
+                              stroke="#111111"
+                              strokeWidth="1"
+                              opacity="0.3"
+                            />
+                          )}
                         </g>
                       )}
                     </svg>
@@ -1148,103 +1467,100 @@ export default function StatisticsPage() {
                     </div>
                   </div>
 
-                  {/* Visual Progress Bar reflecting workflow proportions */}
+                  {/* Visual Progress Bar reflecting: 1) Worked task time, 2) Next task, 3) Rest to deadline */}
                   <div className="pt-3">
-                    <div className="w-full bg-stone-800/15 h-3 rounded-full overflow-hidden flex">
+                    <div className="w-full bg-stone-800/15 h-3 rounded-full overflow-hidden flex shadow-2xs">
+                      {/* 1. rgb(17 17 17): Count of time of tasks we already worked */}
                       <div
-                        style={{ width: `${workflowStats.inProgressPct}%` }}
-                        className="bg-[#111111] h-full transition-all"
-                        title={`In Progress: ${workflowStats.inProgressCount}`}
+                        style={{ width: `${mustEndTimeline.workedPct}%` }}
+                        className="bg-[#111111] h-full transition-all duration-300 cursor-pointer"
+                        title={`Time tasks already worked: ${mustEndTimeline.workedHours}h`}
                       />
+                      {/* 2. rgb(87 83 78): Time of the next task */}
                       <div
-                        style={{ width: `${workflowStats.completedPct}%` }}
-                        className="bg-stone-600 h-full transition-all"
-                        title={`Completed: ${workflowStats.completedCount}`}
+                        style={{ width: `${mustEndTimeline.nextPct}%` }}
+                        className="bg-stone-600 h-full transition-all duration-300 cursor-pointer"
+                        title={`Time of next task: ${mustEndTimeline.nextTaskHours}h (${mustEndTimeline.nextTaskName})`}
                       />
+                      {/* 3. rgb(146 64 14): Time of rest to deadline */}
                       <div
-                        style={{ width: `${workflowStats.criticalPct}%` }}
-                        className="bg-amber-800 h-full transition-all"
-                        title={`Critical: ${workflowStats.criticalCount}`}
+                        style={{ width: `${mustEndTimeline.restPct}%` }}
+                        className="bg-amber-800 h-full transition-all duration-300 cursor-pointer"
+                        title={`Time of rest to deadline: ${mustEndTimeline.restText}`}
                       />
+                    </div>
+
+                    {/* Proportional Labels under the line */}
+                    <div className="flex items-center justify-between text-[9px] font-bold text-stone-700 mt-1.5 px-0.5">
+                      <span className="flex items-center gap-1 text-[#111111]">
+                        <span className="w-2 h-2 rounded-full bg-[#111111] inline-block" />
+                        <span>Worked: {mustEndTimeline.workedHours}h</span>
+                      </span>
+                      <span className="flex items-center gap-1 text-stone-700">
+                        <span className="w-2 h-2 rounded-full bg-stone-600 inline-block" />
+                        <span>Next: {mustEndTimeline.nextTaskHours}h</span>
+                      </span>
+                      <span className="flex items-center gap-1 text-amber-900">
+                        <span className="w-2 h-2 rounded-full bg-amber-800 inline-block" />
+                        <span>{mustEndTimeline.isOverdue ? "Overdue" : `Rest: ${mustEndTimeline.restHours}h`}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Requirement 4: List of projects that have less time to end */}
-                <div className="mt-3.5 pt-2 border-t border-emerald-900/15 space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-extrabold text-[#111111]">
-                    <span className="flex items-center gap-1.5">
-                      <Timer size={13} className="text-[#111111]" />
+                {/* Requirement: List handles ONLY ONE project: the one that must be ended, styled to match design */}
+                <div className="mt-4 pt-3 border-t border-[#4a563f]/25 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-semibold text-[#5c684e]">
+                    <span className="flex items-center gap-1.5 font-bold text-[#5c684e]">
+                      <Timer size={14} className="text-[#5c684e]" strokeWidth={2.2} />
                       <span>Less time to end:</span>
                     </span>
-                    <span className="text-[10px] text-stone-700 font-semibold">Priority order</span>
+                    <span className="font-semibold text-[#5c684e]">Must be ended</span>
                   </div>
 
-                  <div className="space-y-1.5 max-h-[105px] overflow-y-auto no-scrollbar pr-0.5">
-                    {projectsEndingSoon.length === 0 ? (
-                      <div className="text-[11px] text-stone-700 py-2 text-center">No active projects found</div>
-                    ) : (
-                      projectsEndingSoon.slice(0, 3).map((ap) => {
-                        const isSelected = ap.project.id === selectedProjectId;
-                        return (
-                          <div
-                            key={ap.project.id}
-                            onClick={() => setSelectedProjectId(ap.project.id)}
-                            className={`p-2 rounded-xl transition-all cursor-pointer flex items-center justify-between text-xs border ${
-                              isSelected
-                                ? "bg-white/95 border-[#111111] shadow-xs"
-                                : "bg-white/40 hover:bg-white/70 border-emerald-700/20"
-                            }`}
-                          >
-                            <div className="min-w-0 pr-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-extrabold text-[#111111] truncate max-w-[130px]">
-                                  {ap.project.name}
-                                </span>
-                                {ap.hasToBeEnded ? (
-                                  <span className="px-1.5 py-0.2 rounded-md bg-red-600 text-white text-[9px] font-black uppercase shrink-0">
-                                    Must End
-                                  </span>
-                                ) : ap.isCritical ? (
-                                  <span className="px-1.5 py-0.2 rounded-md bg-amber-700 text-white text-[9px] font-black uppercase shrink-0">
-                                    Critical
-                                  </span>
-                                ) : null}
-                              </div>
-                              <p className="text-[10px] text-stone-700 truncate">
-                                {ap.totalTaskHours}h tasks • {ap.timeRemainingText}
-                              </p>
-                            </div>
+                  {!mustEndProject ? (
+                    <div className="text-xs text-[#5c684e] py-1 font-medium">No active project found</div>
+                  ) : (
+                    <div
+                      onClick={() => setSelectedProjectId(mustEndProject.project.id)}
+                      className="flex items-center justify-between pt-1 cursor-pointer group"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-[#4a563f] text-[15px] tracking-tight truncate max-w-[180px] group-hover:underline">
+                            {mustEndProject.project.name}
+                          </span>
+                          {mustEndProject.hasToBeEnded ? (
+                            <span className="px-2 py-0.5 rounded-full bg-[#E12529] text-white text-[10px] font-black uppercase shrink-0 tracking-wide leading-none">
+                              MUST END
+                            </span>
+                          ) : mustEndProject.isCritical ? (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-700 text-white text-[10px] font-black uppercase shrink-0 tracking-wide leading-none">
+                              CRITICAL
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-[12px] font-medium text-[#5c684e] mt-0.5 truncate">
+                          {mustEndProject.totalTaskHours}h tasks • {mustEndProject.timeRemainingText}
+                        </p>
+                      </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {ap.hasToBeEnded && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleMarkProjectEnded(ap.project.id, e)}
-                                  className="px-2 py-0.5 bg-[#111111] hover:bg-black text-white text-[10px] font-extrabold rounded-full transition-transform active:scale-95 shadow-xs cursor-pointer"
-                                  title="Mark project as ended / completed"
-                                >
-                                  End Project
-                                </button>
-                              )}
-                              <span className="text-[10px] font-bold text-stone-800 bg-white/70 px-2 py-0.5 rounded-full border border-emerald-700/20">
-                                {ap.daysRemaining <= 0
-                                  ? "Overdue"
-                                  : ap.daysRemaining < 1
-                                  ? `${Math.round(ap.hoursRemaining)}h`
-                                  : `${Math.ceil(ap.daysRemaining)}d`}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
+                      <div className="shrink-0 text-right">
+                        <span className="text-sm font-bold text-[#4a563f]">
+                          {mustEndProject.daysRemaining <= 0
+                            ? "Overdue"
+                            : mustEndProject.daysRemaining < 1
+                            ? `${Math.round(mustEndProject.hoursRemaining)}h`
+                            : `${Math.ceil(mustEndProject.daysRemaining)}d`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* 4. PERIWINKLE BLUE BENTO CARD: Sessions */}
-              <div className="rounded-[28px] bg-[#A4C0ED] p-5 sm:p-6 text-[#111111] border border-blue-300/80 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[170px]">
+              {/* 4. PERIWINKLE BLUE BENTO CARD: Sessions with Interactive Mini-Gantt */}
+              <div className="rounded-[28px] bg-[#A4C0ED] p-5 sm:p-6 text-[#111111] border border-blue-300/80 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[260px]">
                 {/* Background 8-Point Star Watermark */}
                 <div className="absolute -right-3 -top-2 w-28 h-28 opacity-25 pointer-events-none select-none text-blue-900">
                   <svg viewBox="0 0 100 100" fill="currentColor">
@@ -1253,9 +1569,15 @@ export default function StatisticsPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-base sm:text-lg font-extrabold text-[#111111] tracking-tight mb-2">
-                    Studio Sessions:
-                  </h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-base sm:text-lg font-extrabold text-[#111111] tracking-tight">
+                      Studio Sessions:
+                    </h3>
+                    <span className="text-[10px] font-bold text-blue-950 bg-white/40 px-2 py-0.5 rounded-full border border-blue-400/30">
+                      Day Schedule
+                    </span>
+                  </div>
+
                   <div className="flex items-center gap-4 text-xs sm:text-sm font-semibold text-stone-800 flex-wrap">
                     <div>
                       <span className="font-extrabold text-[#111111]">{metrics.totalStudioHours} h</span>{" "}
@@ -1263,7 +1585,7 @@ export default function StatisticsPage() {
                     </div>
                     <div className="h-4 w-px bg-stone-800/20" />
                     <div>
-                      <span className="font-extrabold text-[#111111]">{metrics.tasksCount} min</span>{" "}
+                      <span className="font-extrabold text-[#111111]">{sessionTimelineData.scheduledDisplay}</span>{" "}
                       <span className="text-[10px] text-stone-700 uppercase tracking-wider block">SCHEDULED</span>
                     </div>
                     <div className="h-4 w-px bg-stone-800/20" />
@@ -1274,9 +1596,98 @@ export default function StatisticsPage() {
                   </div>
                 </div>
 
-                <div className="pt-3 flex items-center gap-2 text-xs font-bold text-stone-800">
-                  <span className="px-2.5 py-1 bg-[#111111] text-white rounded-full text-[11px]">Dubbing Active</span>
-                  <span className="text-[11px] text-stone-700 font-medium">Synced across local network</span>
+                {/* Interactive Mini-Gantt Timeline */}
+                <div className="my-2 space-y-1.5">
+                  {/* Timeline hour ticks */}
+                  <div className="flex items-center justify-between text-[9px] font-bold text-blue-950/70 px-1">
+                    <span>08:00</span>
+                    <span>11:00</span>
+                    <span>14:00</span>
+                    <span>17:00</span>
+                    <span>20:00</span>
+                  </div>
+
+                  {/* Gantt Track */}
+                  <div className="relative w-full h-8 bg-white/40 border border-blue-400/40 rounded-xl overflow-hidden shadow-2xs">
+                    {/* Grid divider lines at 25%, 50%, 75% */}
+                    <div className="absolute inset-y-0 left-1/4 w-px bg-blue-900/10 pointer-events-none" />
+                    <div className="absolute inset-y-0 left-2/4 w-px bg-blue-900/10 pointer-events-none" />
+                    <div className="absolute inset-y-0 left-3/4 w-px bg-blue-900/10 pointer-events-none" />
+
+                    {/* Empty state if no sessions */}
+                    {!sessionTimelineData.hasSessions ? (
+                      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-blue-950/60">
+                        No studio sessions scheduled for this day
+                      </div>
+                    ) : (
+                      sessionTimelineData.sessions.map((sess) => (
+                        <div
+                          key={sess.id}
+                          style={{
+                            left: `${sess.leftPct}%`,
+                            width: `${sess.widthPct}%`,
+                          }}
+                          className={`absolute top-1 bottom-1 rounded-lg px-2 flex items-center justify-between text-white text-[9px] font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer ${
+                            sess.isCurrent
+                              ? "bg-red-600 ring-2 ring-red-400/50"
+                              : "bg-[#111111] hover:bg-stone-800"
+                          }`}
+                          title={`${sess.name} (${sess.room}): ${sess.startTime} - ${sess.endTime}`}
+                        >
+                          <span className="truncate pr-1">{sess.name}</span>
+                          <span className="text-[8px] opacity-80 shrink-0 font-medium hidden sm:inline">
+                            {sess.startTime}
+                          </span>
+                        </div>
+                      ))
+                    )}
+
+                    {/* Real-time "NOW" indicator */}
+                    {sessionTimelineData.isNowVisible && (
+                      <div
+                        style={{ left: `${sessionTimelineData.nowPct}%` }}
+                        className="absolute inset-y-0 w-0.5 bg-red-600 z-20 pointer-events-none"
+                      >
+                        <span className="absolute -top-0.5 -translate-x-1/2 px-1 py-px rounded-full bg-red-600 text-[7px] font-black text-white uppercase tracking-tighter shadow-xs leading-none">
+                          NOW
+                        </span>
+                        <span className="absolute -bottom-0.5 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-600 animate-ping" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Active / Next Session Quick Strip */}
+                  {sessionTimelineData.activeSession && (
+                    <div className="flex items-center justify-between text-[11px] font-medium text-stone-800 pt-0.5 px-0.5">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <Mic size={12} className="text-blue-950 shrink-0" />
+                        <span className="font-extrabold text-[#111111] truncate max-w-[150px]">
+                          {sessionTimelineData.activeSession.name}
+                        </span>
+                        <span className="text-[10px] text-stone-700 shrink-0">
+                          ({sessionTimelineData.activeSession.room})
+                        </span>
+                      </span>
+                      <span className="text-[10px] font-bold text-blue-950 shrink-0">
+                        {sessionTimelineData.activeSession.startTime} - {sessionTimelineData.activeSession.endTime}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 flex items-center justify-between text-xs font-semibold text-stone-800 border-t border-blue-300/60">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 bg-[#111111] text-white rounded-full text-[10px] font-bold flex items-center gap-1.5 shadow-2xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Dubbing Active
+                    </span>
+                    <span className="text-[11px] text-stone-700 font-medium hidden sm:inline">
+                      Synced across local network
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-extrabold text-blue-950">
+                    {sessionTimelineData.sessions.length} session{sessionTimelineData.sessions.length !== 1 ? "s" : ""}
+                  </span>
                 </div>
               </div>
             </div>
