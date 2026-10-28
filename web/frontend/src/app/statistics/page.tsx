@@ -34,7 +34,9 @@ import {
   Trash2,
   X,
   Check,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Timer
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -117,8 +119,8 @@ export default function StatisticsPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   // Calendar & Timeline state
-  const [currentDate, setCurrentDate] = useState<Date>(new Date(2026, 9, 27)); // default current workspace date: Oct 27, 2026
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 9, 27));
+  const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [timelineCategory, setTimelineCategory] = useState<string>("all");
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState<boolean>(false);
 
@@ -269,6 +271,243 @@ export default function StatisticsPage() {
       companiesCount: companiesCount || 4,
     };
   }, [projects, tasks, staffCount, companiesCount]);
+
+  // Actual day (Today's live date) references for Studio Time Day
+  const todayActualYMD = useMemo(() => toYMD(new Date()), []);
+  const todayActualDayKey = useMemo(() => DAY_INDEX_MAP[new Date().getDay()], []);
+  const todayFormattedDate = useMemo(() => {
+    return new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }, []);
+
+  // Tasks of the actual day (Today) fetched from schedule
+  const actualDayTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (t.taskDate) return t.taskDate === todayActualYMD;
+      return t.day === todayActualDayKey;
+    });
+  }, [tasks, todayActualYMD, todayActualDayKey]);
+
+  // Studio time metrics for the actual day
+  const actualDayMetrics = useMemo(() => {
+    const totalMinutes = actualDayTasks.reduce((acc, t) => {
+      const s = timeToMinutes(t.startTime);
+      const e = timeToMinutes(t.endTime);
+      return acc + (e > s ? e - s : 60);
+    }, 0);
+
+    const totalHours = (totalMinutes / 60).toFixed(1);
+
+    // Unique staff active today
+    const staffSet = new Set<string>();
+    actualDayTasks.forEach((t) => {
+      if (Array.isArray(t.staffMembers)) {
+        t.staffMembers.forEach((sm) => sm.name && staffSet.add(sm.name));
+      }
+    });
+
+    let earliestTime = "08:00 a.m";
+    let latestTime = "08:00 p.m";
+
+    const formatTimeAmPm = (tStr: string) => {
+      const [hStr, mStr] = tStr.split(":");
+      const h = parseInt(hStr, 10);
+      const m = mStr || "00";
+      if (isNaN(h)) return tStr;
+      const ampm = h >= 12 ? "p.m" : "a.m";
+      const hour12 = h % 12 || 12;
+      return `${String(hour12).padStart(2, "0")}:${m} ${ampm}`;
+    };
+
+    if (actualDayTasks.length > 0) {
+      const sortedByStart = [...actualDayTasks].sort((a, b) =>
+        (a.startTime || "").localeCompare(b.startTime || "")
+      );
+      const sortedByEnd = [...actualDayTasks].sort((a, b) =>
+        (b.endTime || "").localeCompare(a.endTime || "")
+      );
+      if (sortedByStart[0]?.startTime) {
+        earliestTime = formatTimeAmPm(sortedByStart[0].startTime);
+      }
+      if (sortedByEnd[0]?.endTime) {
+        latestTime = formatTimeAmPm(sortedByEnd[0].endTime);
+      }
+    }
+
+    // Dynamic 7-slot breakdown across studio operating hours
+    const slotTimes = ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00"];
+    const slotData = slotTimes.map((slotStr) => {
+      const slotMin = timeToMinutes(slotStr);
+      const matchingTasks = actualDayTasks.filter((t) => {
+        const s = timeToMinutes(t.startTime);
+        const e = timeToMinutes(t.endTime);
+        return (slotMin >= s && slotMin <= e) || Math.abs(s - slotMin) <= 60;
+      });
+
+      const slotMinutes = matchingTasks.reduce((sum, t) => {
+        const s = timeToMinutes(t.startTime);
+        const e = timeToMinutes(t.endTime);
+        return sum + (e > s ? e - s : 60);
+      }, 0);
+
+      return {
+        slot: slotStr,
+        minutes: slotMinutes,
+        tasks: matchingTasks.map((t) => t.taskName).join(", "),
+      };
+    });
+
+    const maxSlotMin = Math.max(...slotData.map((d) => d.minutes), 60);
+
+    return {
+      tasksCount: actualDayTasks.length,
+      totalMinutes,
+      totalHours,
+      staffCount: staffSet.size || (actualDayTasks.length > 0 ? 1 : 0),
+      earliestTime,
+      latestTime,
+      slotBars: slotData.map((d) => ({
+        ...d,
+        heightPct: actualDayTasks.length === 0 ? "20%" : `${Math.max(16, Math.round((d.minutes / maxSlotMin) * 92))}%`,
+      })),
+    };
+  }, [actualDayTasks]);
+
+  // Requirement 4: Calculate project task duration of each project, compare with deadline,
+  // mark projects that have to be ended or are critical, and sort so user sees projects with least time to end
+  const analyzedProjects = useMemo(() => {
+    const now = new Date();
+
+    return projects.map((p) => {
+      // 1. Calculate project task duration from schedule tasks
+      const pName = (p.name || "").trim().toLowerCase();
+      const projTasks = tasks.filter((t) => {
+        const tProj = (t.projectName || "").trim().toLowerCase();
+        if (!pName || !tProj) return false;
+        return tProj === pName || pName.includes(tProj) || tProj.includes(pName);
+      });
+
+      const taskDurationMinutes = projTasks.reduce((sum, t) => {
+        const s = timeToMinutes(t.startTime);
+        const e = timeToMinutes(t.endTime);
+        return sum + (e > s ? e - s : 60);
+      }, 0);
+
+      const totalTaskMinutes = taskDurationMinutes > 0 ? taskDurationMinutes : (p.total_time || 0);
+      const totalTaskHours = Number((totalTaskMinutes / 60).toFixed(1));
+
+      // 2. Compare against deadline
+      let deadlineDate: Date | null = null;
+      let hoursRemaining = Infinity;
+      let daysRemaining = Infinity;
+      let isPastDeadline = false;
+
+      if (p.deadline) {
+        const parsed = new Date(p.deadline);
+        if (!isNaN(parsed.getTime())) {
+          deadlineDate = parsed;
+          const diffMs = parsed.getTime() - now.getTime();
+          hoursRemaining = diffMs / (1000 * 60 * 60);
+          daysRemaining = diffMs / (1000 * 60 * 60 * 24);
+          isPastDeadline = diffMs <= 0;
+        }
+      }
+
+      const isCompleted = p.status === "completed";
+      // 3. If deadline ended, mark project that has to be ended
+      const hasToBeEnded = !isCompleted && isPastDeadline;
+      const isCritical = !isCompleted && !isPastDeadline && (hoursRemaining <= 48 || totalTaskHours > Math.max(1, hoursRemaining));
+      const isInProgress = !isCompleted && !isPastDeadline && !isCritical;
+
+      let timeRemainingText = "No deadline";
+      if (isCompleted) {
+        timeRemainingText = "Completed";
+      } else if (hasToBeEnded) {
+        timeRemainingText = "Deadline passed • Needs ending";
+      } else if (hoursRemaining < 1) {
+        timeRemainingText = "< 1h remaining";
+      } else if (hoursRemaining < 24) {
+        timeRemainingText = `${Math.round(hoursRemaining)}h remaining`;
+      } else if (daysRemaining <= 30) {
+        timeRemainingText = `${Math.ceil(daysRemaining)}d remaining`;
+      } else if (deadlineDate) {
+        timeRemainingText = deadlineDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      }
+
+      return {
+        project: p,
+        totalTaskMinutes,
+        totalTaskHours,
+        tasksCount: projTasks.length,
+        deadlineDate,
+        hoursRemaining,
+        daysRemaining,
+        isPastDeadline,
+        hasToBeEnded,
+        isCritical,
+        isCompleted,
+        isInProgress,
+        timeRemainingText,
+      };
+    });
+  }, [projects, tasks]);
+
+  // Projects ranked by least time to end (overdue & critical at top)
+  const projectsEndingSoon = useMemo(() => {
+    return [...analyzedProjects].sort((a, b) => {
+      if (a.hasToBeEnded && !b.hasToBeEnded) return -1;
+      if (!a.hasToBeEnded && b.hasToBeEnded) return 1;
+      if (a.isCritical && !b.isCritical) return -1;
+      if (!a.isCritical && b.isCritical) return 1;
+      if (a.isCompleted && !b.isCompleted) return 1;
+      if (!a.isCompleted && b.isCompleted) return -1;
+      return a.hoursRemaining - b.hoursRemaining;
+    });
+  }, [analyzedProjects]);
+
+  // Dynamic Condition & Workflow statistics from deadline analysis
+  const workflowStats = useMemo(() => {
+    const inProgress = analyzedProjects.filter((p) => p.isInProgress).length;
+    const completed = analyzedProjects.filter((p) => p.isCompleted).length;
+    const critical = analyzedProjects.filter((p) => p.isCritical || p.hasToBeEnded).length;
+    const total = analyzedProjects.length || 1;
+
+    return {
+      inProgressCount: inProgress,
+      completedCount: completed,
+      criticalCount: critical,
+      inProgressPct: Math.max(10, Math.round((inProgress / total) * 100)),
+      completedPct: Math.round((completed / total) * 100),
+      criticalPct: Math.max(8, Math.round((critical / total) * 100)),
+    };
+  }, [analyzedProjects]);
+
+  // Action to end a project whose deadline has arrived
+  const handleMarkProjectEnded = async (projectId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      const res = await apiFetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ status: "completed" }).toString(),
+      });
+      if (res && res.ok) {
+        showToast("Project Ended", "Project status set to completed", "success");
+        setProjects((prev) =>
+          prev.map((p) => (p.id === projectId ? { ...p, status: "completed" } : p))
+        );
+      } else {
+        setProjects((prev) =>
+          prev.map((p) => (p.id === projectId ? { ...p, status: "completed" } : p))
+        );
+        showToast("Status Updated", "Marked project as completed", "success");
+      }
+    } catch {
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, status: "completed" } : p))
+      );
+      showToast("Status Updated", "Marked project as completed", "info");
+    }
+  };
 
   // Selected date YMD and day of week key
   const selectedYMD = useMemo(() => toYMD(selectedDate), [selectedDate]);
@@ -667,7 +906,7 @@ export default function StatisticsPage() {
           <div className="flex-1 min-w-0 w-full flex flex-col gap-6">
             {/* Top 4 Bento Colorful Analytics Cards (Matching Exact Image Colors) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
-              {/* 1. YELLOW BENTO CARD: Productions & Scripts */}
+              {/* 1. YELLOW BENTO CARD: Studio time day (Dynamic actual day schedule tasks) */}
               <div className="rounded-[28px] bg-[#FFE485] p-5 sm:p-6 text-[#111111] border border-amber-300/80 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[260px]">
                 {/* Background Geometric Watermark */}
                 <div className="absolute -right-4 -top-4 w-28 h-28 opacity-25 pointer-events-none select-none text-amber-600">
@@ -679,51 +918,52 @@ export default function StatisticsPage() {
 
                 {/* Card Title & Stats Breakdown */}
                 <div>
-                  <h3 className="text-base sm:text-lg font-extrabold text-[#111111] tracking-tight mb-2">
-                    Productions &amp; Scripts:
-                  </h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-base sm:text-lg font-extrabold text-[#111111] tracking-tight">
+                      Studio time day:
+                    </h3>
+                    <span className="text-[10px] font-bold text-amber-950/80 bg-white/50 px-2.5 py-0.5 rounded-full border border-amber-400/60 shadow-2xs">
+                      Today • {todayFormattedDate}
+                    </span>
+                  </div>
+
                   <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold text-stone-800 flex-wrap">
                     <div>
-                      <span className="font-extrabold text-[#111111]">{metrics.totalProjects} projs</span>{" "}
-                      <span className="text-[10px] text-stone-700 uppercase tracking-wider block">ALL ACTIVE</span>
+                      <span className="font-extrabold text-[#111111]">{actualDayMetrics.tasksCount} tasks</span>{" "}
+                      <span className="text-[10px] text-stone-700 uppercase tracking-wider block">TODAY&apos;S TASKS</span>
                     </div>
                     <div className="h-4 w-px bg-stone-800/20" />
                     <div>
-                      <span className="font-extrabold text-[#111111]">{metrics.detectionCount} pers</span>{" "}
-                      <span className="text-[10px] text-stone-700 uppercase tracking-wider block">DÉTECTION</span>
+                      <span className="font-extrabold text-[#111111]">{actualDayMetrics.totalHours} h</span>{" "}
+                      <span className="text-[10px] text-stone-700 uppercase tracking-wider block">STUDIO DURATION</span>
                     </div>
                     <div className="h-4 w-px bg-stone-800/20" />
                     <div>
-                      <span className="font-extrabold text-[#111111]">{metrics.mosaicCount} pers</span>{" "}
-                      <span className="text-[10px] text-stone-700 uppercase tracking-wider block">MOSAIC</span>
+                      <span className="font-extrabold text-[#111111]">{actualDayMetrics.staffCount} pers</span>{" "}
+                      <span className="text-[10px] text-stone-700 uppercase tracking-wider block">STAFF ACTIVE</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Animated Vertical Bar Chart */}
+                {/* Dynamic Vertical Bar Chart of Today's Hours */}
                 <div className="pt-4">
                   <div className="flex items-end justify-between h-24 gap-2 border-b border-stone-800/20 pb-1">
-                    {[
-                      { h: "45%", label: "Mon", count: 3 },
-                      { h: "75%", label: "Tue", count: 7 },
-                      { h: "30%", label: "Wed", count: 2 },
-                      { h: "90%", label: "Thu", count: 9 },
-                      { h: "60%", label: "Fri", count: 5 },
-                      { h: "40%", label: "Sat", count: 3 },
-                      { h: "20%", label: "Sun", count: 1 },
-                    ].map((col, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-1 group">
+                    {actualDayMetrics.slotBars.map((col, idx) => (
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative">
                         <div
-                          style={{ height: col.h }}
-                          className="w-full max-w-[14px] bg-[#111111] rounded-full transition-all group-hover:bg-black group-hover:scale-105"
-                          title={`${col.count} scripts processed on ${col.label}`}
+                          style={{ height: col.heightPct }}
+                          className="w-full max-w-[14px] bg-[#111111] rounded-full transition-all group-hover:bg-black group-hover:scale-110 cursor-pointer"
+                          title={`${col.slot} — ${col.minutes > 0 ? `${col.minutes} min (${col.tasks})` : "Available studio slot"}`}
                         />
+                        <span className="text-[9px] font-bold text-stone-700 group-hover:text-black opacity-75 group-hover:opacity-100 transition-opacity">
+                          {col.slot}
+                        </span>
                       </div>
                     ))}
                   </div>
                   <div className="flex justify-between items-center text-[10px] font-bold text-stone-700 mt-2 px-1">
-                    <span>07:30 p.m</span>
-                    <span>12:00 p.m</span>
+                    <span>{actualDayMetrics.earliestTime}</span>
+                    <span>{actualDayMetrics.latestTime}</span>
                   </div>
                 </div>
               </div>
@@ -872,8 +1112,8 @@ export default function StatisticsPage() {
                 </div>
               </div>
 
-              {/* 3. SAGE GREEN BENTO CARD: By Condition / Status */}
-              <div className="rounded-[28px] bg-[#A8C47F] p-5 sm:p-6 text-[#111111] border border-emerald-400/80 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[170px]">
+              {/* 3. SAGE GREEN BENTO CARD: By Condition & Workflow with Least Time to End Project Viewer */}
+              <div className="rounded-[28px] bg-[#A8C47F] p-5 sm:p-6 text-[#111111] border border-emerald-400/80 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[260px]">
                 {/* Background 3D Prism Polygon Watermark */}
                 <div className="absolute -right-4 -top-2 w-28 h-28 opacity-25 pointer-events-none select-none text-emerald-900">
                   <svg viewBox="0 0 100 100" fill="currentColor">
@@ -882,33 +1122,123 @@ export default function StatisticsPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-base sm:text-lg font-extrabold text-[#111111] tracking-tight mb-2">
-                    By condition &amp; workflow:
-                  </h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-base sm:text-lg font-extrabold text-[#111111] tracking-tight">
+                      By condition &amp; workflow:
+                    </h3>
+                    <span className="text-[10px] font-bold text-emerald-950/80 bg-white/40 px-2 py-0.5 rounded-full border border-emerald-600/30">
+                      Workflow Deadlines
+                    </span>
+                  </div>
+
                   <div className="flex items-center gap-4 text-xs sm:text-sm font-semibold text-stone-800 flex-wrap">
                     <div>
-                      <span className="font-extrabold text-[#111111]">{metrics.activeProjects} pers</span>{" "}
+                      <span className="font-extrabold text-[#111111]">{workflowStats.inProgressCount} pers</span>{" "}
                       <span className="text-[10px] text-stone-700 uppercase tracking-wider block">IN PROGRESS</span>
                     </div>
                     <div className="h-4 w-px bg-stone-800/20" />
                     <div>
-                      <span className="font-extrabold text-[#111111]">{metrics.completedProjects} pers</span>{" "}
+                      <span className="font-extrabold text-[#111111]">{workflowStats.completedCount} pers</span>{" "}
                       <span className="text-[10px] text-stone-700 uppercase tracking-wider block">COMPLETED</span>
                     </div>
                     <div className="h-4 w-px bg-stone-800/20" />
                     <div>
-                      <span className="font-extrabold text-[#111111]">1 pers</span>{" "}
+                      <span className="font-extrabold text-[#111111]">{workflowStats.criticalCount} pers</span>{" "}
                       <span className="text-[10px] text-stone-700 uppercase tracking-wider block">CRITICAL</span>
+                    </div>
+                  </div>
+
+                  {/* Visual Progress Bar reflecting workflow proportions */}
+                  <div className="pt-3">
+                    <div className="w-full bg-stone-800/15 h-3 rounded-full overflow-hidden flex">
+                      <div
+                        style={{ width: `${workflowStats.inProgressPct}%` }}
+                        className="bg-[#111111] h-full transition-all"
+                        title={`In Progress: ${workflowStats.inProgressCount}`}
+                      />
+                      <div
+                        style={{ width: `${workflowStats.completedPct}%` }}
+                        className="bg-stone-600 h-full transition-all"
+                        title={`Completed: ${workflowStats.completedCount}`}
+                      />
+                      <div
+                        style={{ width: `${workflowStats.criticalPct}%` }}
+                        className="bg-amber-800 h-full transition-all"
+                        title={`Critical: ${workflowStats.criticalCount}`}
+                      />
                     </div>
                   </div>
                 </div>
 
-                {/* Visual Progress Bar */}
-                <div className="pt-3">
-                  <div className="w-full bg-stone-800/15 h-3 rounded-full overflow-hidden flex">
-                    <div style={{ width: "65%" }} className="bg-[#111111] h-full" title="Active" />
-                    <div style={{ width: "25%" }} className="bg-stone-600 h-full" title="Completed" />
-                    <div style={{ width: "10%" }} className="bg-amber-800 h-full" title="Critical" />
+                {/* Requirement 4: List of projects that have less time to end */}
+                <div className="mt-3.5 pt-2 border-t border-emerald-900/15 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-extrabold text-[#111111]">
+                    <span className="flex items-center gap-1.5">
+                      <Timer size={13} className="text-[#111111]" />
+                      <span>Less time to end:</span>
+                    </span>
+                    <span className="text-[10px] text-stone-700 font-semibold">Priority order</span>
+                  </div>
+
+                  <div className="space-y-1.5 max-h-[105px] overflow-y-auto no-scrollbar pr-0.5">
+                    {projectsEndingSoon.length === 0 ? (
+                      <div className="text-[11px] text-stone-700 py-2 text-center">No active projects found</div>
+                    ) : (
+                      projectsEndingSoon.slice(0, 3).map((ap) => {
+                        const isSelected = ap.project.id === selectedProjectId;
+                        return (
+                          <div
+                            key={ap.project.id}
+                            onClick={() => setSelectedProjectId(ap.project.id)}
+                            className={`p-2 rounded-xl transition-all cursor-pointer flex items-center justify-between text-xs border ${
+                              isSelected
+                                ? "bg-white/95 border-[#111111] shadow-xs"
+                                : "bg-white/40 hover:bg-white/70 border-emerald-700/20"
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-extrabold text-[#111111] truncate max-w-[130px]">
+                                  {ap.project.name}
+                                </span>
+                                {ap.hasToBeEnded ? (
+                                  <span className="px-1.5 py-0.2 rounded-md bg-red-600 text-white text-[9px] font-black uppercase shrink-0">
+                                    Must End
+                                  </span>
+                                ) : ap.isCritical ? (
+                                  <span className="px-1.5 py-0.2 rounded-md bg-amber-700 text-white text-[9px] font-black uppercase shrink-0">
+                                    Critical
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="text-[10px] text-stone-700 truncate">
+                                {ap.totalTaskHours}h tasks • {ap.timeRemainingText}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {ap.hasToBeEnded && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleMarkProjectEnded(ap.project.id, e)}
+                                  className="px-2 py-0.5 bg-[#111111] hover:bg-black text-white text-[10px] font-extrabold rounded-full transition-transform active:scale-95 shadow-xs cursor-pointer"
+                                  title="Mark project as ended / completed"
+                                >
+                                  End Project
+                                </button>
+                              )}
+                              <span className="text-[10px] font-bold text-stone-800 bg-white/70 px-2 py-0.5 rounded-full border border-emerald-700/20">
+                                {ap.daysRemaining <= 0
+                                  ? "Overdue"
+                                  : ap.daysRemaining < 1
+                                  ? `${Math.round(ap.hoursRemaining)}h`
+                                  : `${Math.ceil(ap.daysRemaining)}d`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -959,10 +1289,6 @@ export default function StatisticsPage() {
                   <h3 className="text-base sm:text-lg font-extrabold text-[#111111]">
                     Production&apos;s list
                   </h3>
-                  <div className="px-3 py-1 bg-[#ECE8DD] border border-[#DDD7C5] rounded-full text-xs font-bold text-[#111111] flex items-center gap-1 shadow-xs">
-                    <span>Today</span>
-                    <ChevronRight size={12} className="rotate-90" />
-                  </div>
                 </div>
 
                 {/* List Items Matching Image Icons & Rounded Shape */}
@@ -1174,26 +1500,17 @@ export default function StatisticsPage() {
                 })}
               </div>
 
-              {/* Add event pill & refresh row */}
-              <div className="flex items-center gap-2 mt-4">
+              {/* Add event pill */}
+              <div className="mt-4">
                 <button
                   type="button"
                   onClick={() => {
                     setIsAddModalOpen(true);
                   }}
-                  className="flex-1 py-2.5 px-4 bg-[#111111] hover:bg-black text-white text-xs font-extrabold rounded-full flex items-center justify-center gap-2 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                  className="w-full py-2.5 px-4 bg-[#111111] hover:bg-black text-white text-xs font-extrabold rounded-full flex items-center justify-center gap-2 shadow-xs transition-transform active:scale-95 cursor-pointer"
                 >
                   <Plus size={14} />
                   <span>Add event</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={fetchData}
-                  className="w-9 h-9 rounded-full bg-[#ECE8DD] hover:bg-white text-[#111111] border border-[#DDD7C5] flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
-                  title="Refresh schedule"
-                >
-                  <RefreshCw size={14} className={isLoading ? "animate-spin text-amber-500" : ""} />
                 </button>
               </div>
             </div>

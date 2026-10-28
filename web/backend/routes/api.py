@@ -1103,6 +1103,7 @@ def update_project(
     company_id: int = None,
     total_time: int = None,
     description: str = None,
+    status: str = None,
     collaborators: str = None,
     project_file: str = None,
     db: Session = Depends(get_db),
@@ -1136,6 +1137,7 @@ def update_project(
     if target_software is not None: project.target_software = target_software
     if project_type is not None: project.project_type = project_type
     if total_time is not None: project.total_time = total_time
+    if status is not None: project.status = status
     if collaborators is not None: project.collaborators = collaborators
     if project_file is not None: project.project_file = project_file
     if deadline is not None:
