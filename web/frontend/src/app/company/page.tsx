@@ -19,6 +19,7 @@ export interface Company {
   rate_conformation: number | null;
   rate_pose_texte: number | null;
   rate_chantant: number | null;
+  tax_rate?: number | null;
   supplier_email: string | null;
   target_software: string | null;
 }
@@ -42,6 +43,7 @@ export default function CompanyPage() {
   const [rateConformation, setRateConformation] = useState<string>("");
   const [ratePoseTexte, setRatePoseTexte] = useState<string>("");
   const [rateChantant, setRateChantant] = useState<string>("");
+  const [taxRate, setTaxRate] = useState<string>("20");
   const [supplierEmail, setSupplierEmail] = useState("");
   const [targetSoftware, setTargetSoftware] = useState("ERytmo");
 
@@ -61,6 +63,7 @@ export default function CompanyPage() {
     setRateConformation("");
     setRatePoseTexte("");
     setRateChantant("");
+    setTaxRate("20");
     setSupplierEmail("");
     setTargetSoftware("ERytmo");
     setShowModal(true);
@@ -75,6 +78,7 @@ export default function CompanyPage() {
     setRateConformation(company.rate_conformation ? company.rate_conformation.toString() : "");
     setRatePoseTexte(company.rate_pose_texte ? company.rate_pose_texte.toString() : "");
     setRateChantant(company.rate_chantant ? company.rate_chantant.toString() : "");
+    setTaxRate(company.tax_rate !== undefined && company.tax_rate !== null ? company.tax_rate.toString() : "20");
     setSupplierEmail(company.supplier_email || "");
     setTargetSoftware(company.target_software || "ERytmo");
     setShowModal(true);
@@ -134,6 +138,7 @@ export default function CompanyPage() {
     if (rateConformation) params.append("rate_conformation", rateConformation);
     if (ratePoseTexte) params.append("rate_pose_texte", ratePoseTexte);
     if (rateChantant) params.append("rate_chantant", rateChantant);
+    if (taxRate) params.append("tax_rate", taxRate);
     if (supplierEmail) params.append("supplier_email", supplierEmail);
     if (targetSoftware) params.append("target_software", targetSoftware);
 
@@ -153,6 +158,7 @@ export default function CompanyPage() {
         setRateConformation("");
         setRatePoseTexte("");
         setRateChantant("");
+        setTaxRate("20");
         setSupplierEmail("");
         setTargetSoftware("ERytmo");
         setEditingCompanyId(null);
@@ -236,13 +242,13 @@ export default function CompanyPage() {
       {/* Toolbar: Search and Filter */}
       <div className="flex gap-3 sm:gap-4 mb-5 flex-wrap shrink-0">
         <div className="flex-1 relative group min-w-[200px] sm:min-w-[260px]">
-          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-[#71717a] group-focus-within:text-amber-500 dark:group-focus-within:text-amber-400 transition-colors" size={17} />
+          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-[#FF7597] group-focus-within:text-[#FF7597] transition-colors" size={17} />
           <input 
             type="text" 
             placeholder={t("company.search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 bg-white dark:bg-[#131316] border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 rounded-xl shadow-xs focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-400/20 transition-all text-sm font-medium text-slate-900 dark:text-[#f4efe6] placeholder:text-slate-400 dark:placeholder-[#71717a]"
+            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2 bg-[#F7F4EB] border border-[#D9D3C2] hover:border-[#111111] focus:border-[#111111] rounded-full shadow-xs focus:outline-none transition-all text-sm font-medium text-[#111111] placeholder-[#8c887b]"
           />
         </div>
         
@@ -309,6 +315,9 @@ export default function CompanyPage() {
                         {c.target_software}
                       </span>
                     )}
+                    <span className="inline-block mt-1 ml-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-stone-100 dark:bg-white/[0.06] text-stone-700 dark:text-[#c2bcaf] border-stone-200 dark:border-white/10">
+                      Tax: {c.tax_rate !== undefined && c.tax_rate !== null ? c.tax_rate : 20}%
+                    </span>
                   </div>
                   <div className="flex space-x-1 rtl:space-x-reverse opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <button 
@@ -484,6 +493,17 @@ export default function CompanyPage() {
                         { value: "Mosaic", label: "Mosaic Formate" }
                       ]}
                     />
+                  </div>
+                  <div className="w-1/3">
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">Tax / TVA (%)</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-stone-400 font-bold text-xs">%</span>
+                      <input 
+                        type="number" step="0.5" min="0" max="100" placeholder="20"
+                        value={taxRate} onChange={(e) => setTaxRate(e.target.value)}
+                        className="w-full bg-white/90 border border-[#DDD7C5] rounded-xl pl-8 rtl:pl-4 rtl:pr-8 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all text-[#111111] shadow-xs"
+                      />
+                    </div>
                   </div>
                 </div>
 

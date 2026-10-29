@@ -14,6 +14,7 @@ class Company(Base):
     rate_conformation = Column(Integer, nullable=True)
     rate_pose_texte = Column(Integer, nullable=True)
     rate_chantant = Column(Integer, nullable=True)
+    tax_rate = Column(Integer, default=20, nullable=True)
     supplier_email = Column(String(255), nullable=True)
     target_software = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

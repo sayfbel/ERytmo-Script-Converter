@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Calendar, Briefcase, BarChart3, Film,
   Users, Building2, FolderArchive, Settings, LogOut,
-  ChevronRight, ChevronLeft
+  ChevronRight, ChevronLeft, Coins
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -50,6 +50,9 @@ export default function Sidebar() {
     }
     if (path === "/statistics") {
       return pathname.startsWith("/statistics") || pathname.startsWith("/scripts");
+    }
+    if (path === "/finance") {
+      return pathname.startsWith("/finance");
     }
     if (path === "/settings") {
       return pathname.startsWith("/settings");
@@ -150,6 +153,15 @@ export default function Sidebar() {
                 )}
                 <BarChart3 size={isCollapsed ? 20 : 17} className={`${isLinkActive("/statistics") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
                 {!isCollapsed && <span className="truncate">Statistics &amp; reports</span>}
+              </Link>
+
+              {/* Finances & Money Management */}
+              <Link href="/finance" className={getLinkClass("/finance")} title="Finances & Payouts">
+                {isLinkActive("/finance") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r-full" />
+                )}
+                <Coins size={isCollapsed ? 20 : 17} className={`${isLinkActive("/finance") ? "text-amber-400" : "text-[#8e8e93] group-hover:text-white"} shrink-0 ${isCollapsed ? "" : "mr-3"}`} />
+                {!isCollapsed && <span className="truncate">Finances &amp; Payouts</span>}
               </Link>
 
               {/* Script Converter */}

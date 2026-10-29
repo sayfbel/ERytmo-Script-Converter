@@ -867,43 +867,30 @@ export default function TimeManagementPage() {
             Plan Task
           </button>
         }
-      >
-        {/* Full Screen Width Search Bar - Category Filters hide automatically when screen narrows */}
-        <div className="w-full bg-[#F7F4EB] border border-[#D9D3C2] rounded-full px-4 py-2 flex items-center gap-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] focus-within:border-[#111111] transition-all">
-          <Search size={18} className="text-[#FF7597] shrink-0" />
+      />
+
+      {/* Toolbar: Search and Filter (Matching Projects page) */}
+      <div className="flex gap-3 sm:gap-4 mb-2 flex-wrap shrink-0">
+        <div className="flex-1 relative group min-w-[200px] sm:min-w-[260px]">
+          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-[#FF7597] group-focus-within:text-[#FF7597] transition-colors" size={17} />
           <input
             type="text"
             placeholder="Search tasks, projects, companies or staff..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 w-full min-w-0 bg-transparent text-sm text-[#111111] placeholder-[#8c887b] focus:outline-none"
+            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2 bg-[#F7F4EB] border border-[#D9D3C2] hover:border-[#111111] focus:border-[#111111] rounded-full shadow-xs focus:outline-none transition-all text-sm font-medium text-[#111111] placeholder-[#8c887b]"
           />
-
-          {/* Separator - hides on smaller screens */}
-          <div className="h-4 w-px bg-[#D9D3C2] hidden xl:block shrink-0" />
-
-          {/* Inline "In:" Task Filter Chips - hidden when screen shrinks */}
-          <div className="hidden xl:flex items-center gap-1.5 shrink-0 text-xs">
-            <span className="text-[#8c887b] font-medium text-[11px] pr-0.5">In:</span>
-            {TASK_CATEGORIES.map((cat) => {
-              const isSelected = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap ${
-                    isSelected
-                      ? "bg-[#111111] text-white border border-[#111111]"
-                      : "border border-dashed border-[#C5BFB0] text-[#736E62] hover:text-[#111111] hover:border-[#111111]"
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
-      </PageHeader>
+
+        {/* Task Category Filter */}
+        <div className="shrink-0 w-44 sm:w-52">
+          <CustomSelect
+            value={activeCategory}
+            onChange={(val) => setActiveCategory(val)}
+            options={TASK_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))}
+          />
+        </div>
+      </div>
 
       {/* Scrollable Calendar Body */}
       <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-5">

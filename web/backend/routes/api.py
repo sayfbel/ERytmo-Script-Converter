@@ -39,6 +39,7 @@ def create_company(
     rate_conformation: float = None,
     rate_pose_texte: float = None,
     rate_chantant: float = None,
+    tax_rate: float = 20.0,
     supplier_email: str = None,
     target_software: str = None,
     db: Session = Depends(get_db),
@@ -52,6 +53,7 @@ def create_company(
         rate_conformation=rate_conformation,
         rate_pose_texte=rate_pose_texte,
         rate_chantant=rate_chantant,
+        tax_rate=int(tax_rate) if tax_rate is not None else 20,
         supplier_email=supplier_email,
         target_software=target_software
     )
@@ -83,6 +85,7 @@ def update_company(
     rate_conformation: float = None,
     rate_pose_texte: float = None,
     rate_chantant: float = None,
+    tax_rate: float = None,
     supplier_email: str = None,
     target_software: str = None,
     db: Session = Depends(get_db),
@@ -101,6 +104,7 @@ def update_company(
     if rate_conformation is not None: company.rate_conformation = rate_conformation
     if rate_pose_texte is not None: company.rate_pose_texte = rate_pose_texte
     if rate_chantant is not None: company.rate_chantant = rate_chantant
+    if tax_rate is not None: company.tax_rate = int(tax_rate)
     if supplier_email is not None: company.supplier_email = supplier_email
     if target_software is not None: company.target_software = target_software
     

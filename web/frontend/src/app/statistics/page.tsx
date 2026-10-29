@@ -42,6 +42,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
+import CustomSelect from "@/components/CustomSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -1086,50 +1087,35 @@ export default function StatisticsPage() {
         title="Statistics & Reports"
         subtitle={`DubFlow wishes you a good and productive day. ${metrics.activeProjects} productions waiting for your adaptation today.`}
         icon={<BarChart3 size={28} />}
-      >
-        {/* Search & Category Filter Toolbar */}
-        <div className="flex gap-3 sm:gap-4 mb-2 flex-wrap shrink-0 items-center">
-          <div className="flex-1 max-w-xl bg-[#F7F4EB] border border-[#D9D3C2] hover:border-[#111111] focus-within:border-[#111111] rounded-full px-4 py-2 flex items-center gap-2.5 shadow-xs transition-all">
-            <Search size={17} className="text-[#FF7597] shrink-0" />
-            <input
-              type="text"
-              placeholder="Search projects, scripts, companies..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 min-w-[120px] bg-transparent text-sm font-medium text-[#111111] placeholder-[#8c887b] focus:outline-none"
-            />
+      />
 
-            <div className="h-4 w-px bg-[#D9D3C2] hidden sm:block" />
-
-            {/* Inline "In:" Category Filter Chips */}
-            <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
-              <span className="text-[#8c887b] font-medium text-[11px] pr-0.5">In:</span>
-              {[
-                { id: "all", label: "All" },
-                { id: "detection", label: "Détection" },
-                { id: "mosaic", label: "Mosaic" },
-                { id: "cappella", label: "Cappella" },
-              ].map((tag) => {
-                const isSelected = activeCategory === tag.id;
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => setActiveCategory(tag.id)}
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-[#111111] text-white border border-[#111111]"
-                        : "border border-dashed border-[#C5BFB0] text-[#736E62] hover:text-[#111111] hover:border-[#111111]"
-                    }`}
-                  >
-                    {tag.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+      {/* Toolbar: Search and Filter (Matching Projects page) */}
+      <div className="flex gap-3 sm:gap-4 mb-2 flex-wrap shrink-0">
+        <div className="flex-1 relative group min-w-[200px] sm:min-w-[260px]">
+          <Search className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 transform -translate-y-1/2 text-[#FF7597] group-focus-within:text-[#FF7597] transition-colors" size={17} />
+          <input
+            type="text"
+            placeholder="Search projects, scripts, companies..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2 bg-[#F7F4EB] border border-[#D9D3C2] hover:border-[#111111] focus:border-[#111111] rounded-full shadow-xs focus:outline-none transition-all text-sm font-medium text-[#111111] placeholder-[#8c887b]"
+          />
         </div>
-      </PageHeader>
+
+        {/* Software / Category Filter */}
+        <div className="shrink-0 w-44 sm:w-52">
+          <CustomSelect
+            value={activeCategory}
+            onChange={(val) => setActiveCategory(val)}
+            options={[
+              { value: "all", label: "All Categories" },
+              { value: "detection", label: "Détection" },
+              { value: "mosaic", label: "Mosaic" },
+              { value: "cappella", label: "Cappella" },
+            ]}
+          />
+        </div>
+      </div>
 
       {/* Main Two-Column Body (Left: Analytics Bento Grid & List/Details, Right: Calendar & Timeline) */}
       <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-6 pr-1 pb-8">

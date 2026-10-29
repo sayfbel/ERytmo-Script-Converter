@@ -343,6 +343,17 @@ def init_db():
             except Exception as e:
                 print(f"[DB Migration] companies.description: {e}")
 
+        # Migration: companies.tax_rate
+        try:
+            conn.execute(text("SELECT tax_rate FROM companies LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE companies ADD COLUMN tax_rate INT DEFAULT 20 NULL"))
+                conn.commit()
+                print("[DB Migration] Added tax_rate column to companies")
+            except Exception as e:
+                print(f"[DB Migration] companies.tax_rate: {e}")
+
         # Migration: users.token_version
         try:
             conn.execute(text("SELECT token_version FROM users LIMIT 1"))

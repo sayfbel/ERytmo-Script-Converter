@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { ConverterProvider } from "@/context/ConverterContext";
@@ -8,10 +7,6 @@ import { SignalingProvider } from "@/context/SignalingContext";
 import { ToastProvider } from "@/context/ToastContext";
 import AppShell from "@/components/AppShell";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-});
 
 export const metadata: Metadata = {
   title: "DubFlow Studio* — Écosystème de Post-Synchronisation & Scripts",
@@ -52,7 +47,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body suppressHydrationWarning className={`${plusJakartaSans.className} font-sans-display bg-[#F7F4EB] text-[#111111] overflow-hidden flex h-screen selection:bg-amber-400 selection:text-black`}>
+      <body suppressHydrationWarning className="font-sans-display bg-[#F7F4EB] text-[#111111] overflow-hidden flex h-screen selection:bg-amber-400 selection:text-black">
         <SettingsProvider>
           <AuthProvider>
             <SignalingProvider>
